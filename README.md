@@ -38,6 +38,7 @@ can run a shell command.
 The decisions that shape this project — single static binary, pure-Go SQLite,
 plain markdown as the source of truth, adapters as data rather than code — are
 recorded as ADRs in [`docs/adr/`](docs/adr/) and in [`docs/plan.md`](docs/plan.md).
+The record file format is specified in [`docs/record-format.md`](docs/record-format.md).
 
 ## Development
 

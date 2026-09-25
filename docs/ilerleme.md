@@ -71,7 +71,7 @@ doğrulandı, dokümantasyondan tahmin edilmedi.
 
 ---
 
-## Açık maddeler
+## Faz 0 — açık maddeler
 
 - ~~`[SEN]` GitHub DCO uygulaması~~ — kuruldu (2026-09-25).
 - `[SEN]` **Dal koruması** ve zorunlu status check: CI artık bir kez koştuğu için
@@ -89,7 +89,7 @@ doğrulandı, dokümantasyondan tahmin edilmedi.
 
 ## Faz 1 — Kayıt formatı ve depolama çekirdeği
 
-**Durum:** Başlandı. Adım 1'in kararları alındı, şema önerisi onay bekliyor.
+**Durum:** Adım 1 tamam (şema onaylandı, `docs/record-format.md`). Adım 2–7 sırada.
 
 ### 2026-09-25 — alınan kararlar
 
@@ -124,8 +124,20 @@ Kişisel: `.forgelore/local/config.yaml` (gitignore). Öncelik sırası:
 bayrak > ortam değişkeni > yerel > ekip > varsayılan. Bilinmeyen anahtar uyarı,
 hata değil.
 
-### Açık maddeler
+### Adım 1 — onaylanan kararlar
 
-- **Adım 1 onay bekliyor:** şema alan listesi, `fingerprint` tekil mi çoğul mu,
-  `scope` alanının dizinle ilişkisi, `updated` alanı olacak mı, ULID büyük harf
-  mi. Sorular kullanıcıya soruldu.
+- `fingerprint` **tekil** kalıyor. Aynı çözüm birden fazla varyantı kapatıyorsa
+  ayrı kayıtlar olur; Faz 6'daki tekrar tespiti birleştirme önerir.
+- `scope` çelişkisinde **dizin yetkili**, frontmatter alanı doğrulanır, `doctor`
+  raporlar. Promote = dosyayı taşımak.
+- `updated` alanı **yok**. Ekip kayıtlarının geçmişi git'te; her yazmada değişen
+  bir alan gidiş-dönüş testini kirletirdi.
+- ULID **büyük harf** (Crockford kanonik), arama büyük/küçük harf duyarsız.
+- `fix`/`dead_end` oturum başı dizinine **girmiyor** — bu benim çıkarımımdı,
+  kullanıcı itiraz etmedi. Dizin sabit bir maliyet olmasın diye.
+
+### Sırada
+
+Adım 2–7: frontmatter ayrıştırıcı, ULID, dosya deposu, SQLite FTS5 indeksi,
+maskeleme, testler. Kabul kriteri 10.000 kayıtlık sentetik depoda indeks ve
+arama süresinin ölçülüp rapora yazılması.
