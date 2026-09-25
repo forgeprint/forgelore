@@ -73,12 +73,10 @@ doğrulandı, dokümantasyondan tahmin edilmedi.
 
 ## Açık maddeler
 
-- `[SEN]` **GitHub DCO uygulaması** depoya kurulacak. Sign-off CI'da denetlenmiyor.
+- ~~`[SEN]` GitHub DCO uygulaması~~ — kuruldu (2026-09-25).
 - `[SEN]` **Dal koruması** ve zorunlu status check: CI artık bir kez koştuğu için
   `ci` kontrolü kural olarak seçilebilir.
-- `ubuntu-latest` 2026-10-19'da Ubuntu 26'ya geçiyor (CI uyarısı). Her şeyi
-  sabitleme ilkesine uyup runner imajını da sabitlemek isteyip istemediğimiz
-  karara bağlı.
+- ~~`ubuntu-latest` imaj geçişi~~ — runner `ubuntu-24.04` olarak sabitlendi.
 - `-race` ile test yok: yarış dedektörü CGO ister, Windows'ta ayrıca gcc.
   Faz 1'de eşzamanlılık girdiğinde Linux CI işi olarak yeniden değerlendirilecek.
 - gitleaks sürüm yükseltme prosedürü `scripts/gitleaks.sh` başındaki yorumda;
@@ -88,8 +86,46 @@ doğrulandı, dokümantasyondan tahmin edilmedi.
 
 ---
 
-## Sıradaki
 
-**Faz 1 — Kayıt formatı ve depolama çekirdeği.** İlk iş, kayıt şemasını önerip
-onaylatmak (plan, Faz 1 / Adım 1). Sorulacaklar: kayıt tipleri yeterli mi,
-frontmatter kısıtlı YAML mı, config dosyası formatı ne olacak.
+## Faz 1 — Kayıt formatı ve depolama çekirdeği
+
+**Durum:** Başlandı. Adım 1'in kararları alındı, şema önerisi onay bekliyor.
+
+### 2026-09-25 — alınan kararlar
+
+Kullanıcı tarafından verildi, ADR-0016/0017/0018 olarak yazıldı.
+
+**Kayıt tipleri (ADR-0016).** Beş tip kalıyor. Enjeksiyon davranışı tipe bağlı
+ve sabit:
+
+| Tip | Oturum başı dizini | Eşleşen hatada | Aramada |
+|---|---|---|---|
+| `fix` | hayır | evet, tam ipucu | evet |
+| `dead_end` | hayır | evet, fix'in yanında | evet |
+| `command` | sadece başlık | hayır | evet |
+| `decision` | sadece başlık | hayır | evet |
+| `note` | hayır | hayır | evet |
+
+- `related: [id]` tek yönlü yazılır, indeks yönsüz kabul eder.
+- `superseded_by: id` olan kayıt hiçbir yoldan enjekte edilmez; aramada
+  "supersede edilmiş" işaretiyle görünmeye devam eder.
+- Tanınmayan tip korunur ve `note` gibi davranır (ADR-0011).
+
+**Frontmatter ve config dili (ADR-0017).** Tek bir kısıtlı YAML lehçesi.
+Destek: düz anahtar/değer, dize, tamsayı, bool, dize listesi (`[a, b]` ve `- a`),
+`#` yorumu, ISO-8601 UTC tarih dizesi. Destek yok: iç içe harita, anchor/alias,
+çok satırlı dize, sekme. Desteklenmeyen dosya atlanır (fail-open), `doctor`
+dosya ve satırıyla raporlar. Yazıcı kanonik: sabit anahtar sırası, sabit
+tırnaklama, LF. Gidiş-dönüş testi zorunlu ve bayt düzeyinde.
+
+**Config (ADR-0018).** Aynı lehçe, noktalı anahtarla gruplama
+(`inject.budget_tokens`). Ekip: `.forgelore/config.yaml` (commit edilir).
+Kişisel: `.forgelore/local/config.yaml` (gitignore). Öncelik sırası:
+bayrak > ortam değişkeni > yerel > ekip > varsayılan. Bilinmeyen anahtar uyarı,
+hata değil.
+
+### Açık maddeler
+
+- **Adım 1 onay bekliyor:** şema alan listesi, `fingerprint` tekil mi çoğul mu,
+  `scope` alanının dizinle ilişkisi, `updated` alanı olacak mı, ULID büyük harf
+  mi. Sorular kullanıcıya soruldu.

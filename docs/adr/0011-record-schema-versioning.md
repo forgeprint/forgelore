@@ -32,3 +32,7 @@ does understand allow.
   Rewrites stay minimal and targeted.
 - It does not license unlimited schema growth. A field that stops being used is
   removed in a deliberate migration, documented in docs/versioning.md.
+- The same rule covers unknown values, not only unknown fields. A record whose
+  type this version does not recognise is preserved and treated as a note
+  (ADR-0016): searchable, never injected. Degrading to the option that costs
+  nothing is safer than guessing.

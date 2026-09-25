@@ -11,7 +11,9 @@ permissions:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest: the label migrates to a new image on a
+    # schedule we do not control, and this project pins everything else.
+    runs-on: ubuntu-24.04
     steps:
       # Actions are pinned to commit SHAs, not tags: a tag can be moved, a SHA
       # cannot. Update the trailing comment whenever the SHA changes.
