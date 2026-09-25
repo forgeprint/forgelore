@@ -1,0 +1,10 @@
+# Secret scanning for the Forgelore repository.
+#
+# Phase 6 extends this file: the same rules gate team records before they can
+# be committed, alongside Forgelore's own redaction pass (plan, K13 and Faz 6).
+
+title = "forgelore"
+
+[extend]
+# Start from the upstream ruleset rather than maintaining our own copy.
+useDefault = true

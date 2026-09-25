@@ -1,0 +1,21 @@
+# Build output
+/dist/
+
+# Pinned tooling downloaded and checksum-verified by scripts/
+/.tools/
+
+# Go test artifacts
+*.test
+*.out
+coverage.*
+
+# Forgelore data inside a project. The index is derived and can always be
+# rebuilt (K9); local records are personal (K10). Listed here so this repo
+# lives by the same rules it asks users to adopt.
+.forgelore/cache/
+.forgelore/local/
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+*.swp
