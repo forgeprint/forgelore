@@ -27,6 +27,19 @@ Identifiers are ULIDs in canonical form: 26 characters, Crockford base32,
 uppercase. Lookups accept any case.
 
 A file is frontmatter delimited by `---` on its own line, then a markdown body.
+The body is stored verbatim, including the blank line that conventionally
+follows the closing delimiter.
+
+## Frontmatter dialect
+
+The restricted dialect of [ADR-0017](adr/0017-restricted-yaml.md). Two details
+worth stating here, because they are where a hand-written file usually goes
+wrong:
+
+- A `#` starts a comment on its own line, or after a space in an unquoted
+  value. A value that has to contain ` #` must be quoted.
+- Strings use double quotes. Single quotes are not a string style here, and a
+  line that uses them is an error rather than a guess.
 
 ## Fields
 
@@ -82,8 +95,9 @@ body before either is written.
 
 ## Canonical writing
 
-A record read and written again is byte-identical. The rules that make that
-true:
+A record this writer produced, read and written again, is byte-identical. A
+hand-written record is normalised on the first write and unchanged on every
+write after that. The rules that make both true:
 
 - Fields in the order of the table above; unknown fields after them, in read
   order.

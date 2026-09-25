@@ -136,8 +136,34 @@ hata değil.
 - `fix`/`dead_end` oturum başı dizinine **girmiyor** — bu benim çıkarımımdı,
   kullanıcı itiraz etmedi. Dizin sabit bir maliyet olmasın diye.
 
+### 2026-09-25 — Adım 2, 3, 4 tamam
+
+- `internal/record/yaml.go` — kısıtlı YAML okuyucu. Desteklenmeyen her yapı
+  satır numarasıyla ve **adıyla** hata veriyor ("anchors and aliases are not
+  supported"), sadece "parse error" değil.
+- `internal/record/encode.go` — kanonik yazıcı.
+- `internal/record/record.go` — `Record`, `Decode`, `Encode`, doğrulama,
+  `InSessionIndex()` / `InjectableOnMatch()`.
+- `internal/record/ulid.go` — ULID üretimi, aynı milisaniyede ve saat geri
+  giderse bile monotonik.
+- `internal/store/store.go` — iki kapsam, atomik yazma (geçici dosya + rename +
+  fsync), `Get`/`List`/`All`/`Promote`/`Init`, `Problem` raporlaması.
+
+Testler: 4 dosya, `go test ./...` geçiyor. Kapsam: `record` %90.3,
+`store` %75.4, `cmd/forgelore` %66.7.
+
+Kanıtlanan davranışlar: gidiş-dönüş bayt eşitliği (tanınmayan alanlar dahil),
+elle yazılmış dosyanın normalize edilip sonra sabit kalması, desteklenmeyen 16
+YAML yapısının reddi, tanınmayan tipin `note` gibi davranması, dizin-kapsam
+çelişkisinin düzeltilip raporlanması, bozuk dosyanın atlanması, promote'un
+dosyayı taşıması.
+
+Uygulama sırasında netleşen iki kural `docs/record-format.md`'ye yazıldı:
+`#` yorumu tırnaksız değerde ancak boşluktan sonra başlar, ve tek tırnak bir
+dize biçemi değil (hata veriyor).
+
 ### Sırada
 
-Adım 2–7: frontmatter ayrıştırıcı, ULID, dosya deposu, SQLite FTS5 indeksi,
-maskeleme, testler. Kabul kriteri 10.000 kayıtlık sentetik depoda indeks ve
-arama süresinin ölçülüp rapora yazılması.
+Adım 5, 6, 7: SQLite FTS5 indeksi (ilk bağımlılık, `vendor/` burada oluşacak),
+gizli bilgi maskeleme, ve 10.000 kayıtlık sentetik depoda indeks üretimi +
+arama süresi ölçümü.
