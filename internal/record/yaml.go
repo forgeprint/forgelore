@@ -210,14 +210,19 @@ func parseBare(s string, line int) (Value, error) {
 	if s == "" {
 		return Value{}, &SyntaxError{line, "empty value"}
 	}
+	// Str carries the text of every scalar, whatever kind it is read as. A
+	// fingerprint of 0000000000000000 is digits all the way down and would
+	// otherwise come back as the number zero, taking its leading zeros with
+	// it. Keeping the text makes the parser lossless; the writer's job is to
+	// quote such a value so the file is unambiguous in the first place.
 	switch s {
 	case "true":
-		return Value{Kind: KindBool, Bool: true}, nil
+		return Value{Kind: KindBool, Bool: true, Str: s}, nil
 	case "false":
-		return Value{Kind: KindBool, Bool: false}, nil
+		return Value{Kind: KindBool, Bool: false, Str: s}, nil
 	}
 	if n, err := strconv.ParseInt(s, 10, 64); err == nil {
-		return Value{Kind: KindInt, Int: n}, nil
+		return Value{Kind: KindInt, Int: n, Str: s}, nil
 	}
 	return Value{Kind: KindString, Str: s}, nil
 }

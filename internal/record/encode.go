@@ -1,6 +1,9 @@
 package record
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // Canonical writing (ADR-0017). A value that looks like a bare token is never
 // quoted; anything else is double-quoted; lists use flow form. These rules are
@@ -42,9 +45,22 @@ func quote(s string) string {
 	return b.String()
 }
 
-// encodeScalar quotes only when it has to.
+// ambiguous reports whether s, written without quotes, would read back as
+// something other than a string. A fingerprint that happens to be all digits
+// is the case that matters: unquoted, it is a number, and its leading zeros
+// are gone.
+func ambiguous(s string) bool {
+	if s == "true" || s == "false" {
+		return true
+	}
+	_, err := strconv.ParseInt(s, 10, 64)
+	return err == nil
+}
+
+// encodeScalar quotes only when it has to, which includes when leaving it
+// unquoted would change what it means.
 func encodeScalar(s string) string {
-	if bareToken(s) {
+	if bareToken(s) && !ambiguous(s) {
 		return s
 	}
 	return quote(s)

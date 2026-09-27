@@ -155,9 +155,13 @@ func splitFile(data []byte) ([]string, string, error) {
 }
 
 func (r *Record) setField(f Field) error {
+	// A scalar's text is taken as written, whichever kind it parsed as. A
+	// hand-written record with an unquoted all-digit fingerprint reads as the
+	// author meant it; the writer then quotes it, so the file stops being
+	// ambiguous after one pass.
 	str := func() (string, error) {
-		if f.Value.Kind != KindString {
-			return "", &ValidationError{f.Key, "expected a string"}
+		if f.Value.Kind == KindList {
+			return "", &ValidationError{f.Key, "expected a single value, not a list"}
 		}
 		return f.Value.Str, nil
 	}
@@ -307,26 +311,26 @@ func (r *Record) encodeField(key string) (string, bool) {
 	case "schema":
 		return fmt.Sprintf("schema: %d", r.Schema), true
 	case "id":
-		return "id: " + r.ID, true
+		return "id: " + encodeScalar(r.ID), true
 	case "type":
-		return "type: " + r.Type, true
+		return "type: " + encodeScalar(r.Type), true
 	case "scope":
-		return "scope: " + string(r.Scope), true
+		return "scope: " + encodeScalar(string(r.Scope)), true
 	case "title":
 		// Always quoted: the title is free text, and quoting it unconditionally
 		// means its rendering never depends on what it happens to contain.
 		return "title: " + quote(r.Title), true
 	case "created":
-		return "created: " + r.Created.UTC().Format(timeLayout), true
+		return "created: " + encodeScalar(r.Created.UTC().Format(timeLayout)), true
 	case "source":
-		return "source: " + r.Source, true
+		return "source: " + encodeScalar(r.Source), true
 	case "tainted":
 		return fmt.Sprintf("tainted: %t", r.Tainted), true
 	case "fingerprint":
 		if r.Fingerprint == "" {
 			return "", false
 		}
-		return "fingerprint: " + r.Fingerprint, true
+		return "fingerprint: " + encodeScalar(r.Fingerprint), true
 	case "tags":
 		if len(r.Tags) == 0 {
 			return "", false
@@ -341,7 +345,7 @@ func (r *Record) encodeField(key string) (string, bool) {
 		if r.SupersededBy == "" {
 			return "", false
 		}
-		return "superseded_by: " + r.SupersededBy, true
+		return "superseded_by: " + encodeScalar(r.SupersededBy), true
 	}
 	return "", false
 }

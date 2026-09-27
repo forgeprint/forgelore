@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/forgeprint/forgelore/internal/record"
+	"github.com/forgeprint/forgelore/internal/redact"
 )
 
 // Directory names inside a .forgelore directory.
@@ -86,21 +87,34 @@ func (s *Store) Init() error {
 	return nil
 }
 
-// Put writes a record into its scope. The write is atomic: a reader sees
-// either the old file or the new one, never half of either.
-func (s *Store) Put(r *record.Record) error {
+// Put writes a record into its scope and returns what redaction removed.
+//
+// Credentials are masked and private sections dropped here, before the bytes
+// reach disk (ADR-0013). The record passed in is updated to match what was
+// written, so the caller is never holding a version that still contains the
+// secret. The write itself is atomic: a reader sees either the old file or the
+// new one, never half of either.
+func (s *Store) Put(r *record.Record) ([]redact.Finding, error) {
+	title, titleFound := redact.Text(r.Title)
+	body, bodyFound := redact.Text(r.Body)
+	r.Title, r.Body = title, body
+	found := redact.Merge(titleFound, bodyFound)
+
 	data, err := r.Encode()
 	if err != nil {
-		return fmt.Errorf("store: encoding %s: %w", r.ID, err)
+		return found, fmt.Errorf("store: encoding %s: %w", r.ID, err)
 	}
 	path, err := s.Path(r.Scope, r.ID)
 	if err != nil {
-		return err
+		return found, err
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("store: creating %s: %w", filepath.Dir(path), err)
+		return found, fmt.Errorf("store: creating %s: %w", filepath.Dir(path), err)
 	}
-	return writeAtomic(path, data)
+	if err := writeAtomic(path, data); err != nil {
+		return found, err
+	}
+	return found, nil
 }
 
 // Get returns the record with this id, from whichever scope holds it. Lookups
@@ -206,7 +220,7 @@ func (s *Store) Promote(id string) error {
 		return fmt.Errorf("store: %s: %w", from, problem.Err)
 	}
 	rec.Scope = record.ScopeTeam
-	if err := s.Put(rec); err != nil {
+	if _, err := s.Put(rec); err != nil {
 		return err
 	}
 	if err := os.Remove(from); err != nil {
@@ -223,6 +237,12 @@ func (s *Store) load(path string, scope record.Scope) (*record.Record, *Problem)
 	if err != nil {
 		return nil, &Problem{Path: path, Err: err, Skipped: true}
 	}
+	return s.loadBytes(data, path, scope)
+}
+
+// loadBytes is load once the file has been read, so the index can reuse the
+// bytes it already hashed instead of reading the file twice.
+func (s *Store) loadBytes(data []byte, path string, scope record.Scope) (*record.Record, *Problem) {
 	rec, err := record.Decode(data)
 	if err != nil {
 		return nil, &Problem{Path: path, Err: err, Skipped: true}

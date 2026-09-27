@@ -162,8 +162,74 @@ Uygulama sırasında netleşen iki kural `docs/record-format.md`'ye yazıldı:
 `#` yorumu tırnaksız değerde ancak boşluktan sonra başlar, ve tek tırnak bir
 dize biçemi değil (hata veriyor).
 
+### 2026-09-27 — Adım 5, 6, 7 tamam
+
+- `internal/redact/` — maskeleme. 12 desen + `<private>` etiketi. Yazmadan önce
+  çalışıyor: `store.Put` artık `([]redact.Finding, error)` döndürüyor ve
+  kayıttaki metni de yerinde temizliyor, böylece çağıran elinde maskelenmemiş
+  sürüm kalmıyor.
+- `internal/store/index.go` — SQLite FTS5 indeksi. Artımlı güncelleme
+  (mtime + boyut eşleşiyorsa dosya hiç okunmuyor; okunduysa hash eşleşmesi
+  yeniden ayrıştırmayı atlıyor), `Rebuild`, `Search`, `ByFingerprint`, `Count`.
+- Bozuk indeks sessizce siliniyor ve yeniden üretiliyor — türetilmiş veri.
+- Arama FTS5 sözdizimi kabul etmiyor: her terim tırnaklı ifadeye çevrilip AND'
+  leniyor, böylece kullanıcının yazdığı hiçbir şey sözdizimi hatası veremiyor.
+
+#### Kabul kriteri ölçümü (10.000 kayıt, Windows 11 / go1.27)
+
+| Ölçüm | Süre |
+|---|---|
+| Tam indeks üretimi | **1.911 s** |
+| Değişiklik yokken yeniden tarama | **28 ms** |
+| Arama (bm25 sıralı, 20 sonuç) | **6.5 ms** |
+| Parmak izi araması | **33 µs** |
+| İndeks dosyası | 8.6 MB |
+
+Enjeksiyon yolundaki sayı 33 µs; hook bütçesi açısından sorun yok.
+
+#### Ölçüm testinin yakaladığı hata
+
+İlk koşuda 10.000 kaydın **4.020'si okunamadı**. Sebep: tamamı rakamdan oluşan
+bir değer (ör. `fingerprint: 0000000000000000`) tırnaksız yazılınca tamsayı
+olarak geri okunuyordu — baştaki sıfırlar gidiyor, kayıt bozuluyordu. Aynı şey
+tamamı rakam olan bir ULID'nin de başına gelebilirdi.
+
+İki taraflı düzeltildi: **yazıcı** geri okunduğunda sayı ya da bool olacak bir
+dizeyi tırnaklıyor, **okuyucu** her skalerin metnini olduğu gibi saklıyor, yani
+elle yazılmış tırnaksız dosya da yazarının kastettiği gibi okunuyor. İki
+regresyon testi eklendi, `docs/record-format.md` ve ADR-0017 güncellendi.
+
+#### İkinci bulgu: çapraz derleme aslında SQLite'ı sınamıyormuş
+
+`scripts/crosscheck.sh` yalnızca `cmd/forgelore`'u derliyordu ve o paket henüz
+`internal/store`'u import etmiyor — yani altı hedefteki "başarılı" çıktı
+SQLite'a hiç dokunmamıştı. Betik artık her hedef için önce `go build ./...`
+çalıştırıyor. Düzeltilmiş hâliyle **altı hedefin hepsi** `CGO_ENABLED=0` ile
+derleniyor; ADR-0002'nin asıl vaadi ilk kez gerçekten doğrulandı.
+
+#### gitleaks
+
+Vendor ağacı taramaya 9 yanlış pozitif sokuyordu (hepsi SQLite'ın Go'ya
+çevrilmiş tek bir üretilmiş dosyasında). `vendor/` allowlist'e alındı;
+gerekçe `.gitleaks.toml` içinde yazılı.
+
+### Açık karar — vendor 135 MB
+
+`go mod vendor` 10 modül, 2007 dosya, **135 MB** üretiyor (69 MB libc, 57 MB
+sqlite; ikisi de her platform için üretilmiş C→Go çevirileri). ADR-0003 bunların
+depoda olmasını söylüyor ama ADR yazıldığında bu sayı bilinmiyordu.
+
+Git geçmişine 135 MB eklemek geri alınamaz (tarih yeniden yazılmadan
+silinemez), o yüzden **vendor commit edilmedi**; `.gitignore`'a geçici bir
+madde olarak kondu ve karar kullanıcıya bırakıldı.
+
+Binary boyutu: şu an 1.6 MB, ama `cmd/forgelore` henüz `internal/store`'u
+import etmiyor. SQLite bağlanınca gerçek boyut ~10 MB olacak (gösterge:
+`internal/store` test binary'si 12 MB). Faz 2'de CLI indeksi kullanmaya
+başlayınca kesin rakam ölçülecek.
+
 ### Sırada
 
-Adım 5, 6, 7: SQLite FTS5 indeksi (ilk bağımlılık, `vendor/` burada oluşacak),
-gizli bilgi maskeleme, ve 10.000 kayıtlık sentetik depoda indeks üretimi +
-arama süresi ölçümü.
+Faz 1 bitti. Faz 2: hata parmak izi algoritması ve CLI (`init`, `record`,
+`recall`, `search`, `show`, `index rebuild`, `doctor`, `stats`). Faz 2'nin ilk
+`[SEN]` işi: gerçek hata çıktıları toplamak (Go, .NET, TypeScript, Python).

@@ -19,3 +19,9 @@ coverage.*
 .DS_Store
 Thumbs.db
 *.swp
+
+# Vendored dependencies: 135 MB once modernc.org/sqlite is pulled in, mostly
+# generated C-to-Go translations for every platform. ADR-0003 says these belong
+# in the repository; that ADR was written before the number was known, so the
+# trade-off is back with the user. Remove this entry once it is settled.
+/vendor/

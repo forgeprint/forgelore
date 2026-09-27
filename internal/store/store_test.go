@@ -20,7 +20,7 @@ func TestPutAndGet(t *testing.T) {
 	s := New(t.TempDir())
 	want := newRecord(idA, record.ScopeTeam)
 
-	if err := s.Put(want); err != nil {
+	if _, err := s.Put(want); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 	got, err := s.Get(idA)
@@ -39,7 +39,7 @@ func TestPutAndGet(t *testing.T) {
 
 func TestGetIsCaseInsensitive(t *testing.T) {
 	s := New(t.TempDir())
-	if err := s.Put(newRecord(idA, record.ScopeLocal)); err != nil {
+	if _, err := s.Put(newRecord(idA, record.ScopeLocal)); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 	if _, err := s.Get(strings.ToLower(idA)); err != nil {
@@ -50,11 +50,11 @@ func TestGetIsCaseInsensitive(t *testing.T) {
 func TestPutIsAtomicAndLeavesNoDebris(t *testing.T) {
 	s := New(t.TempDir())
 	r := newRecord(idA, record.ScopeTeam)
-	if err := s.Put(r); err != nil {
+	if _, err := s.Put(r); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 	r.Title = "A second write over the first"
-	if err := s.Put(r); err != nil {
+	if _, err := s.Put(r); err != nil {
 		t.Fatalf("Put over an existing record: %v", err)
 	}
 
@@ -83,7 +83,7 @@ func TestPutIsAtomicAndLeavesNoDebris(t *testing.T) {
 func TestListIsSortedAndSkipsWhatItCannotRead(t *testing.T) {
 	s := New(t.TempDir())
 	for _, id := range []string{idC, idA, idB} {
-		if err := s.Put(newRecord(id, record.ScopeTeam)); err != nil {
+		if _, err := s.Put(newRecord(id, record.ScopeTeam)); err != nil {
 			t.Fatalf("Put %s: %v", id, err)
 		}
 	}
@@ -163,7 +163,7 @@ func TestFilenameMismatchIsSkipped(t *testing.T) {
 
 func TestPromoteMovesTheFile(t *testing.T) {
 	s := New(t.TempDir())
-	if err := s.Put(newRecord(idA, record.ScopeLocal)); err != nil {
+	if _, err := s.Put(newRecord(idA, record.ScopeLocal)); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 	if err := s.Promote(idA); err != nil {
@@ -185,10 +185,10 @@ func TestPromoteMovesTheFile(t *testing.T) {
 
 func TestGetRefusesAnIdThatExistsInBothScopes(t *testing.T) {
 	s := New(t.TempDir())
-	if err := s.Put(newRecord(idA, record.ScopeTeam)); err != nil {
+	if _, err := s.Put(newRecord(idA, record.ScopeTeam)); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
-	if err := s.Put(newRecord(idA, record.ScopeLocal)); err != nil {
+	if _, err := s.Put(newRecord(idA, record.ScopeLocal)); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 	_, err := s.Get(idA)
@@ -202,10 +202,10 @@ func TestGetRefusesAnIdThatExistsInBothScopes(t *testing.T) {
 
 func TestAllReadsBothScopes(t *testing.T) {
 	s := New(t.TempDir())
-	if err := s.Put(newRecord(idA, record.ScopeTeam)); err != nil {
+	if _, err := s.Put(newRecord(idA, record.ScopeTeam)); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
-	if err := s.Put(newRecord(idB, record.ScopeLocal)); err != nil {
+	if _, err := s.Put(newRecord(idB, record.ScopeLocal)); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 	records, problems, err := s.All()
@@ -243,6 +243,40 @@ func TestInitCreatesBothScopes(t *testing.T) {
 		if !info.IsDir() {
 			t.Errorf("%s is not a directory", dir)
 		}
+	}
+}
+
+func TestPutRedactsBeforeWriting(t *testing.T) {
+	// Assembled rather than written as a literal, so the repository's own
+	// secret scanner has nothing to find here.
+	token := "ghp_" + strings.Repeat("a1b2c3d4", 5)
+
+	s := New(t.TempDir())
+	r := newRecord(idA, record.ScopeTeam)
+	r.Body = "\nthe call failed with " + token + "\n\n<private>my laptop path</private>\n"
+
+	found, err := s.Put(r)
+	if err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	if len(found) != 2 {
+		t.Errorf("findings = %v, want a token and a private section", found)
+	}
+
+	path, _ := s.Path(record.ScopeTeam, idA)
+	onDisk, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if strings.Contains(string(onDisk), token) {
+		t.Error("the token reached disk")
+	}
+	if strings.Contains(string(onDisk), "my laptop path") {
+		t.Error("the private section reached disk")
+	}
+	// The caller must not be left holding the unredacted version either.
+	if strings.Contains(r.Body, token) {
+		t.Error("the record in memory still contains the token")
 	}
 }
 

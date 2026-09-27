@@ -254,6 +254,65 @@ func TestUnknownTypeSurvivesARoundTrip(t *testing.T) {
 	}
 }
 
+func TestAllDigitValuesStayStrings(t *testing.T) {
+	// A fingerprint can be digits all the way down. Written without quotes it
+	// reads back as the number zero, leading zeros gone, and the record stops
+	// being readable. The ten thousand record measurement found this on its
+	// first run, with 40% of the records unreadable.
+	const digits = "0000000000000000"
+
+	r := validRecord()
+	r.Fingerprint = digits
+	out, err := r.Encode()
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	if !strings.Contains(string(out), `fingerprint: "`+digits+`"`) {
+		t.Errorf("output does not quote an all-digit value:\n%s", out)
+	}
+
+	back, err := Decode(out)
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if back.Fingerprint != digits {
+		t.Errorf("Fingerprint = %q, want %q", back.Fingerprint, digits)
+	}
+}
+
+func TestUnquotedAllDigitValueIsReadAsWritten(t *testing.T) {
+	// A record written by hand, or by a version before the quoting rule, is
+	// still read the way its author meant it.
+	const handWritten = `---
+schema: 1
+id: 01K68P7YQZ3M4N5R6S7T8V9W0X
+type: fix
+scope: team
+title: "A fix"
+created: 2026-09-25T17:42:03Z
+source: user
+tainted: false
+fingerprint: 0000000000000000
+---
+body
+`
+	r, err := Decode([]byte(handWritten))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if r.Fingerprint != "0000000000000000" {
+		t.Errorf("Fingerprint = %q, want the digits as written", r.Fingerprint)
+	}
+
+	out, err := r.Encode()
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	if !strings.Contains(string(out), `fingerprint: "0000000000000000"`) {
+		t.Errorf("rewriting did not remove the ambiguity:\n%s", out)
+	}
+}
+
 func validRecord() *Record {
 	return &Record{
 		Schema:      CurrentSchema,

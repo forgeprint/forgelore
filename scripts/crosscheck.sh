@@ -23,6 +23,11 @@ for target in $targets; do
 	if [ "$goos" = "windows" ]; then ext=".exe"; fi
 
 	echo "==> ${goos}/${goarch}"
+	# Every package, not only the command: a dependency that needs cgo lives
+	# in an internal package long before the command imports it, and building
+	# just the command would report success while the real problem waits.
+	CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go build ./...
+
 	CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go build \
 		-trimpath \
 		-ldflags "-s -w -X main.version=${version}" \

@@ -102,8 +102,14 @@ write after that. The rules that make both true:
 - Fields in the order of the table above; unknown fields after them, in read
   order.
 - `title` is always double-quoted, with `\` and `"` escaped.
-- Values matching `^[A-Za-z0-9_.:+-]+$` are never quoted. That covers enums,
-  ULIDs, fingerprints, timestamps, integers and booleans.
+- Values matching `^[A-Za-z0-9_.:+-]+$` are written unquoted — enums, ULIDs,
+  fingerprints, timestamps — **unless** they would read back as something other
+  than a string. A fingerprint of `0000000000000000` is quoted, because
+  unquoted it is the number zero and its leading zeros are gone. The same
+  applies to a value that is exactly `true` or `false`.
+- Reading is the lenient half of that pair: a scalar's text is taken as
+  written, whatever it parses as, so a hand-written `fingerprint: 0123456789`
+  means what its author meant. Writing it back adds the quotes.
 - Lists are written in flow form, `[a, b]`. The reader also accepts block form.
 - Booleans are `true` and `false`.
 - LF line endings, one trailing newline, no trailing spaces.

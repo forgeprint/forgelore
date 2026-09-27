@@ -31,7 +31,8 @@ run, and `doctor` reports it with the file and the line.
 
 Writing is canonical: fixed key order, fixed quoting rules, LF endings.
 Free-text strings are always double-quoted; enum and identifier values, integers
-and booleans never are. Unknown fields are preserved (ADR-0011) and written
+and booleans never are. A string that would read back as a number or a boolean
+is quoted too, so that an unquoted value always means what it looks like. Unknown fields are preserved (ADR-0011) and written
 after the known ones in the order they were read. Round-tripping a file must
 produce a byte-identical result, and that is a required test.
 
