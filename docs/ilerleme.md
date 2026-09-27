@@ -213,15 +213,20 @@ Vendor ağacı taramaya 9 yanlış pozitif sokuyordu (hepsi SQLite'ın Go'ya
 çevrilmiş tek bir üretilmiş dosyasında). `vendor/` allowlist'e alındı;
 gerekçe `.gitleaks.toml` içinde yazılı.
 
-### Açık karar — vendor 135 MB
+### Karar — vendor depoya girdi
 
 `go mod vendor` 10 modül, 2007 dosya, **135 MB** üretiyor (69 MB libc, 57 MB
 sqlite; ikisi de her platform için üretilmiş C→Go çevirileri). ADR-0003 bunların
 depoda olmasını söylüyor ama ADR yazıldığında bu sayı bilinmiyordu.
 
-Git geçmişine 135 MB eklemek geri alınamaz (tarih yeniden yazılmadan
-silinemez), o yüzden **vendor commit edilmedi**; `.gitignore`'a geçici bir
-madde olarak kondu ve karar kullanıcıya bırakıldı.
+Karar: **girsin, K3 ne diyorsa o.** Kilitli bir kararı rahatsız ettiği için
+değiştirmek disiplini aşındırır. Bedeli bilinerek kabul edildi.
+
+İyi haber: çalışma dizini 135 MB ama git paketi **22.3 MiB**. Klonun ödediği
+rakam bu — Go kaynağı iyi sıkışıyor. `.gitattributes` vendor ağacını satır sonu
+dönüşümünden muaf tutuyor, böylece ağaç upstream'in yayımladığı baytlarla birebir
+kalıyor; yerelde yeniden yazılmış bir vendor ağacı kimsenin incelediği şey
+değildir.
 
 Binary boyutu: şu an 1.6 MB, ama `cmd/forgelore` henüz `internal/store`'u
 import etmiyor. SQLite bağlanınca gerçek boyut ~10 MB olacak (gösterge:
