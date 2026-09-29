@@ -233,8 +233,61 @@ import etmiyor. SQLite bağlanınca gerçek boyut ~10 MB olacak (gösterge:
 `internal/store` test binary'si 12 MB). Faz 2'de CLI indeksi kullanmaya
 başlayınca kesin rakam ölçülecek.
 
+---
+
+## Faz 2 — Hata parmak izi ve CLI
+
+**Durum:** Adım 2 (örnek toplama) tamam. Adım 1 (parmak izi algoritması) sırada.
+
+### 2026-09-30 — Adım 2: hata örnekleri
+
+Plan bu adımı `[SEN]` işaretlemişti; kullanıcı bana devretti. Web'den örnek
+toplamak yerine hepsini **bu makinede gerçekten çalıştırarak** ürettim, çünkü
+bir sitedeki çıktı "bu araç şunu basar" iddiasıdır, külliyatın amacı ise ne
+bastığını gözlemlemek. Ayrıca Stack Overflow içeriği CC BY-SA lisanslı.
+
+`scripts/capture-errors.sh` — yeniden üretilebilir toplama betiği. **56 dosya,
+28 aile**, dört dil:
+
+| Araç | Aile | Örnek |
+|---|---|---|
+| Go | 8 | undefined, tip uyuşmazlığı, kullanılmayan değişken, sözdizimi, bilinmeyen import, nil map panic, index panic, test hatası |
+| Python | 8 | ModuleNotFound, NameError, TypeError, SyntaxError, AttributeError, ZeroDivision, FileNotFound, unittest |
+| TypeScript | 4 | argüman tipi, bulunamayan ad, atanamayan tip, sözdizimi |
+| Node | 3 | MODULE_NOT_FOUND, not-a-function, JSON parse |
+| .NET | 5 | CS0103, CS0029, sözdizimi, tüm yollar dönmüyor, NullReference |
+
+Her aile **iki varyant** halinde yakalandı (`a`, `b`): farklı isimli çalışma
+dizini, farklı satır numarası. Yani aynı hatanın parmak izinin *aynı*, farklı
+ailelerin parmak izinin *farklı* olması gerektiğini test edebilecek malzeme var.
+
+Sürümler: go1.27.0, dotnet 10.0.103, Node v22.12.0, Python 3.14.7,
+TypeScript 7.0.2.
+
+#### Temizleme hatası ve düzeltmesi
+
+İlk koşuda iki dosyaya gerçek kullanıcı adı sızdı. Sebep: Node yolu JavaScript
+string'i olarak basıyor, yani ayraçlar çift (`C:\Users\<ad>\app.js`); tek
+ayraç için yazılmış sed kuralı bunu atlıyordu. Kendi kontrolüm de hatalıydı,
+sızıntıyı ilk taramada göremedim.
+
+Düzeltme: önce çift ayraçlı biçim, sonra tek ayraçlı biçim, en sonda da hesap
+adının kendisi — hangi biçimde geldiğinden bağımsız olarak. Külliyat sıfırdan
+yeniden üretildi, üç yol biçiminin hepsi `dev` gösteriyor.
+
+#### Ham malzemeden şimdiden görünen kalibrasyon soruları
+
+- Go: `# alpha` / `# beta` paket satırı parmak izine girmeli mi? Aynı hata başka
+  pakette aynı hafızayı hak ediyor mu?
+- .NET: `Time Elapsed 00:00:04.57` her koşuda değişiyor — silinmeli. Ama aynı
+  çıktıdaki `CS0103` kod numarası anahtar, silinmemeli.
+- .NET aynı hata satırını iki kere basıyor (özet bölümünde tekrar); tekrarlar
+  normalleştirilmeli mi?
+- Node: `MODULE_NOT_FOUND` kodu var ama `requireStack` makineye özgü.
+- Python traceback'inde `File "..."` satırlarının kaçı ayırt edici?
+
 ### Sırada
 
-Faz 1 bitti. Faz 2: hata parmak izi algoritması ve CLI (`init`, `record`,
-`recall`, `search`, `show`, `index rebuild`, `doctor`, `stats`). Faz 2'nin ilk
-`[SEN]` işi: gerçek hata çıktıları toplamak (Go, .NET, TypeScript, Python).
+Adım 1: parmak izi algoritması. Normalleştirme kuralları + hash, ardından
+Adım 3'ün testleri (varyant eşleşmesi, aile ayrışması, yanlış eşleşme ve
+kaçırma oranları). Bu külliyat o testlerin girdisi.

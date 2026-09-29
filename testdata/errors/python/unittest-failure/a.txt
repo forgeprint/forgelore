@@ -1,0 +1,22 @@
+---
+command: "python test_answer.py"
+exit: 1
+family: python/unittest-failure
+tool: "Python 3.14.7"
+platform: windows/amd64
+captured: 2026-09-29
+---
+F
+======================================================================
+FAIL: test_answer (__main__.AnswerTest.test_answer)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\dev\AppData\Local\Temp\forgelore-errcap\py-alpha\test_answer.py", line 5, in test_answer
+    self.assertEqual(41, 42)
+    ~~~~~~~~~~~~~~~~^^^^^^^^
+AssertionError: 41 != 42
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=1)

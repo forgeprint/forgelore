@@ -1,0 +1,13 @@
+---
+command: "python app.py"
+exit: 1
+family: python/attribute-error
+tool: "Python 3.14.7"
+platform: windows/amd64
+captured: 2026-09-29
+---
+Traceback (most recent call last):
+  File "C:\Users\dev\AppData\Local\Temp\forgelore-errcap\py-alpha\app.py", line 2, in <module>
+    print(value.appendx(1))
+          ^^^^^^^^^^^^^
+AttributeError: 'str' object has no attribute 'appendx'

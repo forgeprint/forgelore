@@ -1,0 +1,32 @@
+---
+command: "node app.js"
+exit: 1
+family: node/module-not-found
+tool: "TypeScript Version 7.0.2, v22.12.0"
+platform: windows/amd64
+captured: 2026-09-29
+---
+node:internal/modules/cjs/loader:1252
+  throw err;
+  ^
+
+Error: Cannot find module 'no-such-package-here'
+Require stack:
+- C:\Users\dev\AppData\Local\Temp\forgelore-errcap\ts-alpha\app.js
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1249:15)
+    at Function._load (node:internal/modules/cjs/loader:1075:27)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:219:24)
+    at Module.require (node:internal/modules/cjs/loader:1340:12)
+    at require (node:internal/modules/helpers:138:16)
+    at Object.<anonymous> (C:\Users\dev\AppData\Local\Temp\forgelore-errcap\ts-alpha\app.js:1:13)
+    at Module._compile (node:internal/modules/cjs/loader:1565:14)
+    at Object..js (node:internal/modules/cjs/loader:1708:10)
+    at Module.load (node:internal/modules/cjs/loader:1318:32) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\dev\\AppData\\Local\\Temp\\forgelore-errcap\\ts-alpha\\app.js'
+  ]
+}
+
+Node.js v22.12.0

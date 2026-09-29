@@ -1,0 +1,9 @@
+---
+command: "npx --yes -p typescript tsc"
+exit: 1
+family: typescript/cannot-find-name
+tool: "TypeScript Version 7.0.2, v22.12.0"
+platform: windows/amd64
+captured: 2026-09-29
+---
+app.ts(1,13): error TS2304: Cannot find name 'missingName'.

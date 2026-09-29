@@ -1,0 +1,16 @@
+---
+command: "python app.py"
+exit: 1
+family: python/name-error
+tool: "Python 3.14.7"
+platform: windows/amd64
+captured: 2026-09-29
+---
+Traceback (most recent call last):
+  File "C:\Users\dev\AppData\Local\Temp\forgelore-errcap\py-beta\app.py", line 10, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\dev\AppData\Local\Temp\forgelore-errcap\py-beta\app.py", line 8, in main
+    print(total)
+          ^^^^^
+NameError: name 'total' is not defined

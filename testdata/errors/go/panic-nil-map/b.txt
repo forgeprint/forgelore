@@ -1,0 +1,14 @@
+---
+command: "go run ."
+exit: 1
+family: go/panic-nil-map
+tool: "go version go1.27.0 windows/amd64"
+platform: windows/amd64
+captured: 2026-09-29
+---
+panic: assignment to entry in nil map
+
+goroutine 1 [running]:
+main.main()
+	C:/Users/dev/AppData/Local/Temp/forgelore-errcap/go-beta/main.go:13 +0x28
+exit status 2

@@ -1,0 +1,12 @@
+---
+command: "python app.py"
+exit: 1
+family: python/syntax-error
+tool: "Python 3.14.7"
+platform: windows/amd64
+captured: 2026-09-29
+---
+  File "C:\Users\dev\AppData\Local\Temp\forgelore-errcap\py-alpha\app.py", line 1
+    def broken(
+              ^
+SyntaxError: '(' was never closed

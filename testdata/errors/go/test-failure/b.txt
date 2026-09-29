@@ -1,0 +1,13 @@
+---
+command: "go test ./..."
+exit: 1
+family: go/test-failure
+tool: "go version go1.27.0 windows/amd64"
+platform: windows/amd64
+captured: 2026-09-29
+---
+--- FAIL: TestAnswer (0.00s)
+    demo_test.go:14: answer = 41, want 42
+FAIL
+FAIL	beta	0.636s
+FAIL

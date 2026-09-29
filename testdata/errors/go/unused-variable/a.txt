@@ -1,0 +1,10 @@
+---
+command: "go build ./..."
+exit: 1
+family: go/unused-variable
+tool: "go version go1.27.0 windows/amd64"
+platform: windows/amd64
+captured: 2026-09-29
+---
+# alpha
+.\main.go:5:2: declared and not used: unused

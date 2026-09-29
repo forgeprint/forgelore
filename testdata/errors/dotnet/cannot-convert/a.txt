@@ -1,0 +1,19 @@
+---
+command: "dotnet build --nologo"
+exit: 1
+family: dotnet/cannot-convert
+tool: "dotnet 10.0.103"
+platform: windows/amd64
+captured: 2026-09-29
+---
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+C:\Users\dev\AppData\Local\Temp\forgelore-errcap\dotnet-Alpha\Program.cs(1,13): error CS0029: Cannot implicitly convert type 'string' to 'int' [C:\Users\dev\AppData\Local\Temp\forgelore-errcap\dotnet-Alpha\dotnet-Alpha.csproj]
+
+Build FAILED.
+
+C:\Users\dev\AppData\Local\Temp\forgelore-errcap\dotnet-Alpha\Program.cs(1,13): error CS0029: Cannot implicitly convert type 'string' to 'int' [C:\Users\dev\AppData\Local\Temp\forgelore-errcap\dotnet-Alpha\dotnet-Alpha.csproj]
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:00.80

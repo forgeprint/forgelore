@@ -1,0 +1,10 @@
+---
+command: "GOFLAGS=-mod=mod GOPROXY=off go build ./..."
+exit: 1
+family: go/unknown-import
+tool: "go version go1.27.0 windows/amd64"
+platform: windows/amd64
+captured: 2026-09-29
+---
+go: finding module for package github.com/forgeprint/does-not-exist/nope
+main.go:3:8: cannot find module providing package github.com/forgeprint/does-not-exist/nope: module lookup disabled by GOPROXY=off

@@ -1,0 +1,12 @@
+---
+command: "python app.py"
+exit: 1
+family: python/module-not-found
+tool: "Python 3.14.7"
+platform: windows/amd64
+captured: 2026-09-29
+---
+Traceback (most recent call last):
+  File "C:\Users\dev\AppData\Local\Temp\forgelore-errcap\py-beta\app.py", line 7, in <module>
+    import nosuchpackage
+ModuleNotFoundError: No module named 'nosuchpackage'

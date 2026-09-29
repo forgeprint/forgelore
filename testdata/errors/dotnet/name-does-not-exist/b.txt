@@ -1,0 +1,19 @@
+---
+command: "dotnet build --nologo"
+exit: 1
+family: dotnet/name-does-not-exist
+tool: "dotnet 10.0.103"
+platform: windows/amd64
+captured: 2026-09-29
+---
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+C:\Users\dev\AppData\Local\Temp\forgelore-errcap\dotnet-Beta\Program.cs(7,19): error CS0103: The name 'Greet' does not exist in the current context [C:\Users\dev\AppData\Local\Temp\forgelore-errcap\dotnet-Beta\dotnet-Beta.csproj]
+
+Build FAILED.
+
+C:\Users\dev\AppData\Local\Temp\forgelore-errcap\dotnet-Beta\Program.cs(7,19): error CS0103: The name 'Greet' does not exist in the current context [C:\Users\dev\AppData\Local\Temp\forgelore-errcap\dotnet-Beta\dotnet-Beta.csproj]
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:00.83

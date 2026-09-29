@@ -1,0 +1,25 @@
+---
+command: "node app.js"
+exit: 1
+family: node/json-parse
+tool: "TypeScript Version 7.0.2, v22.12.0"
+platform: windows/amd64
+captured: 2026-09-29
+---
+undefined:1
+{ broken: }
+  ^
+
+SyntaxError: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+    at JSON.parse (<anonymous>)
+    at Object.<anonymous> (C:\Users\dev\AppData\Local\Temp\forgelore-errcap\ts-beta\app.js:6:6)
+    at Module._compile (node:internal/modules/cjs/loader:1565:14)
+    at Object..js (node:internal/modules/cjs/loader:1708:10)
+    at Module.load (node:internal/modules/cjs/loader:1318:32)
+    at Function._load (node:internal/modules/cjs/loader:1128:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:219:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:170:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.12.0

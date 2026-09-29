@@ -1,0 +1,14 @@
+---
+command: "go run ."
+exit: 1
+family: go/panic-index-range
+tool: "go version go1.27.0 windows/amd64"
+platform: windows/amd64
+captured: 2026-09-29
+---
+panic: runtime error: index out of range [5] with length 2
+
+goroutine 1 [running]:
+main.main()
+	C:/Users/dev/AppData/Local/Temp/forgelore-errcap/go-alpha/main.go:6 +0x9
+exit status 2
