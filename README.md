@@ -53,9 +53,11 @@ Every check CI runs is a script in [`scripts/`](scripts/), runnable locally:
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). If you work with Claude Code, the
-rules this project is built under are in [CLAUDE.md](CLAUDE.md). Commits must be signed off under the
+See [CONTRIBUTING.md](CONTRIBUTING.md). Commits must be signed off under the
 [Developer Certificate of Origin](DCO) (`git commit -s`).
+
+If you work with Claude Code, [CLAUDE.md](CLAUDE.md) has the rules this project
+is built under.
 
 ## License
 
