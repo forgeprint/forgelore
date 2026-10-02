@@ -19,3 +19,8 @@ coverage.*
 .DS_Store
 Thumbs.db
 *.swp
+
+# Per-machine Claude Code settings. Deliberately not shared: a permission
+# allowlist committed to a public repository would let a cloned checkout
+# auto-run whatever a contributor put in scripts/.
+/.claude/settings.local.json
