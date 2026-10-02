@@ -33,6 +33,15 @@ That gives the tests two claims to check:
 - two different families produce **different** fingerprints (a collision means
   an irrelevant hint gets injected).
 
+One family does not hold up its end. `go/unknown-import` was captured twice and
+the two files are byte for byte identical: the message names neither the
+package nor a line that moved, so the two captures differ in nothing. It stays
+in the corpus, because it is a real error worth extracting, but
+`internal/fingerprint` excludes it from the variant comparison — a test that
+passed on it would be claiming evidence that is not there. Recapturing it with
+a different import path, on a line that moves, is open work and needs the
+machine the corpus was made on.
+
 ## File format
 
 The restricted YAML dialect of ADR-0017, then the raw output verbatim:

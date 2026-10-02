@@ -237,7 +237,7 @@ başlayınca kesin rakam ölçülecek.
 
 ## Faz 2 — Hata parmak izi ve CLI
 
-**Durum:** Adım 2 (örnek toplama) tamam. Adım 1 (parmak izi algoritması) sırada.
+**Durum:** Adım 1, 2 ve 3 tamam. Adım 4 (CLI komutları) sırada.
 
 ### 2026-09-30 — Adım 2: hata örnekleri
 
@@ -286,8 +286,145 @@ yeniden üretildi, üç yol biçiminin hepsi `dev` gösteriyor.
 - Node: `MODULE_NOT_FOUND` kodu var ama `requireStack` makineye özgü.
 - Python traceback'inde `File "..."` satırlarının kaçı ayırt edici?
 
+### 2026-10-02 — ikinci geliştirme makinesi: macOS
+
+Proje ilk kez Windows dışında kuruldu ve doğrulandı. Makine: macOS 27.0.1,
+Apple Silicon (arm64).
+
+- Go 1.27.1, `~/.local/go` altına kuruldu: resmî `go.dev` tarball'ı, SHA-256'sı
+  go.dev'in yayımladığı değerle karşılaştırıldı. Sudo kullanılmadı, sistem
+  dizinlerine dokunulmadı; PATH satırı `~/.zshrc`'ye eklendi.
+- gitleaks 8.30.1 betiğin kendi indirmesiyle geldi, checksum tuttu.
+- `./scripts/ci.sh` tamamı yeşil, 1 dk 17 sn.
+
+**ADR-0002'nin asıl vaadi ilk kez ikinci bir işletim sisteminde gözlendi.**
+Şimdiye kadarki kanıt çapraz derlemeydi — derlenen ikililer çalıştırılmamıştı.
+Artık saf Go SQLite ikinci bir platformda gerçekten koştu.
+
+#### Aynı ölçüm, iki makinede (10.000 kayıt)
+
+| Ölçüm | Windows 11 / go1.27.0 | macOS arm64 / go1.27.1 |
+|---|---|---|
+| Tam indeks üretimi | 1.911 s | 689 ms |
+| Değişiklik yokken yeniden tarama | 28 ms | 56 ms |
+| Arama (bm25, 20 sonuç) | 6.5 ms | 4.99 ms |
+| Parmak izi araması | 33 µs | 34 µs |
+| İndeks dosyası | 8.6 MB | 8.6 MB |
+
+Enjeksiyon yolundaki rakam iki makinede de ~33 µs. Donanıma değil erişim
+yoluna bağlı görünüyor (tek satır, indeksli arama) — hook bütçesi için
+taşınabilir bir sayı. Yeniden tarama macOS'ta iki kat yavaş; 10.000 `stat`
+çağrısının maliyeti, indeksin kendisi değil.
+
+#### Bu makinede olmayanlar
+
+`scripts/capture-errors.sh`'in istediği dotnet, node ve tsc yok; python var
+ama 3.9.6 (külliyat 3.14.7 ile üretildi). Külliyat commit'li olduğu için Faz
+2'nin testleri etkilenmiyor. Ama **külliyatı yeniden üretmek ya da ona yeni
+aile eklemek bu makinede yapılamaz**: Windows makinesinde yapılmalı, ya da
+araçlar buraya kurulmalı.
+
+### 2026-10-02 — külliyat gözden geçirildi, bir boşluk bulundu
+
+`go/unknown-import` ailesinin `a` ve `b` varyantları **bayt bayt aynı**. Sebep:
+hata metni ne paket adını ne de değişen bir satır numarasını içeriyor
+(`main.go:3:8` iki koşuda da aynı). Bu aile README'nin "varyantlar, parmak
+izinin yok sayması gereken yönlerden farklıdır" iddiasını karşılamıyor —
+varyant testine girerse hiçbir şey kanıtlamaz, sadece testi yeşil gösterir.
+
+Kalan 27 ailenin hepsinde gerçek fark var. Açık karar: aile yeniden yakalansın
+mı (farklı import yolu / farklı satır gerekir, yani Windows makinesi), yoksa
+varyant testinden muaf tutulup gerekçesi mi yazılsın.
+
+---
+
+### 2026-10-02 — Adım 1 ve 3 tamam: `internal/fingerprint`
+
+Kalibrasyon soruları kullanıcıya külliyattan gerçek örneklerle soruldu, sekiz
+kararın hepsi onaylandı. Alınan kararlar:
+
+| # | Konu | Karar | Gerekçe |
+|---|---|---|---|
+| 1 | Kapsam | Çıktıdan **hata olayları ayıklanır**, her birine ayrı parmak izi | Tüm çıktıyı tek hash'lemek, ilgisiz ikinci bir hata eklenince parmak izini değiştirir — hafıza susar |
+| 2 | Tanımlayıcılar | **Girer** (`greet`, `'appendx'`, `'no-such-package-here'`) | En ayırt edici sinyal ve aynı hata tekrarladığında aynı kalıyor |
+| 3 | Sayılar | Planın "sayıları sil" kuralı **konuma bağlı** daraltıldı | `CS0103`, `TS2345`, `41 != 42` silinirse hata kimliğini kaybeder; silinen yalnızca satır:sütun, hex ofset ve süreler |
+| 4 | Go paket satırı | `# alpha` parmak izine **girmez** | "undefined: greet"in çözümü hangi pakette olduğuna bağlı değil |
+| 5 | Yığın izleri | Kare satırları **atılır**, mesaj + hata kodu kalır | Node'un 20 kare'si kendi iç satır numaraları; Node sürümü değişince hepsi kayar |
+| 6 | Python kaynak yankısı | Kaynak satırı, karet ve fonksiyon adı **atılır**, yalnızca istisna satırı kalır | Yoksa parmak izi o projenin o satırına bağlanır |
+| 7 | Komut | `araç + fiil` jetonuna indirgenir | Ortam öneki ve bayraklar aynı hatayı bölmesin |
+| 8 | `go/unknown-import` | Varyant testinden **muaf**, gerekçesi yazıldı | İki yakalaması bayt bayt aynı; test geçse bile hiçbir şey kanıtlamaz |
+
+Yazılanlar: `internal/fingerprint/{fingerprint,command,extract}.go`,
+`{fingerprint,corpus}_test.go`.
+
+Pozitif eşleştirici yaklaşımı seçildi: **tanınmayan her satır gürültüdür.**
+Böylece gürültü deseni listesi tutmak gerekmiyor — ilerleme çubukları,
+ayraçlar, sayaçlar, süreler, bannerlar ve yığın kareleri zaten tanı değil.
+Her desen satır başına çapalı; bu göründüğünden fazla iş yapıyor, çünkü
+`at Object.<anonymous> (C:\work\app.js:1:13)` dosya, satır ve sütun taşıyor
+ama bunlar satırın ilk jetonu değil, o yüzden konum eşleştiricisi onlara
+erişemiyor.
+
+#### Ölçüm (28 aile, 56 dosya)
+
+| Ölçüm | Sonuç |
+|---|---|
+| Tanı çıkarılamayan dosya | **0 / 56** |
+| Varyant eşleşmesi (kaçırma) | **27 / 27, 0 kaçırma** (1 aile muaf) |
+| Aileler arası çakışma | **31 parmak izinde 0** |
+| Test kapsamı | %100 |
+
+#### Bu adımda netleşenler
+
+- **Parmak izi uzunluğu normatif hâle geldi:** SHA-256'nın ilk 8 baytı, 16
+  küçük harf hex. `docs/record-format.md` zaten örneklerinde bu biçimi
+  kullanıyordu, artık yazılı.
+- **Aynı metin, farklı sütun tek parmak izine düşüyor.** `tsc` bozuk dosyada
+  üç tanı basıyor; ikisi farklı sütunda `':' expected.` ve sütun silinince
+  birleşiyorlar. Doğru sonuç — eksik iki noktanın çözümü hangi sütunda
+  olduğuna bağlı değil — ama test 3 değil 2 bekliyor, sebebi yazılı.
+- **Mesaj içindeki konum bilgisi silinmedi.** Node'un
+  `... at position 2 (line 1 column 3)` ifadesi duruyor. İki varyantta da
+  aynı olduğu için külliyat bir şey söylemiyor; başka konumdaki bozuk JSON'ın
+  *farklı* hata olması savunulabilir olduğu için olduğu gibi bırakıldı.
+  Gerçek projelerden örnek gelince yeniden bakılacak.
+
+#### Açık risk — komut jetonundaki fiil (karar 7'nin bedeli)
+
+Aynı derleme hatası `go build`, `go test`, `go run` ve `go vet` altında
+çıkabilir. Fiil parmak izine girdiği için bunlar **farklı** parmak izi
+üretiyor: `go build` ile çözülmüş bir hata, aynı kod `go test` altında
+patladığında bulunamaz. Külliyat bunu ölçemiyor, çünkü her aile tek komutla
+yakalandı — ama `go/panic-*` ailesi `go run .`, derleme hataları
+`go build ./...` ile yakalandı, yani senaryo uydurma değil.
+
+Karar 7 onaylandığı gibi uygulandı. Öneri: **fiil çıkarılsın, yalnızca araç
+(`go`, `dotnet`, `python`, `node`, `tsc`) kalsın** — mesajlar zaten
+`go build` ile `go test` çıktısını birbirinden ayırmaya yetiyor. Kullanıcıya
+bırakıldı, kendi başına değiştirilmedi.
+
+---
+
 ### Sırada
 
-Adım 1: parmak izi algoritması. Normalleştirme kuralları + hash, ardından
-Adım 3'ün testleri (varyant eşleşmesi, aile ayrışması, yanlış eşleşme ve
-kaçırma oranları). Bu külliyat o testlerin girdisi.
+Adım 4: CLI komutları — `init`, `record`, `recall`, `search`, `show`,
+`index rebuild`, `doctor`, `stats`. Adım 5 (`--json` ve kademeli erişim) ile
+birlikte yapılabilir.
+
+Plan bu adım için iki soru soruyor, ikisi de cevapsız:
+
+- Komut adları ve bayraklar uygun mu?
+- `init` hangi dosyaları oluştursun?
+
+Bir de önceki adımdan devredilen açık karar var: komut jetonundaki fiil
+kalsın mı (yukarıdaki "Açık risk" başlığı).
+
+### Faz 2 — açık maddeler
+
+- `[SEN/CLAUDE]` `go/unknown-import` yeniden yakalanmalı: farklı import yolu,
+  kayan satır. Windows makinesi gerekiyor.
+- Külliyatta gerçek projelerden hata yok — hepsi küçük ve kasıtlı örnekler.
+  `testdata/errors/README.md` bunu zaten söylüyor; parmak izi kurallarının
+  asıl sınavı o malzeme.
+- `cmd/forgelore` hâlâ `internal/store`'u import etmiyor, binary boyutu
+  gerçeği yansıtmıyor. Adım 4'te CLI indeksi kullanmaya başlayınca ölçülecek.

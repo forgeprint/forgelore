@@ -55,7 +55,7 @@ Listed in canonical order. The writer emits them in exactly this order.
 | `created` | timestamp | yes | ISO-8601 UTC, second precision, always `Z` |
 | `source` | enum | yes | `user`, `hook`, `import` |
 | `tainted` | boolean | yes | `true` if derived from external content (ADR-0013) |
-| `fingerprint` | string | for `fix` and `dead_end` | Lowercase hex, one per record |
+| `fingerprint` | string | for `fix` and `dead_end` | Sixteen lowercase hex characters, one per record |
 | `tags` | string list | no | Lowercase, kebab-case; omitted when empty |
 | `related` | ULID list | no | One-way; the index treats links as undirected |
 | `superseded_by` | ULID | no | A superseded record is never injected |
@@ -63,6 +63,12 @@ Listed in canonical order. The writer emits them in exactly this order.
 Unknown fields are preserved and written back after the known ones, in the
 order they were read (ADR-0011). Optional fields are omitted entirely when
 absent or empty; an empty list is never written as `[]`.
+
+A fingerprint is the first eight bytes of a SHA-256, written as sixteen
+lowercase hex characters. `internal/fingerprint` computes it; the full digest
+buys nothing, because a fingerprint is a lookup key in one project's index and
+not a defence against a constructed collision, and a short key keeps a record
+file readable.
 
 There is no `updated` field. Team records carry their history in git, and
 adding a field that changes on every write would mean carving an exception out
