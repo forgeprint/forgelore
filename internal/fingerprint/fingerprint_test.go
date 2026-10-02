@@ -12,21 +12,21 @@ func TestNormalizeCommand(t *testing.T) {
 		want    string
 		why     string
 	}{
-		{"go build ./...", "go build", "tool and verb"},
-		{"go run .", "go run", "a verb followed by a path"},
-		{"go test ./...", "go test", ""},
-		{"dotnet build --nologo", "dotnet build", "flags are dropped"},
-		{"node app.js", "node", "a file argument is not a verb"},
+		{"go build ./...", "go", "the verb is dropped with everything else"},
+		{"go run .", "go", "so that one compile error is one fingerprint"},
+		{"go test ./...", "go", "whichever verb surfaced it"},
+		{"dotnet build --nologo", "dotnet", "flags are dropped"},
+		{"node app.js", "node", "a file argument is not the tool"},
 		{"python test_answer.py", "python", ""},
 		{
 			"GOFLAGS=-mod=mod GOPROXY=off go build ./...",
-			"go build",
+			"go",
 			"the environment is not part of the error",
 		},
 		{"npx --yes -p typescript tsc", "tsc", "the wrapper is stepped over, with its flag's value"},
 		{"npx tsc --noEmit", "tsc", "a wrapper with no flags"},
-		{"/usr/local/go/bin/go test ./...", "go test", "the install location is not part of the error"},
-		{`C:\Go\bin\go.exe build ./...`, "go build", "the same tool on Windows"},
+		{"/usr/local/go/bin/go test ./...", "go", "the install location is not part of the error"},
+		{`C:\Go\bin\go.exe build ./...`, "go", "the same tool on Windows"},
 		{"", "", "nothing to normalise"},
 		{"   ", "", "whitespace only"},
 	}
@@ -154,5 +154,45 @@ func TestCodeAttachesToItsOwnError(t *testing.T) {
 	}
 	if got[0].Code != "MODULE_NOT_FOUND" {
 		t.Errorf("got code %q, want MODULE_NOT_FOUND", got[0].Code)
+	}
+}
+
+// TestVerbDoesNotSplitAnError is the point of reducing a command to its tool.
+// One compile error reaches the user through whichever verb happened to
+// invoke the compiler, and a fix recorded under one of them has to be found
+// under the others.
+func TestVerbDoesNotSplitAnError(t *testing.T) {
+	const output = "# alpha\n./main.go:5:14: undefined: greet\n"
+	verbs := []string{"go build ./...", "go test ./...", "go run .", "go vet ./..."}
+
+	var first string
+	for _, command := range verbs {
+		events := Scan(command, output)
+		if len(events) != 1 {
+			t.Fatalf("%q: got %d events, want 1", command, len(events))
+		}
+		if first == "" {
+			first = events[0].Sum
+			continue
+		}
+		if events[0].Sum != first {
+			t.Errorf("%q fingerprinted %s, but %q fingerprinted %s",
+				command, events[0].Sum, verbs[0], first)
+		}
+	}
+}
+
+// TestDifferentToolsStaySeparate is the other side of it: the tool itself
+// still counts, so two tools that happen to print the same words do not share
+// a memory.
+func TestDifferentToolsStaySeparate(t *testing.T) {
+	const output = "SyntaxError: '(' was never closed\n"
+	python := Scan("python app.py", output)
+	node := Scan("node app.js", output)
+	if len(python) != 1 || len(node) != 1 {
+		t.Fatalf("got %d and %d events, want 1 each", len(python), len(node))
+	}
+	if python[0].Sum == node[0].Sum {
+		t.Errorf("python and node share the fingerprint %s", python[0].Sum)
 	}
 }

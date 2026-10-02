@@ -7,9 +7,10 @@ whether it actually saves tokens.
 A single Go binary with no runtime dependencies. It works with any agent that
 can run a shell command.
 
-> **Status: early development.** The repository skeleton and CI are in place;
-> the record store, fingerprinting and CLI are not implemented yet. There is no
-> release to install. Follow `docs/plan.md` for the roadmap.
+> **Status: early development.** The record store, error fingerprinting and
+> the command line work and are tested. Agent integrations, the measurement
+> ledger and the A/B mode are not built yet, and there is no release to
+> install — you build it yourself. Follow `docs/plan.md` for the roadmap.
 
 ## What it does
 
@@ -32,6 +33,28 @@ can run a shell command.
 - No network access, no telemetry.
 - Never blocks the agent. Hooks are fail-open with a hard timeout.
 - Does not duplicate an agent's built-in memory features.
+
+## Using it
+
+```sh
+forgelore init                 # create .forgelore/ in your project
+go build ./... 2>err.txt       # something fails
+
+# ask before trying a fix
+forgelore recall --command "go build ./..." --error-file err.txt
+
+# once you have solved it, say so
+forgelore record --type fix \
+  --title "Import the package that defines greet" \
+  --command "go build ./..." --error-file err.txt
+
+# and the next time that error appears, in any file, under any go subcommand,
+# recall finds it
+```
+
+`search <query>` returns ids and titles only; `show <id>` returns one record in
+full. Every command takes `--json`. `init` prints the one line to add to your
+`AGENTS.md` and does not write the file itself.
 
 ## Design constraints
 

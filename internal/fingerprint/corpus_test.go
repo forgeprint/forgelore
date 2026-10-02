@@ -181,14 +181,14 @@ func TestFamiliesSeparate(t *testing.T) {
 func TestCorpusMessages(t *testing.T) {
 	want := map[string][]Event{
 		"go/undefined-identifier": {
-			{Command: "go build", Message: "undefined: greet"},
+			{Command: "go", Message: "undefined: greet"},
 		},
 		"go/panic-nil-map": {
-			{Command: "go run", Message: "panic: assignment to entry in nil map"},
+			{Command: "go", Message: "panic: assignment to entry in nil map"},
 		},
 		"go/test-failure": {
-			{Command: "go test", Message: "--- FAIL: TestAnswer"},
-			{Command: "go test", Message: "answer = 41, want 42"},
+			{Command: "go", Message: "--- FAIL: TestAnswer"},
+			{Command: "go", Message: "answer = 41, want 42"},
 		},
 		"python/attribute-error": {
 			{Command: "python", Message: "AttributeError: 'str' object has no attribute 'appendx'"},
@@ -200,10 +200,10 @@ func TestCorpusMessages(t *testing.T) {
 			{Command: "tsc", Code: "TS2304", Message: "Cannot find name 'missingName'."},
 		},
 		"dotnet/name-does-not-exist": {
-			{Command: "dotnet build", Code: "CS0103", Message: "The name 'Greet' does not exist in the current context"},
+			{Command: "dotnet", Code: "CS0103", Message: "The name 'Greet' does not exist in the current context"},
 		},
 		"dotnet/nullreference-runtime": {
-			{Command: "dotnet run", Message: "System.NullReferenceException: Object reference not set to an instance of an object."},
+			{Command: "dotnet", Message: "System.NullReferenceException: Object reference not set to an instance of an object."},
 		},
 		"node/module-not-found": {
 			{Command: "node", Code: "MODULE_NOT_FOUND", Message: "Error: Cannot find module 'no-such-package-here'"},

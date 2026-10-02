@@ -16,6 +16,7 @@ coverage.*
 .forgelore/local/
 
 # Editor and OS noise
+/.idea/
 .DS_Store
 Thumbs.db
 *.swp

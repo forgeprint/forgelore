@@ -20,9 +20,8 @@ import (
 
 // An Event is one diagnostic found in a command's output.
 type Event struct {
-	// Command is the normalised command: the tool and, where the tool has
-	// one, its verb. "GOFLAGS=-mod=mod GOPROXY=off go build ./..." reduces to
-	// "go build".
+	// Command is the tool that ran, with everything else stripped:
+	// "GOFLAGS=-mod=mod GOPROXY=off go build ./..." reduces to "go".
 	Command string
 
 	// Code is the tool's own number for the diagnostic, such as CS0103 or

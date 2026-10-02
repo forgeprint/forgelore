@@ -25,13 +25,14 @@ var runnerFlagsWithValue = map[string]bool{
 	"--call":    true,
 }
 
-// NormalizeCommand reduces a command line to the tool that ran and, where the
-// tool has one, its verb.
+// NormalizeCommand reduces a command line to the tool that ran.
 //
-// Everything else goes: leading environment assignments, flags, paths, file
-// arguments. Keeping them would split one error across every way it can be
-// provoked — "go build ./..." and "GOFLAGS=-mod=mod go build ./..." are the
-// same build failing the same way.
+// Everything else goes: leading environment assignments, the verb, flags,
+// paths, file arguments. Keeping any of it would split one error across every
+// way it can be provoked, and the verb splits the most: the same compile
+// error reaches the user through go build, go test, go run and go vet, and a
+// fix recorded under one of them has to be found under the others. What the
+// verb would have told the fingerprint apart, the message already does.
 func NormalizeCommand(command string) string {
 	words := strings.Fields(command)
 
@@ -57,11 +58,7 @@ func NormalizeCommand(command string) string {
 		return ""
 	}
 
-	tool := toolName(words[0])
-	if len(words) > 1 && isVerb(words[1]) {
-		return tool + " " + words[1]
-	}
-	return tool
+	return toolName(words[0])
 }
 
 // isAssignment reports whether a word is a VAR=value environment assignment
@@ -78,22 +75,4 @@ func toolName(word string) string {
 		word = word[i+1:]
 	}
 	return strings.TrimSuffix(strings.TrimSuffix(word, ".exe"), ".EXE")
-}
-
-// isVerb reports whether a word is a subcommand such as build or test, rather
-// than a flag, a path or a file to operate on. A verb is a bare word: letters,
-// digits and dashes, with no separator and no extension.
-func isVerb(word string) bool {
-	if word == "" || strings.HasPrefix(word, "-") {
-		return false
-	}
-	for i := 0; i < len(word); i++ {
-		c := word[i]
-		switch {
-		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '-', c == '_':
-		default:
-			return false
-		}
-	}
-	return true
 }

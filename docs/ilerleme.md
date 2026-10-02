@@ -237,7 +237,7 @@ başlayınca kesin rakam ölçülecek.
 
 ## Faz 2 — Hata parmak izi ve CLI
 
-**Durum:** Adım 1, 2 ve 3 tamam. Adım 4 (CLI komutları) sırada.
+**Durum:** Tamam. Adım 1–6 bitti, kabul kriteri elle denendi ve karşılandı.
 
 ### 2026-09-30 — Adım 2: hata örnekleri
 
@@ -405,19 +405,104 @@ bırakıldı, kendi başına değiştirilmedi.
 
 ---
 
+### 2026-10-02 — karar 7 geri alındı: fiil parmak izinden çıktı
+
+Önceki adımın "Açık risk" başlığı kullanıcıya iletildi, değişiklik onaylandı.
+Komut jetonu artık `araç + fiil` değil **yalnızca araç**: `go build ./...`,
+`go test ./...`, `go run .` ve `go vet ./...` hepsi `go`.
+
+Gerekçe: aynı derleme hatası dört fiilin hepsinin altında çıkabiliyor ve
+`go build` ile çözülmüş bir hata `go test` altında bulunamıyordu. Fiilin
+ayırt edeceği şeyi mesaj zaten ayırıyor. Külliyatta kayıp yok: değişiklikten
+sonra da 27/27 varyant eşleşiyor, 31 parmak izinde 0 çakışma.
+
+İki test eklendi: dört fiilin aynı parmak izini ürettiği, ve araç değişince
+(`python` ile `node` aynı `SyntaxError` metnini basınca) parmak izinin hâlâ
+ayrıldığı.
+
+### 2026-10-02 — Adım 4, 5, 6 tamam: CLI
+
+Plan bu adım için iki soru soruyordu. Kullanıcı "önerilerinle ilerle" dedi,
+alınan cevaplar:
+
+**Komut adları ve bayraklar.** Plandaki adlar olduğu gibi: `init`, `record`,
+`recall`, `search`, `show`, `index rebuild`, `doctor`, `stats`. Ortak
+bayraklar `--json` ve `--dir`. Proje kökü git gibi yukarı yürüyerek bulunuyor
+— ajan komutlarını kökte değil, derlemenin patladığı alt dizinde çalıştırır.
+
+**`init` ne oluştursun.** `.forgelore/records/`, `.forgelore/local/` ve
+`.forgelore/.gitignore`. Üçüncüsü asıl sebep: indeksini commit eden kullanıcı
+her pull'da çakışan türetilmiş bir dosya commit etmiş olur, local kapsamını
+commit eden de kendine ait olması gereken kayıtları paylaşmış olur.
+**`config.yaml` oluşturulmadı** — henüz onu okuyan kod yok, ve hiçbir şeyin
+okumadığı bir yapılandırma dosyası yazmak yükümlülüktür. ADR-0018 uygulanınca
+eklenir.
+
+`init` **AGENTS.md yazmıyor**, yazılacak tek satırı ekrana basıyor (plan
+Adım 6). AGENTS.md projenin kendi dosyası; onu izinsiz düzenleyen araç
+kurulmaz olur.
+
+#### Uygulama sırasında alınan kararlar
+
+- **Her okuma komutu önce indeksi senkronlar.** Değişiklik yokken maliyeti
+  ölçülmüştü (28–56 ms / 10.000 kayıt); alternatifi bayat indeksten cevap
+  veren ve bu yüzden daha az güvenilen bir araç.
+- **`recall` hata döndürmüyor.** Eşleşme yoksa, hatta `.forgelore` hiç yoksa
+  bile 0 ile çıkıyor ve hatayı yine de parmak izliyor. Bu enjeksiyon yolu;
+  burada hata döndüren araç ajana kendisini çağırmamayı öğretir (ADR-0007).
+- **`record` iki hata arasında seçim yapmıyor.** Çıktıda birden fazla hata
+  varsa reddediyor ve parmak izlerini listeleyip `--fingerprint` istiyor.
+  İlkini seçmek, aracın hangi tanıyı önce bastığına göre karar vermek olurdu.
+- **Konumsal argümandan sonraki bayraklar da okunuyor.** Go'nun `flag`
+  paketi ilk konumsal kelimede duruyor, yani `forgelore search sqlite --json`
+  "sqlite --json" arıyordu. Elle denerken çıktı; `parseInterspersed` ile
+  düzeltildi, testi var.
+
+#### Kabul kriteri — elle denendi
+
+Plan: "Hiçbir ajan entegrasyonu olmadan, bir ajan sadece AGENTS.md
+yönlendirmesi ve shell ile hatayı sorgulayıp geçmiş çözümü bulabiliyor."
+
+Derlenmiş binary ile, gerçekten patlayan iki Go projesi üzerinde koşuldu:
+
+1. `demo` projesinde `go build ./...` → `undefined: greet`. `recall`:
+   "1 error(s), 0 with something recorded".
+2. Bir `fix` ve bir `dead_end` kaydedildi, parmak izi `cd023fb609411574`.
+3. **Ayrı bir projede**, farklı modül adı, farklı paket, farklı dosya,
+   farklı satır (`internal/svc/svc.go:7:2`) aynı hata üretildi.
+4. O çıktı `demo` projesinde `--command "go test ./..."` ile — yani **kayıttan
+   farklı bir fiille** — sorgulandı: ikisi de bulundu.
+
+Yani parmak izi dosyadan, satırdan, paketten, modül adından ve fiilden
+bağımsız çalışıyor. Karar 7'nin geri alınması 4. adımda doğrudan karşılığını
+verdi.
+
+#### Ölçümler
+
+| Ölçüm | Değer |
+|---|---|
+| `recall` çağrı süresi | **~9.6 ms** (10 koşu / 96 ms, süreç başlatma dahil) |
+| Host binary | **7.1 MB** |
+| Test kapsamı | `fingerprint` %100, `cmd/forgelore` %84.4 |
+
+Binary boyutu Faz 1'de "~10 MB olacak" diye tahmin edilmişti; `cmd/forgelore`
+artık `internal/store`'u gerçekten import ettiği için ölçülen rakam bu.
+`CLAUDE.md`'deki eski not düzeltildi.
+
+#### gitleaks kendi testimi yakaladı
+
+`TestRecordRedacts`'in fixture'ı `AWS_SECRET_ACCESS_KEY=` yanında yüksek
+entropili bir dizeydi ve `scripts/gitleaks.sh` CI'ı kırdı. Değer sahteydi ama
+tarayıcı haklıydı. Allowlist'e almak yerine fixture düşük entropili bir
+yer tutucuyla değiştirildi — bir testi allowlist'e almak, aynı dosyadaki
+gerçek bir sızıntıya karşı tarayıcıyı kör eder.
+
+---
+
 ### Sırada
 
-Adım 4: CLI komutları — `init`, `record`, `recall`, `search`, `show`,
-`index rebuild`, `doctor`, `stats`. Adım 5 (`--json` ve kademeli erişim) ile
-birlikte yapılabilir.
-
-Plan bu adım için iki soru soruyor, ikisi de cevapsız:
-
-- Komut adları ve bayraklar uygun mu?
-- `init` hangi dosyaları oluştursun?
-
-Bir de önceki adımdan devredilen açık karar var: komut jetonundaki fiil
-kalsın mı (yukarıdaki "Açık risk" başlığı).
+Faz 3 — ölçüm altyapısı. `docs/plan.md`'deki adımlara bakılacak; Faz 2'den
+devreden açık karar kalmadı.
 
 ### Faz 2 — açık maddeler
 
@@ -426,5 +511,6 @@ kalsın mı (yukarıdaki "Açık risk" başlığı).
 - Külliyatta gerçek projelerden hata yok — hepsi küçük ve kasıtlı örnekler.
   `testdata/errors/README.md` bunu zaten söylüyor; parmak izi kurallarının
   asıl sınavı o malzeme.
-- `cmd/forgelore` hâlâ `internal/store`'u import etmiyor, binary boyutu
-  gerçeği yansıtmıyor. Adım 4'te CLI indeksi kullanmaya başlayınca ölçülecek.
+- `config.yaml` okunmuyor: ADR-0018 yazılı ama uygulanmadı, `init` de bu
+  yüzden dosyayı oluşturmuyor. Bayrak > ortam > yerel > ekip > varsayılan
+  önceliği hâlâ kodda yok.

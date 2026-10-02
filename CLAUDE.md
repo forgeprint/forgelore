@@ -82,5 +82,6 @@ twenty seconds. `go test -short ./...` skips it.
   `git add --chmod=+x scripts/foo.sh`.
 - Commits are signed off: `git commit -s`. The DCO application on GitHub checks
   this; CI does not.
-- `cmd/forgelore` does not import `internal/store` yet, so the built binary does
-  not link SQLite and its size is not representative.
+- The host binary is 7.1 MB. `cmd/forgelore` links SQLite through
+  `internal/store`, which is most of that; `scripts/build.sh` strips symbols
+  already, so there is no easy win left to look for.
