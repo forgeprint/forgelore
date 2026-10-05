@@ -1249,9 +1249,39 @@ gerçekten test ediliyor. Matris yerine iki iş: setup-go ikisi için farklı
 girdi alıyor, iki kez okunması gereken bir koşuldansa açık açık yazmak daha
 iyi.
 
+### v0.1.0 yayımlandı
+
+https://github.com/forgeprint/forgelore/releases/tag/v0.1.0 — altı ikili ve
+`SHA256SUMS`, CI'ın temiz runner'ında derlenmiş.
+
+Yayımlarken iki karar:
+
+- **Notlar yeniden yazıldı.** `--generate-notes` önceki etiket olmadığı için
+  tek satırlık bir bağlantı üretmişti. İlk release'in neyin çalıştığını ve
+  **neyin doğrulanmadığını** söylemesi gerekiyordu; Codex CLI'nin eşlemesinin
+  dokümantasyondan yazıldığı ve aynı şekilde yazılan diğer her eşlemenin
+  yanlış çıktığı notlarda açıkça yazılı.
+- **Prerelease işaretlenmedi.** 0.x zaten erken olduğunu söylüyor, ama asıl
+  sebep pratik: GitHub `/releases/latest` uç noktasından prerelease'leri
+  dışlıyor ve `install.sh` tam olarak onu kullanıyor. İşaretlenseydi kurulum
+  betiği release'i bulamazdı.
+
+#### Faz 8 kabul kriteri artık gerçek
+
+Gerçek release'e karşı, tek komutla, boş `HOME` ve kırpılmış `PATH` ile
+koşuldu: indirdi, checksum'ı doğruladı, kurdu, `forgelore v0.1.0
+darwin/arm64 go1.26.8` bastı, PATH uyarısını verdi, `init` ve `doctor`
+çalıştı. Daha önce yalnızca yerel bir HTTP sunucusuyla test edilmişti.
+
+`go1.26.8` damgası da yukarıdaki kararın kanıtı: kullanıcının indirdiği ikili
+asgari Go ile derlenmiş.
+
 ### Kalanlar — hepsi `[SEN]`
 
-- Taslak release'i oku ve yayımla.
-- Forgeprint marketplace kaydı.
+- Forgeprint marketplace kaydı (ayrı depo).
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
-- Codex CLI doğrulaması, erişim olduğunda.
+- Codex CLI doğrulaması, erişim olduğunda:
+  `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,
+  `verified_against`'i doldur, `docs/compatibility.md`'yi güncelle.
+- Sonraki release'te imzalama (cosign keyless, artık CI'da derlendiği için
+  mümkün) ve istenirse npm sarmalayıcı — ikisi de Faz 8'de bilerek ertelendi.
