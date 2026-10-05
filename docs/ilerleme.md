@@ -1875,10 +1875,41 @@ kuruldu:
   istiyor, ve o yapılırsa npm provenance de gelir; şu hâliyle release
   attested, npm paketleri değil.
 
+---
+
+## 2026-10-05 — v0.1.4
+
+https://github.com/forgeprint/forgelore/releases/tag/v0.1.4
+
+Programda değişiklik yok; bu release nereden geldiğini kanıtlamakla ve
+ikinci bir kurulum yolu eklemekle ilgili. Notlar da bu cümleyle açılıyor.
+
+### Attestation gerçek bir release'te doğrulandı
+
+İndirilen `forgelore_darwin_arm64` için `gh attestation verify` 0 ile
+çıktı, ve `--format json` kanıtın ne iddia ettiğini gösterdi:
+
+```
+workflow : .../.github/workflows/release.yml@refs/tags/v0.1.4
+repo     : https://github.com/forgeprint/forgelore
+sha      : 95c60b49cc051f0ecda0e88309a0e2370066ff4d
+issuer   : https://token.actions.githubusercontent.com
+```
+
+Olumlu sonuç tek başına yeterli değildi, negatif de denendi: **yerelde
+derlenmiş** aynı kaynaklı ikili 404 ile reddedildi — o digest için
+attestation yok. Doğrulamanın gerçekten bir şey kontrol ettiğini gösteren
+şey bu, "başarılı" demesi değil.
+
+Bu arada bir kullanılabilirlik ayrıntısı çıktı ve dokümana girdi: gh 2.102
+başarıda **hiçbir şey yazmıyor**. Komutu çalıştıran biri hiçbir şey olmadı
+sanabilir; cevap çıkış kodunda. README ve SECURITY.md bunu söylüyor, bir de
+attestation'ın v0.1.4'ten önce bulunmadığını.
+
 ### Kalanlar — hepsi `[SEN]`
 
-- npm paketlerini yayımla (`dist/npm/`, önce platform paketleri). Hesap ve
-  `npm login` gerekiyor.
+- npm paketlerini yayımla (`./scripts/npm-pack.sh v0.1.4`, önce platform
+  paketleri). Hesap ve `npm login` gerekiyor.
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
   `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,

@@ -108,7 +108,9 @@ bytes are intact:
 gh attestation verify forgelore_linux_amd64 -R forgeprint/forgelore
 ```
 
-`SHA256SUMS` still answers the integrity half on its own, offline.
+It prints nothing when it succeeds; the exit status is the answer. Releases
+before v0.1.4 have no attestation. `SHA256SUMS` still answers the integrity
+half on its own, offline.
 
 ## Using it
 

@@ -18,6 +18,12 @@ workflow and not from somewhere else:
 gh attestation verify forgelore_linux_amd64 -R forgeprint/forgelore
 ```
 
+On gh 2.102 that prints nothing when it succeeds, so read the exit status
+rather than the output. A binary the workflow did not build is refused with
+a 404: no attestation exists for its digest. To see what the attestation
+actually claims — the workflow, the tag and the commit — add `--format
+json`.
+
 `SHA256SUMS` answers a narrower question — whether the bytes are the
 published ones — and works offline. It cannot answer who published them,
 because it travels in the same release as the binaries.
