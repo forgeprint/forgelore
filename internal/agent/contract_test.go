@@ -288,6 +288,67 @@ func TestTheRealFailurePayloadCarriesItsError(t *testing.T) {
 	}
 }
 
+// TestAPipedBuildStillCountsAsAFailure is the second finding this corpus
+// paid for, and it is the opposite shape to the first.
+//
+// A Bash command's exit status reaches Forgelore only through which event
+// fires. When the agent writes `go build ./... 2>&1 | head -40` the pipeline
+// exits with head's status, which is zero, so Claude Code sends PostToolUse
+// — correctly — and no field anywhere in the payload says the build failed.
+// Until output_has_diagnostic the mapping called that a success and the
+// error was never looked up. Silently, and indistinguishably from a session
+// that met no errors.
+//
+// The two payloads below are the whole behaviour: one succeeded, one did
+// not, and only the output tells them apart.
+func TestAPipedBuildStillCountsAsAFailure(t *testing.T) {
+	for _, tc := range []struct {
+		file string
+		want Kind
+	}{
+		{"PostToolUse-2.json", CommandFailed},
+		{"PostToolUse-1.json", CommandSucceeded},
+	} {
+		payload, err := os.ReadFile(filepath.Join(corpusRoot, "2.1.289", tc.file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var raw map[string]any
+		if err := json.Unmarshal(payload, &raw); err != nil {
+			t.Fatal(err)
+		}
+		if _, present := raw["error"]; present {
+			t.Errorf("%s: the capture now has an error field, so the event decides after all", tc.file)
+		}
+
+		e, ok, err := mustBuilt(t).Translate(payload, "", now)
+		if err != nil || !ok {
+			t.Fatalf("%s: ok=%v err=%v", tc.file, ok, err)
+		}
+		if e.Kind != tc.want {
+			t.Errorf("%s: kind = %q, want %q", tc.file, e.Kind, tc.want)
+		}
+	}
+}
+
+// TestOutputHasDiagnosticNeedsItsFormatVersion: the version number is what
+// stops an older binary reading a mapping it would get wrong. A mapping that
+// uses the test while claiming version 1 would be read by that binary with
+// the test quietly dropped, which is the silent failure this whole file
+// exists to prevent.
+func TestOutputHasDiagnosticNeedsItsFormatVersion(t *testing.T) {
+	const m = `{"mapping_version":1,"agent":"a","response":{"context_path":"c"},
+	            "events":[{"agent_event":"X","kind":"command_succeeded",
+	                       "failure":{"output_has_diagnostic":true}}]}`
+	_, err := ParseMapping([]byte(m))
+	if err == nil {
+		t.Fatal("a version 1 mapping used output_has_diagnostic and was accepted")
+	}
+	if !strings.Contains(err.Error(), "output_has_diagnostic") {
+		t.Errorf("the error does not say which field is at fault: %v", err)
+	}
+}
+
 // TestAnInterruptedCommandIsNotAnError: Ctrl-C is the user changing their
 // mind, and nothing about it belongs in memory.
 func TestAnInterruptedCommandIsIgnored(t *testing.T) {

@@ -7,7 +7,7 @@ mistake this document exists to prevent.
 |---|---|---|
 | The binary | git tag, `forgelore version` | pre-release |
 | The record schema | `schema:` in every record file | 1 |
-| The mapping format | `mapping_version` in every mapping file | 1 |
+| The mapping format | `mapping_version` in every mapping file | 2 |
 
 ## The binary
 
@@ -63,21 +63,40 @@ reviews.
 
 ## The mapping format
 
-Agent mappings carry `mapping_version: 1`. A mapping written for a later
-format is refused with a sentence naming the problem, never half-read.
+Agent mappings carry a `mapping_version`, and the current format is **2**. A
+mapping written for a later format is refused with a sentence naming the
+problem, never half-read.
 
 This number moves more often than the schema, because it changes whenever an
-agent's format needs something the format cannot express. It has already
-happened twice:
+agent's format needs something the format cannot express. It has happened
+three times:
 
 - a reply shape, when Copilot CLI turned out to read context at the top level
   where Claude Code reads it inside a wrapper;
 - a caller-supplied event name, when Copilot CLI turned out not to name its
-  events in the payload at all.
+  events in the payload at all;
+- `output_has_diagnostic`, when a build piped through `head` turned out to
+  exit zero and leave nothing in the payload to read (ADR-0022).
 
-Both were additions, so the number stayed at 1: an older Forgelore reading a
-mapping that uses neither still works. It moves to 2 the first time an
-existing field changes meaning.
+The first two left the number at 1. The third moved it to 2, and the
+difference is not that one was an addition and the others were not — all
+three were. The question is narrower:
+
+> Can an older Forgelore read this file and still be **right**?
+
+For a reply shape or an event name, yes: a mapping that does not use them
+behaves identically on an old binary. For `output_has_diagnostic`, no. An
+older binary does not know the field, drops it, and calls every failure a
+success — silently, which is the one outcome this project spends its effort
+avoiding. So the file says 2, and that binary refuses it out loud instead.
+
+A mapping only carries the version it needs: `copilot-cli.json` and
+`codex-cli.json` are still 1, and a Forgelore from before this change reads
+them.
+
+Setting `output_has_diagnostic` in a file that claims version 1 is refused
+too, for the same reason — otherwise the number would be a label rather than
+a guarantee.
 
 Mappings are data and ship inside the binary, but a file on disk overrides
 them. A user whose agent has changed can fix their own install with a JSON

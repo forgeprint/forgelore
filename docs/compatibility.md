@@ -80,12 +80,14 @@ to send `PostToolUse`, and Forgelore is right to treat it as a success — but
 the build failed, and nothing is recorded or recalled. It happens silently
 and looks exactly like an agent that met no errors.
 
-Whether the agent pipes a build is its own habit, not something this project
-controls. If it does it often, the fix would be to decide failure from the
-output text rather than from the event, the way the Copilot CLI mapping
-already does with `failure.output_matches`. That is a change to the mapping
-and to what "failed" means for this agent, so it is not made here on the
-strength of one observation.
+**This is handled.** The `PostToolUse` mapping carries
+`failure.output_has_diagnostic`, which asks the fingerprinter whether the
+output contains an error it recognises and treats the event as a failure
+when it does — so a piped build is recalled like any other. See
+[ADR-0022](adr/0022-a-failure-test-that-is-not-data.md) for what that costs:
+a command that succeeds while printing error-shaped text, `cat build.log`
+for instance, is now read as a failure. Nothing is written to memory either
+way; the visible effect is a lookup that probably misses.
 
 MCP: both protocol eras are served, because the client speaks either one
 depending on a feature flag. Its v2 runtime opens with `server/discover` at

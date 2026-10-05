@@ -1716,8 +1716,69 @@ yan yana koyarak çıktı. Çıktıyı dosyaya döken geçici bir `settings.json
 hook'u, eklentininkinin yanında çalıştı ve ikisi birbirine karışmadı —
 sonraki bir ajan için en ucuz teşhis aracı bu.
 
+---
+
+## 2026-10-05 — borulanmış komutun gizlediği hata kapatıldı (ADR-0022)
+
+Karar kullanıcınındı: `output_matches`'a geç. Ama Claude Code'un
+`PostToolUse` payload'ında Copilot'taki `completed with exit code [1-9]`
+gibi bir işaret yok — çıkış kodu hiçbir alanda geçmiyor. Geriye tek soru
+kalıyor: çıktı hataya **benziyor** mu?
+
+İki cevap vardı ve ikisi aynı değildi:
+
+1. **Mapping'e regex.** Go'ya dokunmaz, format 1'de kalır. Ama
+   fingerprinter'ın desenini JSON'da ikinci kez yazmak demek, ve
+   dosya:satır deseni `testdata/errors`'taki 29 ailenin ancak yarısına
+   yetişir. Panic'ler, `ModuleNotFoundError`, `npm ERR!` yine sessiz kalır.
+   Tam görünüp yarısını kapatan bir düzeltme, hiç düzeltmemekten kötü —
+   kimse geri dönmüyor.
+2. **Fingerprinter'a sor.** Bilgi tek yerde, 29 ailenin hepsi kapsanıyor.
+
+İkincisi seçildi: `failure.output_has_diagnostic`.
+
+### Sürüm numarası neden 2'ye çıktı
+
+`docs/versioning.md` "ekleme ise 1'de kalır, mevcut bir alan anlam
+değiştirirse 2 olur" diyordu. Bu kural bu vakada yanlış cevap veriyor ve
+düzeltildi. Doğru soru şu: **eski bir ikili bu dosyayı okuyup yine de haklı
+olabilir mi?** Yanıt şekli ve çağıran-kaynaklı olay adı için evet. Bunun
+için hayır — eski ikili alanı tanımaz, düşürür, ve her borulanmış
+başarısızlığa "başarı" der. Sessizce. O yüzden dosya 2 diyor ve o ikili onu
+yüksek sesle reddediyor. Sürüm 1 iddia edip alanı kullanan bir mapping de
+reddediliyor; yoksa numara garanti değil etiket olurdu.
+
+`copilot-cli.json` ve `codex-cli.json` 1'de kaldı — ihtiyaçları yok, ve eski
+bir Forgelore onları hâlâ okuyabiliyor.
+
+### Bedeli açıkça yazıldı
+
+Format artık saf bildirimsel değil: bir failure testini Go cevaplıyor.
+ADR-0020'nin "ajan eklemek Go gerektirmez" sözünün artık bir istisnası var.
+Ayrıca başarılı ama hata biçimli çıktı veren komut (`cat build.log`) artık
+başarısız sayılıyor. Zarar sınırlı — `onCommandFailed`, `Scan` bir şey
+bulamazsa hiçbir şey yapmadan dönüyor — ve üç yerde görünür: `report`,
+enjekte edilen metin, `review`. Hiçbiri kayıt yazmıyor.
+
+### Doğrulama
+
+Yeni ikili kuruldu, canlı Claude Code oturumunda `go build ./... 2>&1 | head
+-40` çalıştırıldı: ledger 8 → 9, enjeksiyon oldu. Korpusa gerçek payload
+`PostToolUse-2.json` olarak eklendi; `TestAPipedBuildStillCountsAsAFailure`
+onu ve başarılı `go version`'ı yan yana tutuyor, çünkü davranışın tamamı
+ikisinin farkında.
+
+Dokunulan dosyalar: `internal/agent/mapping.go`,
+`internal/agent/mappings/claude-code.json`,
+`internal/agent/contract_test.go`,
+`testdata/agents/claude-code/2.1.289/PostToolUse-2.json`,
+`docs/adr/0022-a-failure-test-that-is-not-data.md`, `docs/versioning.md`,
+`docs/mappings.md`, `docs/compatibility.md`.
+
 ### Kalanlar — hepsi `[SEN]`
 
+- Bu değişiklik bir release istiyor: mapping formatı 2'ye çıktı, ve
+  `docs/versioning.md` release notunun bunu söylemesini şart koşuyor.
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
   `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,
@@ -1725,5 +1786,3 @@ sonraki bir ajan için en ucuz teşhis aracı bu.
 - Sonraki release'te imzalama (cosign keyless) ve istenirse npm sarmalayıcı —
   ikisi de Faz 8'de bilerek ertelendi.
 - Gemini CLI ve Cursor: araştırıldı, başlanmadı.
-- Borulanmış komutun gizlediği hata: eşlemeyi `output_matches`'a geçirmek mi,
-  olduğu gibi bırakmak mı? Karar verilmedi.

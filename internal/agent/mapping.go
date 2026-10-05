@@ -6,12 +6,24 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/forgeprint/forgelore/internal/fingerprint"
 )
 
 // MappingVersion is the format this package understands. A mapping file
 // carries its own number so that a file written for a later Forgelore is
 // refused with a sentence rather than misread (K5, ADR-0011).
-const MappingVersion = 1
+//
+// Version 2 added output_has_diagnostic, which is the first failure test
+// this package answers itself instead of reading out of the payload
+// (ADR-0022).
+const MappingVersion = 2
+
+// diagnosticVersion is the first format version whose failure tests may ask
+// the fingerprinter. A mapping that declares an earlier version and uses one
+// anyway is refused: the number is what tells an older binary to stop, and a
+// mapping that lies about it would be read with the test quietly ignored.
+const diagnosticVersion = 2
 
 // Mapping is one agent's hook format, as data.
 //
@@ -96,6 +108,23 @@ type Failure struct {
 	OutputMatches string `json:"output_matches,omitempty"`
 	// FieldPresent: a field exists and is non-empty.
 	FieldPresent Path `json:"field_present,omitempty"`
+
+	// OutputHasDiagnostic: the output carries something the fingerprinter
+	// recognises as an error.
+	//
+	// This is for an agent that reports a shell command's exit status only
+	// through which event it sends, and then sends the success event for a
+	// command whose status was masked — a build piped through `head` exits
+	// zero. There is nothing in such a payload to read, so the question
+	// becomes whether the output looks like a failure, and the only honest
+	// answer to that is the one internal/fingerprint already gives.
+	//
+	// It costs the format its purely declarative character, and it means a
+	// change to the fingerprinter changes what "failed" means for every
+	// mapping that sets this. The alternative was a second copy of the
+	// fingerprinter's patterns living in JSON, which would have covered
+	// about half the error corpus and drifted (ADR-0022).
+	OutputHasDiagnostic bool `json:"output_has_diagnostic,omitempty"`
 }
 
 // Path is where a value lives in the payload, as dotted keys.
@@ -156,6 +185,10 @@ func ParseMapping(data []byte) (*Mapping, error) {
 			if _, err := regexp.Compile(ev.Failure.OutputMatches); err != nil {
 				return nil, fmt.Errorf("agent: %s has an unusable failure pattern: %w", ev.AgentEvent, err)
 			}
+		}
+		if ev.Failure.OutputHasDiagnostic && m.MappingVersion < diagnosticVersion {
+			return nil, fmt.Errorf("agent: %s uses output_has_diagnostic, which needs mapping_version %d",
+				ev.AgentEvent, diagnosticVersion)
 		}
 	}
 	return &m, nil
@@ -230,6 +263,9 @@ func (match Match) failed(raw map[string]any, output string) bool {
 		if re, err := regexp.Compile(match.Failure.OutputMatches); err == nil && re.MatchString(output) {
 			return true
 		}
+	}
+	if match.Failure.OutputHasDiagnostic && len(fingerprint.Scan("", output)) > 0 {
+		return true
 	}
 	return false
 }

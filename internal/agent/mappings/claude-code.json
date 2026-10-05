@@ -1,5 +1,5 @@
 {
-  "mapping_version": 1,
+  "mapping_version": 2,
   "agent": "claude-code",
   "verified_against": "2.1.289",
   "common": {
@@ -44,7 +44,10 @@
         "tool_response.stdout",
         "tool_response"
       ],
-      "skip_when": "tool_response.interrupted"
+      "skip_when": "tool_response.interrupted",
+      "failure": {
+        "output_has_diagnostic": true
+      }
     },
     {
       "agent_event": "SessionEnd",

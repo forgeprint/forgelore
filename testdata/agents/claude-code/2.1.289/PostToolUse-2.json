@@ -1,0 +1,26 @@
+{
+  "session_id": "7c1e0b42-9a55-4d31-9f0e-2b6c8d41a7e3",
+  "transcript_path": "/Users/dev/.claude/projects/-private-work/7c1e0b42-9a55-4d31-9f0e-2b6c8d41a7e3.jsonl",
+  "cwd": "/private/work",
+  "scratchpad_dir": "/private/tmp/claude-501/-private-work/7c1e0b42-9a55-4d31-9f0e-2b6c8d41a7e3/scratchpad",
+  "prompt_id": "5f2a9c17-3e84-4b60-8d12-0a7e5c93b4d6",
+  "permission_mode": "default",
+  "effort": {
+    "level": "high"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "go build ./... 2>&1 | head -40",
+    "description": "Build all Go packages"
+  },
+  "tool_response": {
+    "stdout": "# example.com/broken/cmd/app\ncmd/app/main.go:4:2: undefined: greet",
+    "stderr": "",
+    "interrupted": false,
+    "isImage": false,
+    "noOutputExpected": false
+  },
+  "tool_use_id": "toolu_01PipedBuildExample0000",
+  "duration_ms": 325
+}

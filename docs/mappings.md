@@ -74,14 +74,27 @@ and the mapping keeps working across the change.
 event it is and the caller will. The hook then carries it:
 `forgelore hook --adapter copilot-cli --event postToolUse`.
 
-**Deciding that a command failed** has three forms, and the right one depends
+**Deciding that a command failed** has four forms, and the right one depends
 on what the agent gives you:
 
 ```json
 "failure": { "always": true }                                  // a dedicated failure event
 "failure": { "field_present": "error" }                        // a field appears
 "failure": { "output_matches": "completed with exit code [1-9]" }  // the output says so
+"failure": { "output_has_diagnostic": true }                   // the output looks like an error
 ```
+
+The last one needs `mapping_version: 2` and is the only test Forgelore
+answers itself: it asks the fingerprinter whether the output contains
+anything it recognises. Reach for it when the agent reports a shell command's
+exit status only through which event it sends, and then sends the success
+event for a command whose status was masked — a build piped through `head`
+exits zero, and no field in the payload disagrees.
+
+It is the loosest test here. A command that genuinely succeeded while
+printing error-shaped text, like `cat build.log`, is read as a failure. The
+cost is bounded — a lookup that probably misses, and no proposal from that
+one event — but prefer a narrower test whenever the agent gives you one.
 
 **`skip_when`** names a field that, when present and not `false`, means the
 event is not worth acting on — `is_interrupt` for a command somebody stopped
