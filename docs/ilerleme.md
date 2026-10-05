@@ -712,21 +712,51 @@ Elle koşulan tam döngü (gerçek binary): SessionStart dizini → bilinmeyen h
 sessizlik → komut düzelince aday → `review --accept` → **başka oturumda** aynı
 hatada ipucu → kontrol kolunda sessizlik.
 
+### 2026-10-05 — Adım 4: CLI kuruldu, iki gerçek yük yakalandı
+
+`claude` CLI kuruldu: **2.1.289**, resmî yerel yükleyiciyle
+(`https://claude.ai/install.sh` → `downloads.claude.ai`). Betik çalıştırılmadan
+önce okundu: `$HOME` altına kuruyor, SHA-256'yı manifest'ten doğruluyor, sudo
+istemiyor, sistem dizinine dokunmuyor. Node/npm gerekmedi.
+
+`scripts/capture-agent-events.sh` yazıldı — tek kullanımlık dizin, kendi
+`settings.json`'ı, derlenmeyen bir Go paketi. Kullanıcının kendi Claude Code
+yapılandırmasına dokunmuyor.
+
+**Yakalananlar: `SessionStart` ve `SessionEnd`.** Tool olayları yakalanamadı:
+CLI masaüstü uygulamasından **ayrı** oturum açıyor ve `Not logged in` dedi,
+yani model turu hiç olmadı.
+
+#### Gerçek yüklerin söyledikleri
+
+| Bulgu | Sonuç |
+|---|---|
+| **`scratchpad_dir` yok** | Dokümantasyon "oturumun scratchpad'i yoksa yok" diyordu; pratikte yokluğu olağan hâl. `.forgelore/cache/sessions/` yedeği istisna değil **ana yol** — silinemez |
+| `permission_mode` bu iki olayda yok | Ortak alan sayılmamalı |
+| `hook_event_name`, `session_id`, `cwd` yerinde | Eşlemenin ortak alanları doğrulandı |
+| `SessionStart.source="startup"`, `SessionEnd.reason="other"` | Dokümantasyonla uyumlu |
+
+Üçü de `contract_test.go` ile sabitlendi; `scratchpad_dir`'in yokluğu ayrı bir
+testle kayıt altında, çünkü yedeği silmek herkesin oturum durumunu bozar.
+
+Örnekler `testdata/agents/claude-code/2.1.289/` altında, hesap adı `dev` ile
+değiştirilmiş. Sözleşme testi hem çeviriyi doğruluyor hem de **örneği olmayan
+olayları `withoutSamples` listesinde görünür tutuyor** — yeni bir olay
+eşlenip örneksiz bırakılırsa test kırılıyor.
+
 ### Sırada
 
-**Adım 4.** `claude` CLI bu makinede kurulu değil (masaüstü uygulaması kendi
-binary'sini gömüyor), yani onaylanan "tek kullanımlık projede `claude -p`"
-yolu kapalı.
+**Adım 4'ün kalanı.** `tool_response` sorusu hâlâ açık ve `verified_against`
+hâlâ boş.
 
 ### Faz 4 — açık maddeler
 
-- `[SEN]` Ya `npm i -g @anthropic-ai/claude-code` ile CLI'yi kur (sonrasını ben
-  yaparım), ya da eklentiyi kendi oturumunda etkinleştirip kasıtlı patlayan bir
-  komut çalıştır ve yakalanan yükleri `testdata/agents/claude-code/<sürüm>/`
-  altına koy. İkisi de `tool_response` sorusunu kapatır.
-- Örnekler gelince: `verified_against` doldurulacak, gerekiyorsa
-  `PostToolUse` için başarısızlık testi eklenecek, sözleşme testleri yazılacak
-  (Adım 6'nın gerçek yarısı).
+- `[SEN]` **`claude` çalıştır ve `/login` yap** (CLI, masaüstü uygulamasından
+  ayrı kimlik doğruluyor). Sonrasında `./scripts/capture-agent-events.sh`
+  tool olaylarını da yakalar ve gerisini ben hallederim.
+- Örnekler gelince: `tool_response`'un şekli kesinleşecek, gerekiyorsa
+  `PostToolUse` için başarısızlık testi eklenecek, `withoutSamples` boşalacak
+  ve `verified_against` doldurulacak.
 - `UserPromptSubmit` ve `PreCompact` hiç kullanılmıyor. Planın kanonik
   listesinde vardılar; dört olaylı modelde karşılıkları yok. İhtiyaç doğarsa
   eşlemeye eklenir.

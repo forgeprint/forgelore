@@ -56,6 +56,7 @@ Every check CI runs is a script, and CI runs nothing else:
 ./scripts/gitleaks.sh        # secret scan, pinned binary
 ./scripts/build.sh           # host binary into dist/
 ./scripts/capture-errors.sh  # regenerate testdata/errors
+./scripts/capture-agent-events.sh  # regenerate testdata/agents
 ```
 
 `scripts/test.sh` includes a ten thousand record measurement that takes about
@@ -70,6 +71,9 @@ twenty seconds. `go test -short ./...` skips it.
   into `.tools/` on first run. That one needs network.
 - `scripts/capture-errors.sh` additionally needs `dotnet`, `node` and `python`.
   It is only needed to regenerate the error corpus, which is already committed.
+- `scripts/capture-agent-events.sh` needs the `claude` CLI, logged in. The CLI
+  authenticates separately from the desktop app, so `claude` then `/login`
+  once. Only needed to add to `testdata/agents`, which is already committed.
 
 ## Things that are easy to get wrong here
 
