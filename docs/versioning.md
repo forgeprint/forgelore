@@ -98,6 +98,11 @@ Setting `output_has_diagnostic` in a file that claims version 1 is refused
 too, for the same reason — otherwise the number would be a label rather than
 a guarantee.
 
+The npm packages carry the binary's version with the leading `v` removed,
+and the wrapper and the six platform packages always move together: the
+wrapper pins its dependencies exactly, so it can never be republished alone
+(ADR-0024).
+
 Mappings are data and ship inside the binary, but a file on disk overrides
 them. A user whose agent has changed can fix their own install with a JSON
 edit and no release, which is the point of K5.

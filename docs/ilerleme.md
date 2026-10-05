@@ -1807,8 +1807,78 @@ kırılmıyordu, korpustaki dört payload da geçiyordu.
 Dört sürümün dördü de aynı aileden: kod doğru çalışıyordu, eksik olan şey
 kodun hiç görmediği bir girdiydi. Sırayla anlatmak, kullanmak, kurmak.
 
+---
+
+## 2026-10-05 — imzalama ve npm (ADR-0023, ADR-0024)
+
+Faz 8'in bilerek ertelediği iki madde. İkisi de araştırıldı, iki karar
+soruldu, ikisi de önerilenle gitti.
+
+### İmzalama: attestation, cosign değil
+
+`SHA256SUMS` "bu baytlar mı yayımlandı" sorusunu cevaplıyor ama "kim
+yayımladı"yı cevaplayamıyor — çünkü aynı release'in içinde duruyor; birini
+değiştirebilen ikisini de değiştirir. `install.sh` de checksum'ları aynı
+release'ten okuyor.
+
+`actions/attest-build-provenance` (SHA'ya sabitlendi, her action gibi),
+`subject-path: dist/*`, ve **release oluşturulmadan önce** çalışıyor: adım
+patlarsa düzeltilecek bir release kalmıyor.
+
+cosign elenmedi, tartıldı: GitHub'dan bağımsız doğrulama ve Rekor kaydı
+veriyordu, ama bir installer adımı, iki yeni varlık ve kullanıcıda cosign
+şartı getiriyordu. Attestation tek adım ve sıfır varlık.
+
+Bedeli ADR-0023'te: kanıt GitHub'da duruyor (çevrimdışı doğrulanamıyor),
+kolay yol `gh` istiyor, ve release job'ı artık `id-token: write` taşıyor —
+job'ın başka hiçbir şey yapmamasının sebebi bu. Bir de bu **işletim sistemi
+imzalaması değil**: Gatekeeper ve SmartScreen Sigstore'u tanımıyor.
+
+### npm: platform başına bir paket
+
+Plan "postinstall indirip checksum doğrulasın" diyordu. Yapılan o değil, ve
+sebebi yazıldı: `npm install --ignore-scripts` artık yaygın, ve o bayrakla
+paket "başarıyla" kuruluyor ama içinde binary olmuyor. Sessiz başarısızlık —
+bu projenin bütün gününü aldığı tür.
+
+Onun yerine esbuild'in yöntemi: altı platform paketi, `os`/`cpu` alanlarıyla,
+ve hepsine `optionalDependencies` ile bağlanan tek bir `forgelore`
+sarmalayıcısı. Kurulumda script yok, indirme yok, registry dışında ağ yok.
+
+Sarmalayıcı tek dosya. `stdio: "inherit"` — araya girmemek bilinçli, çünkü
+`forgelore mcp` stdin/stdout üzerinde protokol konuşuyor ve araya giren her
+şey framing konusunda sonsuza kadar haklı kalmak zorunda olurdu.
+
+`scripts/npm-pack.sh` paketleri `dist/`'ten kuruyor ve `release.sh` gibi
+yayımlamıyor, komutları yazdırıyor. Platform paketleri **önce** yayımlanmalı:
+sarmalayıcı bağımlılıklarını tam sürümle sabitliyor, registry'de yoksa
+binary'siz kuruluyor.
+
+### Yerelde uçtan uca denendi
+
+`v0.1.3` artefaktlarıyla yedi paket üretildi ve boş bir dizine tarball'dan
+kuruldu:
+
+- `--ignore-scripts` ile kuruldu ve `forgelore v0.1.3 darwin/arm64` dedi;
+- çalıştırma bitinin tarball'da korunduğu doğrulandı;
+- çıkış kodu sarmalayıcıdan birebir geçti (ikili 1 → sarmalayıcı 1);
+- MCP isteği sarmalayıcıdan ve ikiliden **aynı** baytları döndürdü;
+- `--no-optional` ile kurulduğunda modül çözümleme hatası değil, ne olduğunu
+  anlatan bir cümle çıktı.
+
+### İki şey açık
+
+- **Attestation v0.1.3'te yok.** Bir sonraki etiketten itibaren geçerli;
+  yayımlanmış v0.1.3 varlıkları attestation taşımıyor.
+- **npm paketleri yayımlanmadı.** `dist/npm/` hazır ama `npm publish` bir
+  hesap ve giriş istiyor — `[SEN]`. CI'dan yayımlamak bir automation token
+  istiyor, ve o yapılırsa npm provenance de gelir; şu hâliyle release
+  attested, npm paketleri değil.
+
 ### Kalanlar — hepsi `[SEN]`
 
+- npm paketlerini yayımla (`dist/npm/`, önce platform paketleri). Hesap ve
+  `npm login` gerekiyor.
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
   `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,

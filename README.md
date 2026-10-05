@@ -88,7 +88,27 @@ It verifies the download against the release's `SHA256SUMS` and refuses to
 install anything that does not match. No sudo, nothing outside your home
 directory, no runtime to install alongside it.
 
+Or through npm, which installs the same binary as an ordinary dependency —
+no postinstall script, nothing downloaded at install time, so
+`--ignore-scripts` works:
+
+```sh
+npm install -g forgelore
+```
+
 To build it yourself instead, `./scripts/build.sh` puts a binary in `dist/`.
+
+### Checking where a binary came from
+
+Release artifacts are built by a tag-triggered workflow and carry build
+provenance, so you can ask who published them rather than only whether the
+bytes are intact:
+
+```sh
+gh attestation verify forgelore_linux_amd64 -R forgeprint/forgelore
+```
+
+`SHA256SUMS` still answers the integrity half on its own, offline.
 
 ## Using it
 

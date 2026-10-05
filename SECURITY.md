@@ -8,6 +8,28 @@ on this repository. Please do not open a public issue for a security problem.
 Include what you did, what happened, and the Forgelore version (`forgelore version`).
 You will get an acknowledgement within a week.
 
+## Verifying a release
+
+Every release artifact is built by a tag-triggered workflow and attested
+there, before the release is created. To check that a binary came from that
+workflow and not from somewhere else:
+
+```sh
+gh attestation verify forgelore_linux_amd64 -R forgeprint/forgelore
+```
+
+`SHA256SUMS` answers a narrower question — whether the bytes are the
+published ones — and works offline. It cannot answer who published them,
+because it travels in the same release as the binaries.
+
+Two things are deliberately **not** covered, and are worth knowing before
+you rely on this:
+
+- the npm packages, which are published by hand and carry no provenance
+  ([ADR-0024](docs/adr/0024-npm-one-package-per-platform.md));
+- operating-system code signing. Sigstore means nothing to macOS Gatekeeper
+  or Windows SmartScreen, and you will still meet their warnings.
+
 ## Threat model
 
 Forgelore stores a project's accumulated debugging knowledge and feeds parts of
