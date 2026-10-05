@@ -1482,3 +1482,32 @@ bytes injected 42" olarak göründü.
 Protokolün tablosu güncellendi: MCP artık "istemci `session` geçirirse
 ölçülür". Modelin bunu güvenilir biçimde geçirip geçirmediği denemenin
 kendi bulgularından biri olacak — gün sıfırda bakılmalı, cuma günü değil.
+
+---
+
+## 2026-10-05 — v0.1.2
+
+https://github.com/forgeprint/forgelore/releases/tag/v0.1.2
+
+MCP üzerinden yapılan aramalar artık ölçülüyor (`recall_error`'ın `session`
+argümanı) ve `docs/team-trial.md`'nin üç düzeltmesi de içeride.
+
+Yayımlanan ikiliyle doğrulandı: temiz bir `HOME`'a kuruldu, MCP inspector'dan
+`session` geçirilerek bir `recall_error` yapıldı, ve `report --days 1` onu
+"hints injected 1, bytes injected 31" olarak gösterdi — yani ölçüm yolu
+gerçek release'te uçtan uca çalışıyor.
+
+### Üç sürümün ritmi
+
+`v0.1.0` → `v0.1.1` → `v0.1.2` aynı günde çıktı, ve ikisi de bir **dokümanı
+yazarken** bulunan şeyler yüzünden:
+
+- `v0.1.1`: README demosu yazılırken `go vet`'in hiç tanınmadığı görüldü.
+- `v0.1.2`: ekip denemesi protokolü gözden geçirilirken MCP'nin hiçbir şey
+  ölçmediği görüldü.
+
+İkisi de sessiz hatalardı — hiçbir test kırılmıyordu, hiçbir kullanıcı hata
+mesajı görmeyecekti. Ortak nokta: **aracı anlatmaya çalışmak, onu
+kullanmaktan daha iyi bir kontrol yöntemi çıktı.** Testler yazdığımız şeyin
+çalıştığını kanıtlıyor; bir doküman, yazmadığımız şeyin eksik olduğunu
+gösteriyor.
