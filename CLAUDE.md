@@ -59,7 +59,14 @@ Every check CI runs is a script, and CI runs nothing else:
 ./scripts/capture-agent-events.sh  # regenerate testdata/agents
 ./scripts/release.sh vX.Y.Z  # build every artifact and SHA256SUMS
 ./scripts/install.sh         # what a user runs; not needed to develop
+./scripts/drift-versions.sh  # has an agent released a version nobody checked?
+./scripts/drift-payloads.sh <agent>  # recapture and diff against the corpus
 ```
+
+`drift-versions.sh` and `drift-payloads.sh` are deliberately **not** in
+`ci.sh`: the first needs the network and the second needs a signed-in agent,
+and `ci.sh` has to stay runnable offline on any machine. The weekly
+`.github/workflows/drift.yml` runs the first one.
 
 `scripts/test.sh` includes a ten thousand record measurement that takes about
 twenty seconds. `go test -short ./...` skips it.

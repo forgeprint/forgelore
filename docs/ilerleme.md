@@ -1130,3 +1130,86 @@ Faz 9 — kayma dedektörü ve bakım.
 - npm sarmalayıcı yazılmadı.
 - `release.sh` `crosscheck`'i iki kez koşuyor (biri `ci.sh` içinde, biri
   etiket sürümüyle). Birkaç saniye; bölmeye değmedi.
+
+---
+
+## Faz 9 — Kayma dedektörü ve bakım
+
+**Durum:** Tamam. Adım 1–4 bitti, kabul kriteri karşılandı.
+
+### Planın 1. adımı kaymayı göremezdi
+
+Adım 1 "son sürümleri kurar ve **toplanan olay örnekleriyle** sözleşme
+testlerini çalıştırır" diyordu. Ama toplanan örnekler ajan güncellendiğinde
+değişmiyor — o testler bizim değişikliklerimizi yakalar, ajanınkileri değil.
+Yeni sürümü kurmak hiçbir şeye dokunmaz.
+
+Gerçek kayma ancak canlı ajandan **yeniden yakalayarak** görülür, o da oturum
+açmış bir hesap ister. CI'da kimlik yok ve olmamalı. İkiye bölündü:
+
+| | Ne görür | Nerede koşar |
+|---|---|---|
+| `drift-versions.sh` | "Yeni sürüm çıktı, kimse bakmadı" | CI, haftalık, kimliksiz |
+| `drift-payloads.sh` | Alan gerçekten taşındı mı | Bakımcının makinesi, ajan oturum açmış |
+
+Üç sürüm kaynağı da kimlik doğrulamadan sorgulanabiliyor: Claude Code
+`downloads.claude.ai/.../latest`, Copilot ve Codex npm registry.
+
+`drift-payloads.sh` **değerleri değil alan yollarını** karşılaştırıyor. Oturum
+kimliği ve zaman damgası her koşuda değişir ve hiçbir şey anlatmaz; kaybolan
+ya da beliren bir alan ise hikâyenin tamamı, çünkü eşlemenin bağlı olduğu şey
+tam olarak bir alan yolu.
+
+### Kabul kriteri — ve açtığı kör nokta
+
+Plan: "Bir eşleme alanı bilerek bozulduğunda kayma dedektörü bunu yakalıyor."
+
+İki bozma denendi:
+
+1. `tool_input.command` → `tool_input.cmd`: **yakalandı**, dosya adıyla
+   birlikte ("the command did not resolve").
+2. `common.event_name` → `hookEvent`: **yakalanmadı.**
+
+İkincisi gerçek bir kör noktaydı. Replay olay adını yedek olarak geçiriyordu
+ve bu, eşlemenin bozuk `event_name` yolunu maskeliyordu — test geçerdi, ajanın
+önünde çalışmazdı, çünkü Claude Code hook'u `--event` göndermiyor. Yedek artık
+yalnızca eşleme "adı çağıran verir" (`event_name: ""`) dediğinde veriliyor.
+Düzeltmeden sonra ikisi de yakalanıyor.
+
+Canlı kontrol: `./scripts/drift-payloads.sh copilot-cli` gerçek ajana karşı
+koşuldu, üç olayda da "unchanged" dedi.
+
+### Yazılanlar
+
+- `scripts/drift-versions.sh` — "hiç doğrulanmadı" ayrı bir durum olarak
+  raporlanıyor, sessizce düşmüyor; Codex şu an onu tetikliyor.
+- `scripts/drift-payloads.sh` + `capture-agent-events.sh`'e
+  `FORGELORE_CAPTURE_OUT` (külliyatı ezmeden yakalamak için).
+- `.github/workflows/drift.yml` — haftalık, **ajan başına tek issue**,
+  başlıktan bulup yorum ekliyor. Her pazartesi yeni issue açan dedektör,
+  insanların filtrelediği dedektördür.
+- `doctor` artık kurulu ajan sürümlerini `verified_against` ile
+  karşılaştırıyor ve **uyarıyor** — çıkış kodunu değiştirmiyor.
+- `docs/mappings.md` + `CONTRIBUTING.md`'nin adaptör bölümü güncellendi (eski
+  `adapters/` yolunu gösteriyordu).
+
+İkisi de bilerek `ci.sh`'in dışında: biri ağ, diğeri oturum açmış ajan
+istiyor, `ci.sh` ise her makinede çevrimdışı koşabilmeli.
+
+### Sırada
+
+Dokuz fazın tamamı bitti. Kalan işler `[SEN]`:
+
+- İlk release (`./scripts/release.sh v0.1.0`, etiket, push).
+- Forgeprint marketplace kaydı.
+- İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
+- Codex CLI doğrulaması, erişim olduğunda.
+- 11 commit hâlâ yerelde; release workflow'u etikete bağlı, yani önce
+  `git push origin main` gerekiyor.
+
+### Faz 9 — açık maddeler
+
+- Sürüm kayması yalnızca üç ajanı biliyor. Dördüncüsü eklenince
+  `drift-versions.sh`'e bir kaynak eklenmeli.
+- Dokümantasyon kayması ölçülmüyor. Bir ajan hook sayfasını değiştirirse
+  sürüm değişmeden kayma olabilir; bunu yakalayan tek şey yeniden yakalama.

@@ -120,7 +120,10 @@ if [ ${#captured[@]} -eq 0 ]; then
 	exit 1
 fi
 
-out="$out_root/$agent/$version"
+# FORGELORE_CAPTURE_OUT redirects the capture somewhere other than the
+# corpus, which is how drift-payloads.sh compares a fresh capture against the
+# committed one without overwriting it first.
+out="${FORGELORE_CAPTURE_OUT:-$out_root/$agent/$version}"
 mkdir -p "$out"
 account="$(id -un)"
 for f in "${captured[@]}"; do
@@ -132,7 +135,7 @@ for f in "${captured[@]}"; do
 		"$f" > "$out/$(basename "$f")"
 done
 
-echo "==> wrote ${#captured[@]} payload(s) to testdata/agents/$agent/$version"
+echo "==> wrote ${#captured[@]} payload(s) to $out"
 if grep -l "$account" "$out"/*.json 2>/dev/null; then
 	echo "the account name survived scrubbing" >&2
 	exit 1

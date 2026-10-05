@@ -37,3 +37,30 @@ func Built(name string) (*Mapping, error) {
 func BuiltIn() []string {
 	return []string{"claude-code", "codex-cli", "copilot-cli"}
 }
+
+// Verified reports the agent version each built-in mapping was checked
+// against, empty when none. `doctor` compares it with what is installed.
+func Verified() map[string]string {
+	out := make(map[string]string, len(BuiltIn()))
+	for _, name := range BuiltIn() {
+		m, err := Built(name)
+		if err != nil {
+			continue
+		}
+		out[name] = m.VerifiedAgainst
+	}
+	return out
+}
+
+// Binary is the command each agent installs, for finding it on PATH.
+func Binary(agent string) string {
+	switch agent {
+	case "claude-code":
+		return "claude"
+	case "codex-cli":
+		return "codex"
+	case "copilot-cli":
+		return "copilot"
+	}
+	return ""
+}

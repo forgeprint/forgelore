@@ -111,6 +111,7 @@ func cmdDoctor(e env, args []string) error {
 	}
 
 	settings := cfg.Effective()
+	agents := agentStatuses()
 
 	// The secret scan is only as good as what is installed, so doctor says
 	// which half of it will run.
@@ -131,22 +132,28 @@ func cmdDoctor(e env, args []string) error {
 			rows = append(rows, setting{s.Key, s.Value, s.Source, s.From})
 		}
 		return writeJSON(e.stdout, struct {
-			Root           string    `json:"root"`
-			Records        int       `json:"records"`
-			Indexed        int       `json:"indexed"`
-			Skipped        int       `json:"skipped"`
-			Problems       []string  `json:"problems,omitempty"`
-			ConfigProblems []string  `json:"config_problems,omitempty"`
-			Gitleaks       string    `json:"gitleaks"`
-			Config         []setting `json:"config"`
+			Root           string        `json:"root"`
+			Records        int           `json:"records"`
+			Indexed        int           `json:"indexed"`
+			Skipped        int           `json:"skipped"`
+			Problems       []string      `json:"problems,omitempty"`
+			ConfigProblems []string      `json:"config_problems,omitempty"`
+			Gitleaks       string        `json:"gitleaks"`
+			Agents         []agentStatus `json:"agents"`
+			Config         []setting     `json:"config"`
 		}{s.Root(), len(records), indexed, skipped,
-			problemStrings(problems), configProblemStrings(configProblems), gitleaks, rows})
+			problemStrings(problems), configProblemStrings(configProblems), gitleaks, agents, rows})
 	}
 
 	fmt.Fprintf(e.stdout, "store    %s\n", relativeTo(e.wd, s.Root()))
 	fmt.Fprintf(e.stdout, "records  %d readable, %d skipped\n", len(records), skipped)
 	fmt.Fprintf(e.stdout, "index    %d records\n", indexed)
 	fmt.Fprintf(e.stdout, "gitleaks %s\n", gitleaks)
+
+	fmt.Fprintln(e.stdout, "\nagents")
+	for _, a := range agents {
+		fmt.Fprintf(e.stdout, "  %-14s %s\n", a.Agent, a.Note)
+	}
 
 	// ADR-0018: five sources means no file shows the effective value, so
 	// this has to say where each one actually came from.

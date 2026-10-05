@@ -35,14 +35,20 @@ run locally means a green run there.
 
 ## Agent adapters are data, not code
 
-Support for a coding agent lives in a mapping file under `adapters/`, embedded
-into the binary and overridable by a file in the user's project. Adding or
-fixing support for an agent should not require writing Go, and changing an
-event name should not require a new release.
+Support for a coding agent lives in a mapping file under
+`internal/agent/mappings/`, embedded into the binary and overridable with
+`forgelore hook --mapping`. Adding or fixing support for an agent should not
+require writing Go, and changing an event name should not require a new
+release.
 
-An adapter change needs real event samples in `testdata/agents/<agent>/<version>/`
-and a contract test that runs against them. Claims about an agent's hook format
-must cite that agent's current official documentation.
+An adapter change needs real event samples in
+`testdata/agents/<agent>/<version>/` and passes the contract test that
+replays them. Documentation is where a mapping starts, never where it ends:
+every mapping here was first written from an agent's official docs and every
+one of them was wrong in some way that would have left Forgelore silent.
+
+[`docs/mappings.md`](docs/mappings.md) is the walkthrough — what to capture,
+what each field means, and what a mapping pull request should carry.
 
 ## Do not commit secrets or captured data
 

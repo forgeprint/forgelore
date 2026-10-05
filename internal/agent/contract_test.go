@@ -113,10 +113,17 @@ func replayAgent(t *testing.T, mapping *Mapping, dir string) {
 		event := strings.SplitN(strings.TrimSuffix(f.Name(), ".json"), "-", 2)[0]
 		seen[event] = true
 
-		// The file is named after the event, which is what the hook entry
-		// passes on the command line for an agent whose payload does not
-		// carry it.
-		e, ok, err := mapping.Translate(payload, event, now)
+		// The event name is supplied only for an agent whose mapping says
+		// its payloads do not carry one. Supplying it unconditionally
+		// would mask a broken event_name path: the fallback would answer
+		// for a lookup that should have failed, and the mapping would
+		// pass this test while failing in front of the agent, which does
+		// not pass --event.
+		caller := ""
+		if len(mapping.Common.EventName) == 0 || mapping.Common.EventName[0] == "" {
+			caller = event
+		}
+		e, ok, err := mapping.Translate(payload, caller, now)
 		if err != nil {
 			t.Errorf("%s/%s: %v", dir, f.Name(), err)
 			continue

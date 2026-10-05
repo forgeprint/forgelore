@@ -1,0 +1,50 @@
+name: Drift
+
+# Weekly, and on demand. This job only asks whether an agent has published a
+# version nobody has checked Forgelore against; it cannot tell whether
+# anything is broken, because that needs a signed-in agent and this runner
+# has no credentials. scripts/drift-payloads.sh is the half that can tell,
+# and it runs on a maintainer's machine.
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  versions:
+    runs-on: ubuntu-24.04
+    steps:
+      # Actions are pinned to commit SHAs, not tags: a tag can be moved, a SHA
+      # cannot. Update the trailing comment whenever the SHA changes.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Compare published versions with what is verified
+        id: drift
+        run: |
+          if ./scripts/drift-versions.sh > drift.txt 2>&1; then
+            echo "drifted=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "drifted=true" >> "$GITHUB_OUTPUT"
+          fi
+          cat drift.txt
+
+      # One issue, reopened and updated rather than a new one every Monday.
+      # A detector that files a duplicate every week is a detector people
+      # filter out of their inbox.
+      - name: File or update the issue
+        if: steps.drift.outputs.drifted == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: 'Agent drift: a mapping is behind a released version'
+        run: |
+          body="$(printf 'The weekly drift check found this:\n\n```\n%s\n```\n\nRecapture and compare on a machine with the agent signed in:\n\n```sh\n./scripts/capture-agent-events.sh <agent>\n./scripts/drift-payloads.sh <agent>\n```\n\nSee docs/mappings.md for what to change.' "$(cat drift.txt)")"
+          existing="$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$TITLE" --body "$body"
+          fi
