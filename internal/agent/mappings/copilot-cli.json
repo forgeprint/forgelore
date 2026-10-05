@@ -1,9 +1,9 @@
 {
   "mapping_version": 1,
   "agent": "copilot-cli",
-  "verified_against": "",
+  "verified_against": "1.0.91",
   "common": {
-    "event_name": ["hookEventName", "hook_event_name"],
+    "event_name": "",
     "session": ["sessionId", "session_id"],
     "cwd": "cwd",
     "scratchpad": ""
@@ -14,21 +14,22 @@
       "kind": "session_started"
     },
     {
+      "agent_event": "postToolUse",
+      "kind": "command_succeeded",
+      "tools": ["bash", "shell"],
+      "tool": ["toolName", "tool_name"],
+      "command": ["toolArgs.command", "tool_args.command"],
+      "output": ["toolResult.textResultForLlm", "tool_result.text_result_for_llm"],
+      "failure": { "output_matches": "completed with exit code [1-9]" }
+    },
+    {
       "agent_event": "postToolUseFailure",
       "kind": "command_failed",
-      "tools": ["bash", "shell", "Bash"],
+      "tools": ["bash", "shell"],
       "tool": ["toolName", "tool_name"],
       "command": ["toolArgs.command", "tool_args.command"],
       "output": ["error", "toolResult.textResultForLlm"],
       "failure": { "always": true }
-    },
-    {
-      "agent_event": "postToolUse",
-      "kind": "command_succeeded",
-      "tools": ["bash", "shell", "Bash"],
-      "tool": ["toolName", "tool_name"],
-      "command": ["toolArgs.command", "tool_args.command"],
-      "output": ["toolResult.textResultForLlm", "tool_result.text_result_for_llm"]
     },
     {
       "agent_event": "sessionEnd",

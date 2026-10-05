@@ -23,7 +23,7 @@ would have been silent forever.
 |---|---|---|---|---|---|
 | Claude Code | **A** | 2.1.289 | ✅ 4 captured payloads | ✅ both protocol eras measured | ✅ status line |
 | Codex CLI | A, **unverified** | — | mapping written from docs | not measured | none known |
-| Copilot CLI | A, **unverified** | — | mapping written from docs | not measured | none known |
+| Copilot CLI | **A** | 1.0.91 | ✅ 3 captured payloads | not measured | none known |
 | Gemini CLI | researched, not started | — | — | — | — |
 | Cursor | researched, not started | — | — | — | — |
 
@@ -67,18 +67,32 @@ settle.
 
 ## Copilot CLI
 
-Mapping written from the official hooks reference on 2026-10-05, and **not
-verified against a single real payload**.
+Verified against 1.0.91 on 2026-10-05. Both guesses made from the
+documentation were wrong, and in ways that would have left Forgelore silent.
 
-Events are camelCase: `sessionStart`, `postToolUse`, `postToolUseFailure`,
-`sessionEnd`. The documentation also describes a snake_case "VS Code
-compatible" form, so the mapping lists both spellings for every field and
-takes whichever resolves.
+**The payload does not name its event.** There is no `hookEventName` field of
+any spelling: a payload carries `sessionId`, `timestamp`, `cwd` and whatever
+the event itself adds. The event is known only from which hook entry fired,
+so the hook command carries it: `forgelore hook --adapter copilot-cli --event
+postToolUse`. The mapping format gained an empty `event_name` meaning "the
+caller supplies it".
 
-A failing tool reports `error` as a string, the same shape Claude Code turned
-out to use. Context goes back as a top-level `additionalContext` rather than
-inside a wrapper — which is why the mapping format gained a `response`
-section in this phase.
+**A failing command is not a failing tool.** `go build` exiting 1 arrives as
+`postToolUse` with `toolResult.resultType: "success"`, and the shell's exit
+code appears at the end of the result text:
+
+```
+# example.com/broken/cmd/app
+cmd/app/main.go:4:2: undefined: greet
+<shellId: 0 completed with exit code 1>
+```
+
+So the mapping decides failure with `output_matches` on `completed with exit
+code [1-9]`. `postToolUseFailure` exists but means the tool itself failed,
+which a broken build does not do; no payload for it has been captured.
+
+Context goes back as a top-level `additionalContext` rather than inside a
+wrapper — which is why the mapping format gained a `response` section.
 
 ## Gemini CLI and Cursor
 

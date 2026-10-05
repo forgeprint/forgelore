@@ -950,9 +950,9 @@ Faz 7 — diğer ajanlar. Faz 6'dan devreden tek şey `[SEN]` bir haftalık dene
 
 ## Faz 7 — Diğer ajanlar
 
-**Durum:** Codex CLI ve Copilot CLI için eşlemeler yazıldı ama **hiçbiri
-doğrulanmadı** — ikisi de oturum açılmasını bekliyor. `docs/compatibility.md`
-yayımlandı.
+**Durum:** Copilot CLI doğrulandı (1.0.91, üç gerçek yük). Codex CLI'nin
+eşlemesi yazıldı ama **doğrulanmadı** — oturum açılmasını bekliyor.
+`docs/compatibility.md` yayımlandı.
 
 ### 2026-10-05 — dördü de A adayı çıktı
 
@@ -1005,18 +1005,52 @@ Codex CLI 0.160.0 ve GitHub Copilot CLI 1.0.91, mevcut Node ile
 `~/.local` altına. İkisi de **oturum açmamış** — `codex login`,
 `copilot login` senin hesaplarını istiyor.
 
+### 2026-10-05 — Copilot CLI doğrulandı, iki tahmin de yanlış çıktı
+
+Oturum açıldı, `./scripts/capture-agent-events.sh copilot-cli` üç gerçek yük
+topladı (1.0.91). Dokümantasyondan türettiğim eşlemenin **iki varsayımı da**
+yanlıştı, ve ikisi de Forgelore'u sessiz bırakırdı.
+
+**1. Yük kendi olayını adlandırmıyor.** Hiçbir yazımıyla `hookEventName` yok:
+yük `sessionId`, `timestamp`, `cwd` ve olaya özgü alanlardan ibaret. Olay
+yalnızca hangi hook girdisinin tetiklendiğinden belli. Eşleme formatı boş
+`event_name` kazandı — "adı çağıran verir" — ve hook komutu taşıyor:
+`forgelore hook --adapter copilot-cli --event postToolUse`.
+
+**2. Patlayan komut, patlayan araç değil.** `go build`'in 1 ile çıkması
+`postToolUse` olarak geliyor, `toolResult.resultType: "success"` ile, ve
+kabuk çıkış kodu sonuç metninin sonunda:
+
+```
+<shellId: 0 completed with exit code 1>
+```
+
+Eşleme artık `output_matches` ile `completed with exit code [1-9]` arıyor.
+Başarıda aynı yerde `exit code 0` var; ikisi de test edildi.
+`postToolUseFailure` var ama *aracın* başarısızlığını anlatıyor, ki bozuk bir
+derleme onu tetiklemiyor — örneği yok, `withoutSamples`'da gerekçesiyle
+kayıtlı.
+
+Üçüncü bir şey: Copilot proje içindeki `.github/hooks`'u geçici dizinde
+okumadı. Kullanıcının gerçek `~/.copilot`'una yazmak yerine **`COPILOT_HOME`**
+ile ajana kendi evi verildi; profil bunu yapıyor.
+
+Yakalama betiği de değişti: olay adı artık hook girdisinden **argüman olarak**
+geliyor, yükten ayrıştırılmıyor. Ayrıştırma zaten yalnızca Claude Code için
+çalışıyordu.
+
 ### Sırada
 
-`[SEN]` İki oturum açma. Sonrasında her biri için:
-`./scripts/capture-agent-events.sh codex-cli` → eşleme düzeltilir →
-`verified_against` dolar → MCP dönemi ölçülür → tablo güncellenir.
+`[SEN]` **`codex login`** — akış `c4` sekmesinde açıldı ama tamamlanmadı,
+`codex login status` hâlâ "Not logged in" diyor. Sonrasında
+`./scripts/capture-agent-events.sh codex-cli` ve aynı döngü.
 
-Faz 4'ün dersi burada da geçerli olacak: dokümantasyondan yazılan eşleme
-yanlış çıkacak, ve yanlışın bedeli bir JSON düzenlemesi olacak.
+Faz 4 ve Copilot'un dersi Codex'te de beklenmelidir: dokümantasyondan yazılan
+eşleme yanlış çıkacak, ve yanlışın bedeli bir JSON düzenlemesi olacak.
 
 ### Faz 7 — açık maddeler
 
-- `[SEN]` `codex login` ve `copilot login`.
+- `[SEN]` `codex login` (Copilot tamamlandı).
 - Gemini CLI ve Cursor ayrı turlar. Cursor'ın olay modeli (kabuk öncesi /
   dosya sonrası) dört anlamsal olaya en uzak duran; `command_failed`
   karşılığı olup olmadığı bakılmalı.

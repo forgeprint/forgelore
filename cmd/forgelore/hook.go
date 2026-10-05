@@ -30,6 +30,7 @@ func cmdHook(e env, args []string) error {
 	fs := newFlags(e, "hook")
 	adapter := fs.String("adapter", "claude-code", "which agent is calling: "+strings.Join(agent.BuiltIn(), ", "))
 	mappingFile := fs.String("mapping", "", "use this mapping file instead of the built-in one")
+	event := fs.String("event", "", "the agent's name for this event, for agents whose payload does not carry it")
 	dir := fs.String("dir", "", "work on the project containing this directory")
 	if err := fs.Parse(args); err != nil {
 		// Even a bad flag must not break the session.
@@ -37,7 +38,7 @@ func cmdHook(e env, args []string) error {
 	}
 
 	deadline := time.Now()
-	response, err := runHook(e, *adapter, *mappingFile, *dir, &deadline)
+	response, err := runHook(e, *adapter, *mappingFile, *event, *dir, &deadline)
 	if err != nil {
 		// The reason goes to stderr, where Claude Code shows it only if the
 		// exit code says something went wrong. It does not.
@@ -53,7 +54,7 @@ func cmdHook(e env, args []string) error {
 
 // runHook does the work, with every failure turned into a quiet nothing by
 // its caller.
-func runHook(e env, adapter, mappingFile, dir string, started *time.Time) (resp string, err error) {
+func runHook(e env, adapter, mappingFile, callerEvent, dir string, started *time.Time) (resp string, err error) {
 	defer func() {
 		// A panic in a hook is a crashed process and a visible error in the
 		// user's session. Recovering turns the worst outcome into silence.
@@ -72,7 +73,7 @@ func runHook(e env, adapter, mappingFile, dir string, started *time.Time) (resp 
 		return "", err
 	}
 
-	event, ok, err := mapping.Translate(payload, time.Now().UTC().Truncate(time.Second))
+	event, ok, err := mapping.Translate(payload, callerEvent, time.Now().UTC().Truncate(time.Second))
 	if err != nil {
 		return "", err
 	}

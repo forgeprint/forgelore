@@ -20,7 +20,13 @@ const corpusRoot = "../../testdata/agents/claude-code"
 // added to the mapping without a sample fails the test below rather than
 // resting on documentation, which is how the two tool events were wrong in
 // the first place.
-var withoutSamples = map[string]string{}
+var withoutSamples = map[string]string{
+	// Copilot CLI fires postToolUseFailure when the tool itself fails, not
+	// when a command it ran exits non-zero: a failing build arrives as
+	// postToolUse with "exit code 1" in the result text. Provoking a real
+	// tool failure needs something other than a broken build.
+	"copilot-cli/postToolUseFailure": "a failing command is not a failing tool; needs a tool error to provoke",
+}
 
 // TestEveryBuiltInMappingParses: a mapping that ships broken is a feature
 // that silently does nothing.
@@ -107,7 +113,10 @@ func replayAgent(t *testing.T, mapping *Mapping, dir string) {
 		event := strings.SplitN(strings.TrimSuffix(f.Name(), ".json"), "-", 2)[0]
 		seen[event] = true
 
-		e, ok, err := mapping.Translate(payload, now)
+		// The file is named after the event, which is what the hook entry
+		// passes on the command line for an agent whose payload does not
+		// carry it.
+		e, ok, err := mapping.Translate(payload, event, now)
 		if err != nil {
 			t.Errorf("%s/%s: %v", dir, f.Name(), err)
 			continue
@@ -123,14 +132,30 @@ func replayAgent(t *testing.T, mapping *Mapping, dir string) {
 			t.Errorf("%s/%s: the working directory did not resolve", dir, f.Name())
 		}
 
-		want := map[string]Kind{
-			"SessionStart": SessionStarted, "sessionStart": SessionStarted,
-			"SessionEnd": SessionEnded, "sessionEnd": SessionEnded,
-			"PostToolUseFailure": CommandFailed, "postToolUseFailure": CommandFailed,
-			"PostToolUse": CommandSucceeded, "postToolUse": CommandSucceeded,
-		}[event]
-		if want != "" && e.Kind != want {
-			t.Errorf("%s/%s: kind = %q, want %q", dir, f.Name(), e.Kind, want)
+		// A session event must map to exactly one kind. A tool event maps
+		// to either command kind, because which one it is depends on the
+		// payload and not on the event's name: Copilot CLI reports a
+		// command that exited non-zero as a successful postToolUse with
+		// the exit code buried in the result text.
+		switch event {
+		case "SessionStart", "sessionStart":
+			if e.Kind != SessionStarted {
+				t.Errorf("%s/%s: kind = %q, want %q", dir, f.Name(), e.Kind, SessionStarted)
+			}
+		case "SessionEnd", "sessionEnd":
+			if e.Kind != SessionEnded {
+				t.Errorf("%s/%s: kind = %q, want %q", dir, f.Name(), e.Kind, SessionEnded)
+			}
+		case "PostToolUse", "postToolUse", "PostToolUseFailure", "postToolUseFailure":
+			if e.Kind != CommandFailed && e.Kind != CommandSucceeded {
+				t.Errorf("%s/%s: kind = %q, want a command event", dir, f.Name(), e.Kind)
+			}
+			if e.Command == "" {
+				t.Errorf("%s/%s: the command did not resolve", dir, f.Name())
+			}
+			if e.Output == "" {
+				t.Errorf("%s/%s: the output did not resolve", dir, f.Name())
+			}
 		}
 	}
 	if total == 0 {
@@ -199,7 +224,7 @@ func TestEveryCapturedPayloadHasAScratchpad(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		e, ok, err := mustBuilt(t).Translate(payload, now)
+		e, ok, err := mustBuilt(t).Translate(payload, "", now)
 		if err != nil || !ok {
 			t.Fatalf("%s: ok=%v err=%v", name, ok, err)
 		}
@@ -241,7 +266,7 @@ func TestTheRealFailurePayloadCarriesItsError(t *testing.T) {
 		t.Fatal("the capture no longer has a top-level error field")
 	}
 
-	e, ok, err := mustBuilt(t).Translate(payload, now)
+	e, ok, err := mustBuilt(t).Translate(payload, "", now)
 	if err != nil || !ok {
 		t.Fatalf("ok=%v err=%v", ok, err)
 	}
@@ -262,12 +287,12 @@ func TestAnInterruptedCommandIsIgnored(t *testing.T) {
 	payload := `{"hook_event_name":"PostToolUseFailure","session_id":"s1","cwd":"/w",
 	             "tool_name":"Bash","tool_input":{"command":"go test ./..."},
 	             "error":"Exit code 130","is_interrupt":true}`
-	if _, ok, _ := mustBuilt(t).Translate([]byte(payload), now); ok {
+	if _, ok, _ := mustBuilt(t).Translate([]byte(payload), "", now); ok {
 		t.Error("an interrupted command produced an event")
 	}
 
 	notInterrupted := strings.Replace(payload, "true", "false", 1)
-	if _, ok, _ := mustBuilt(t).Translate([]byte(notInterrupted), now); !ok {
+	if _, ok, _ := mustBuilt(t).Translate([]byte(notInterrupted), "", now); !ok {
 		t.Error("is_interrupt false suppressed a real failure")
 	}
 }

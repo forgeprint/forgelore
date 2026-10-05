@@ -27,10 +27,10 @@ claude-code)
 	version_cmd=(--version)
 	config_path=".claude/settings.json"
 	events=(SessionStart PostToolUse PostToolUseFailure SessionEnd)
-	write_config() { # $1 = hook command
+	write_config() { # $1 = hook script
 		local h hooks=""
 		for e in "${events[@]}"; do
-			h="{\"type\":\"command\",\"command\":\"$1\",\"timeout\":10}"
+			h="{\"type\":\"command\",\"command\":\"$1 $e\",\"timeout\":10}"
 			hooks="$hooks,\"$e\":[{\"hooks\":[$h]}]"
 		done
 		printf '{"hooks":{%s}}' "${hooks:1}"
@@ -45,7 +45,7 @@ codex-cli)
 	write_config() {
 		local h hooks=""
 		for e in "${events[@]}"; do
-			h="{\"type\":\"command\",\"command\":\"$1\"}"
+			h="{\"type\":\"command\",\"command\":\"$1 $e\"}"
 			hooks="$hooks,\"$e\":[$h]"
 		done
 		printf '{"hooks":{%s}}' "${hooks:1}"
@@ -60,16 +60,19 @@ codex-cli)
 copilot-cli)
 	bin=copilot
 	version_cmd=(--version)
-	config_path=".github/hooks/forgelore.json"
+	# Repo-level .github/hooks was not read in a throwaway directory, and
+	# writing to the real ~/.copilot would touch the user's own setup.
+	# COPILOT_HOME points the agent at a home of its own.
+	config_path="copilot-home/hooks/forgelore.json"
 	events=(sessionStart postToolUse postToolUseFailure sessionEnd)
 	write_config() {
 		local hooks=""
 		for e in "${events[@]}"; do
-			hooks="$hooks,\"$e\":[{\"type\":\"command\",\"bash\":\"$1\",\"timeoutSec\":10}]"
+			hooks="$hooks,\"$e\":[{\"type\":\"command\",\"bash\":\"$1 $e\",\"timeoutSec\":10}]"
 		done
 		printf '{"version":1,"hooks":{%s}}' "${hooks:1}"
 	}
-	run_session() { "$bin" -p "$1" --allow-all-tools; }
+	run_session() { COPILOT_HOME="$work/copilot-home" "$bin" -p "$1" --allow-all-tools; }
 	;;
 *)
 	echo "unknown agent $agent (claude-code, codex-cli, copilot-cli)" >&2
@@ -88,14 +91,16 @@ mkdir -p "$work/$(dirname "$config_path")" "$work/captured"
 
 cat > "$work/capture.sh" <<'HOOK'
 #!/usr/bin/env bash
-payload=$(cat)
-event=$(printf '%s' "$payload" | sed -n 's/.*"hook[_e]*[Ee]vent[_N]*[Nn]ame"[[:space:]]*:[[:space:]]*"\([A-Za-z]*\)".*/\1/p')
-[ -z "$event" ] && event=unknown
-n=1; while [ -e "captured/$event-$n.json" ]; do n=$((n+1)); done
-printf '%s' "$payload" > "captured/$event-$n.json"
+# $1 is the event, passed by the hook entry that fired. It is an argument
+# rather than something parsed out of the payload because Copilot CLI's
+# payloads do not name their event at all.
+event="${1:-unknown}"
+n=1; while [ -e "$CAPTURE_DIR/$event-$n.json" ]; do n=$((n+1)); done
+cat > "$CAPTURE_DIR/$event-$n.json"
 exit 0
 HOOK
 chmod +x "$work/capture.sh"
+export CAPTURE_DIR="$work/captured"
 write_config "$work/capture.sh" > "$work/$config_path"
 
 # A Go package that does not compile, so the agent meets a real failure, and

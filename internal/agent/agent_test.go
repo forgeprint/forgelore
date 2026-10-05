@@ -46,7 +46,7 @@ func TestBuiltMappingNamesTheVersionItWasCheckedAgainst(t *testing.T) {
 
 func TestTranslateSessionStart(t *testing.T) {
 	payload := `{"hook_event_name":"SessionStart","session_id":"s1","cwd":"/w","source":"startup"}`
-	e, ok, err := mustBuilt(t).Translate([]byte(payload), now)
+	e, ok, err := mustBuilt(t).Translate([]byte(payload), "", now)
 	if err != nil || !ok {
 		t.Fatalf("ok=%v err=%v", ok, err)
 	}
@@ -62,7 +62,7 @@ func TestTranslateFailure(t *testing.T) {
 	  "tool_name":"Bash","tool_input":{"command":"go build ./..."},
 	  "tool_response":"./main.go:5:14: undefined: greet"
 	}`
-	e, ok, err := mustBuilt(t).Translate([]byte(payload), now)
+	e, ok, err := mustBuilt(t).Translate([]byte(payload), "", now)
 	if err != nil || !ok {
 		t.Fatalf("ok=%v err=%v", ok, err)
 	}
@@ -86,7 +86,7 @@ func TestObjectToolResponseStillYieldsText(t *testing.T) {
 	  "tool_name":"Bash","tool_input":{"command":"go build ./..."},
 	  "tool_response":{"stderr":"./main.go:5:14: undefined: greet","exitCode":1}
 	}`
-	e, ok, err := mustBuilt(t).Translate([]byte(payload), now)
+	e, ok, err := mustBuilt(t).Translate([]byte(payload), "", now)
 	if err != nil || !ok {
 		t.Fatalf("ok=%v err=%v", ok, err)
 	}
@@ -105,7 +105,7 @@ func TestSuccessIsNotMistakenForFailure(t *testing.T) {
 	  "tool_name":"Bash","tool_input":{"command":"go build ./..."},
 	  "tool_response":"error: nothing is wrong, this word just appears"
 	}`
-	e, ok, err := mustBuilt(t).Translate([]byte(payload), now)
+	e, ok, err := mustBuilt(t).Translate([]byte(payload), "", now)
 	if err != nil || !ok {
 		t.Fatalf("ok=%v err=%v", ok, err)
 	}
@@ -116,7 +116,7 @@ func TestSuccessIsNotMistakenForFailure(t *testing.T) {
 
 func TestToolFilter(t *testing.T) {
 	payload := `{"hook_event_name":"PostToolUse","session_id":"s1","tool_name":"Write","tool_input":{}}`
-	if _, ok, _ := mustBuilt(t).Translate([]byte(payload), now); ok {
+	if _, ok, _ := mustBuilt(t).Translate([]byte(payload), "", now); ok {
 		t.Error("a Write matched a Bash-only event")
 	}
 }
@@ -125,7 +125,7 @@ func TestToolFilter(t *testing.T) {
 // Forgelore acts on, and ignoring them is the normal case.
 func TestUnmappedEventIsNotAnError(t *testing.T) {
 	payload := `{"hook_event_name":"Notification","session_id":"s1"}`
-	_, ok, err := mustBuilt(t).Translate([]byte(payload), now)
+	_, ok, err := mustBuilt(t).Translate([]byte(payload), "", now)
 	if err != nil {
 		t.Errorf("an unmapped event errored: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestUnmappedEventIsNotAnError(t *testing.T) {
 
 func TestTranslateRejectsRubbish(t *testing.T) {
 	for _, payload := range []string{"not json", `{"no":"event name"}`} {
-		if _, _, err := mustBuilt(t).Translate([]byte(payload), now); err == nil {
+		if _, _, err := mustBuilt(t).Translate([]byte(payload), "", now); err == nil {
 			t.Errorf("%q was accepted", payload)
 		}
 	}
@@ -183,7 +183,7 @@ func TestPathAcceptsStringOrList(t *testing.T) {
 		t.Errorf("%+v", m.Common)
 	}
 
-	e, ok, err := m.Translate([]byte(`{"e":"X","s":"fallback"}`), now)
+	e, ok, err := m.Translate([]byte(`{"e":"X","s":"fallback"}`), "", now)
 	if err != nil || !ok {
 		t.Fatalf("ok=%v err=%v", ok, err)
 	}
@@ -201,11 +201,11 @@ func TestFailureByFieldPresence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	failed, _, _ := m.Translate([]byte(`{"e":"X","s":"1","err":"boom"}`), now)
+	failed, _, _ := m.Translate([]byte(`{"e":"X","s":"1","err":"boom"}`), "", now)
 	if failed.Kind != CommandFailed {
 		t.Errorf("kind = %q", failed.Kind)
 	}
-	ok, _, _ := m.Translate([]byte(`{"e":"X","s":"1"}`), now)
+	ok, _, _ := m.Translate([]byte(`{"e":"X","s":"1"}`), "", now)
 	if ok.Kind != CommandSucceeded {
 		t.Errorf("kind = %q", ok.Kind)
 	}
@@ -314,42 +314,20 @@ func TestContextShapeComesFromTheMapping(t *testing.T) {
 	}
 }
 
-// TestDocumentedPayloadsTranslate pins what the documentation says each
-// agent sends, for the two mappings no captured payload backs yet.
+// TestDocumentedPayloadsTranslate pins what the documentation says Codex
+// CLI sends, the one mapping no captured payload backs yet.
 //
 // Passing here is not verification. It is a record of what was believed on
 // the day the mapping was written, so that the first real payload shows up
-// as a difference rather than as a mystery.
+// as a difference rather than as a mystery. Copilot CLI used to be in this
+// list, and every documentation-derived guess about it turned out wrong.
 func TestDocumentedPayloadsTranslate(t *testing.T) {
 	cases := []struct {
-		agent   string
 		payload string
 		want    Kind
 		output  string
 	}{
 		{
-			agent: "copilot-cli",
-			payload: `{"hookEventName":"postToolUseFailure","sessionId":"s1","cwd":"/w",
-			           "toolName":"bash","toolArgs":{"command":"go build ./..."},
-			           "error":"./main.go:5:14: undefined: greet"}`,
-			want:   CommandFailed,
-			output: "undefined: greet",
-		},
-		{
-			agent: "copilot-cli",
-			payload: `{"hookEventName":"postToolUse","sessionId":"s1","cwd":"/w",
-			           "toolName":"bash","toolArgs":{"command":"go version"},
-			           "toolResult":{"resultType":"success","textResultForLlm":"go1.27.1"}}`,
-			want:   CommandSucceeded,
-			output: "go1.27.1",
-		},
-		{
-			agent:   "copilot-cli",
-			payload: `{"hook_event_name":"sessionStart","session_id":"s1","cwd":"/w"}`,
-			want:    SessionStarted,
-		},
-		{
-			agent: "codex-cli",
 			payload: `{"hook_event_name":"PostToolUse","session_id":"s1","cwd":"/w",
 			           "tool_name":"shell","tool_input":{"command":"go build ./..."},
 			           "error":"./main.go:5:14: undefined: greet"}`,
@@ -357,7 +335,6 @@ func TestDocumentedPayloadsTranslate(t *testing.T) {
 			output: "undefined: greet",
 		},
 		{
-			agent: "codex-cli",
 			payload: `{"hook_event_name":"PostToolUse","session_id":"s1","cwd":"/w",
 			           "tool_name":"shell","tool_input":{"command":"go version"},
 			           "tool_output":"go1.27.1"}`,
@@ -366,25 +343,75 @@ func TestDocumentedPayloadsTranslate(t *testing.T) {
 		},
 	}
 
+	m, err := Built("codex-cli")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, c := range cases {
-		m, err := Built(c.agent)
-		if err != nil {
-			t.Fatal(err)
-		}
-		e, ok, err := m.Translate([]byte(c.payload), now)
+		e, ok, err := m.Translate([]byte(c.payload), "", now)
 		if err != nil || !ok {
-			t.Errorf("%s: ok=%v err=%v", c.agent, ok, err)
+			t.Errorf("ok=%v err=%v", ok, err)
 			continue
 		}
 		if e.Kind != c.want {
-			t.Errorf("%s: kind = %q, want %q", c.agent, e.Kind, c.want)
+			t.Errorf("kind = %q, want %q", e.Kind, c.want)
 		}
-		if e.Session != "s1" || e.Cwd != "/w" {
-			t.Errorf("%s: session=%q cwd=%q", c.agent, e.Session, e.Cwd)
+		if !strings.Contains(e.Output, c.output) {
+			t.Errorf("output = %q, want it to contain %q", e.Output, c.output)
 		}
-		if c.output != "" && !strings.Contains(e.Output, c.output) {
-			t.Errorf("%s: output = %q, want it to contain %q", c.agent, e.Output, c.output)
-		}
+	}
+}
+
+// TestCopilotReadsTheExitCodeOutOfTheText is the finding that the capture
+// produced. Copilot CLI reports a failing command as a *successful* tool
+// call whose result text ends with the shell's exit code, and sends no event
+// name in the payload at all.
+func TestCopilotReadsTheExitCodeOutOfTheText(t *testing.T) {
+	m, err := Built("copilot-cli")
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := func(result string) []byte {
+		return []byte(`{"sessionId":"s1","cwd":"/w","toolName":"bash",
+		  "toolArgs":{"command":"go build ./..."},
+		  "toolResult":{"resultType":"success","textResultForLlm":` + result + `}}`)
+	}
+
+	failed, ok, err := m.Translate(payload(`"./main.go:5:14: undefined: greet\n<shellId: 0 completed with exit code 1>"`), "postToolUse", now)
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if failed.Kind != CommandFailed {
+		t.Errorf("a command that exited 1 came back as %q", failed.Kind)
+	}
+
+	worked, _, err := m.Translate(payload(`"go version go1.27.1 darwin/arm64\n<shellId: 0 completed with exit code 0>"`), "postToolUse", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if worked.Kind != CommandSucceeded {
+		t.Errorf("a command that exited 0 came back as %q", worked.Kind)
+	}
+}
+
+// TestCopilotPayloadsDoNotNameTheirEvent: without a caller-supplied name
+// there is nothing to match on, and the mapping has to say so rather than
+// guess.
+func TestCopilotPayloadsDoNotNameTheirEvent(t *testing.T) {
+	m, err := Built("copilot-cli")
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte(`{"sessionId":"s1","cwd":"/w","reason":"complete"}`)
+	if _, _, err := m.Translate(payload, "", now); err == nil {
+		t.Error("a payload with no event name was accepted without one being given")
+	}
+	e, ok, err := m.Translate(payload, "sessionEnd", now)
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if e.Kind != SessionEnded {
+		t.Errorf("kind = %q", e.Kind)
 	}
 }
 
@@ -398,7 +425,7 @@ func TestCodexInterruptIsIgnored(t *testing.T) {
 	payload := `{"hook_event_name":"PostToolUse","session_id":"s1","cwd":"/w",
 	             "tool_name":"shell","tool_input":{"command":"go test ./..."},
 	             "error":"interrupted","interrupted":true}`
-	if _, ok, _ := m.Translate([]byte(payload), now); ok {
+	if _, ok, _ := m.Translate([]byte(payload), "", now); ok {
 		t.Error("an interrupted command produced an event")
 	}
 }

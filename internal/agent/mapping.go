@@ -50,6 +50,9 @@ type Response struct {
 
 // Common are the fields every payload of this agent carries.
 type Common struct {
+	// EventName is where the payload names its own event. It may be empty:
+	// Copilot CLI sends no such field, and the event is known only from
+	// which hook entry fired. The caller then supplies the name.
 	EventName  Path `json:"event_name"`
 	Session    Path `json:"session"`
 	Cwd        Path `json:"cwd"`
@@ -163,7 +166,9 @@ func ParseMapping(data []byte) (*Mapping, error) {
 // A payload the mapping does not cover is not an error: an agent fires many
 // more events than Forgelore acts on, and the ones it ignores are the normal
 // case. ok is false and the caller does nothing.
-func (m *Mapping) Translate(payload []byte, now time.Time) (Event, bool, error) {
+// callerEvent is what invoked the hook, used when the payload does not name
+// its own event.
+func (m *Mapping) Translate(payload []byte, callerEvent string, now time.Time) (Event, bool, error) {
 	var raw map[string]any
 	if err := json.Unmarshal(payload, &raw); err != nil {
 		return Event{}, false, fmt.Errorf("agent: that is not a hook payload: %w", err)
@@ -171,7 +176,11 @@ func (m *Mapping) Translate(payload []byte, now time.Time) (Event, bool, error) 
 
 	name, _ := lookup(raw, m.Common.EventName)
 	if name == "" {
-		return Event{}, false, fmt.Errorf("agent: the payload has no event name")
+		name = callerEvent
+	}
+	if name == "" {
+		return Event{}, false, fmt.Errorf(
+			"agent: the payload does not name its event, and none was given (--event)")
 	}
 
 	for _, match := range m.Events {
