@@ -1,5 +1,7 @@
 # Forgelore
 
+[![Release](https://img.shields.io/github/v/release/forgeprint/forgelore)](https://github.com/forgeprint/forgelore/releases/latest)
+
 Local-first, team-shared memory for coding agents. Forgelore remembers fixes and
 dead ends, injects them only when the same error comes back, and measures
 whether it actually saves tokens.
