@@ -1325,11 +1325,21 @@ ayrışma kontrolü onları muaf tutuyor, ve yeni `TestOneErrorThroughTwoCommand
 **paylaştıklarını zorunlu kılıyor** — kesişim alarak, deterministik olarak.
 Yani test artık özelliği yasaklamak yerine kanıtlıyor.
 
-### Açık karar
+### v0.1.1 çıkarıldı
 
-Düzeltme `main`'de, ama **`v0.1.0` bu hatayla yayımlandı**. `go vet` kullanan
-biri hiçbir şey göremez ve sebebini anlayamaz. `v0.1.1` çıkarmaya değer mi,
-yoksa bir sonraki sürüme mi kalsın — `[SEN]`.
+Karar: çıkarılsın. `go vet` kullanan biri hiçbir şey görmez ve sebebini
+anlayamaz; bir sonraki sürümü beklemek, sessiz kalan bir aracı sahada
+bırakmak olurdu.
+
+https://github.com/forgeprint/forgelore/releases/tag/v0.1.1
+
+Gerçek release'ten kurulup doğrulandı: `go vet` çıktısıyla kaydedilen
+düzeltme, `go build` altında ve başka bir dosyada bulundu. Kurulan ikili
+`v0.1.1 darwin/arm64 go1.26.8` — asgari Go kararı bu sürümde de geçerli.
+
+Notlarda "nothing to migrate" yazılı ve doğru: `v0.1.0`'ın yazdığı kayıtlar
+olduğu gibi okunuyor, o dönemde kaydedilmiş parmak izleri hâlâ geçerli.
+`v0.1.0` yalnızca `go vet`'ten hiç parmak izi üretmiyordu.
 
 README'ye gerçek transcript eklendi (demo GIF'in birinci alternatifi) ve
 durum paragrafı düzeltildi: "yayımlanmış release yok" diyordu, oysa v0.1.0
