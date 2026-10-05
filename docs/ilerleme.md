@@ -1927,10 +1927,36 @@ Düzeltme: sayım yalnızca dizinleri sayıyor, ve publish komutları glob yerin
 **tek tek adlandırılıyor** — script platform listesini zaten biliyor.
 Yazdırılan her tarball'ın diskte var olduğu doğrulandı.
 
+### npm'e yanlış ikili gitti — benim hatam
+
+`forgelore@0.1.4` npm'de `v0.1.4-1-g9b2beba-dirty` damgalı bir ikili
+taşıyor, ve baytları GitHub release'indeki attested baytlarla **aynı değil**.
+
+Zinciri: kullanıcı `release.sh v0.1.4` çalıştırdı, doğru ikililer `dist/`'e
+yazıldı. Sonra ben `npm-pack.sh`'deki hatayı düzeltirken `./scripts/ci.sh`
+çalıştırdım — ci.sh `crosscheck.sh` çağırıyor, o da `dist/`'teki ikilileri
+`git describe` damgasıyla **yerinde yeniden yazıyor**. `SHA256SUMS` eski
+haliyle kaldı. Ardından `npm-pack.sh v0.1.4` o ikilileri paketledi.
+
+Go kodu aslında aynı: `9b2beba` yalnızca dokümanlara dokundu, `-dirty` de
+benim `npm-pack.sh` düzenlememdi. Ama kullanıcının gördüğü sürüm dizesi
+yanlış, ve baytlar attestation'ın kapsadığı baytlar değil — provenance
+üzerine çıkılmış bir release için kabul edilemez.
+
+**Koruma eklendi.** `npm-pack.sh` artık paketlemeden önce `dist/`'i kendi
+`SHA256SUMS`'ına karşı doğruluyor (çalıştırılamayan çapraz hedefler dahil
+her şeyi yakalar) ve host hedefinin sürüm damgasını okuyup istenen sürümle
+karşılaştırıyor. Bayat `dist/` ile denendi: reddediyor.
+
+Asıl ders şu: `dist/` bir yapı çıktısı değil, **paylaşılan mutable durum**.
+release.sh onu bir anlık görüntü sanıyordu, ci.sh ise çalışma alanı.
+
 ### Kalanlar — hepsi `[SEN]`
 
-- npm paketlerini yayımla (`./scripts/npm-pack.sh v0.1.4`, önce platform
-  paketleri). Hesap ve `npm login` gerekiyor.
+- npm'deki `forgelore@0.1.4` düzeltilmeli: v0.1.5 ve `npm deprecate`.
+- `forgelore-win32-x64` ve `-arm64` npm'de **403 spam detection** aldı;
+  diğer dördü yayımlandı. Yeniden denemek ya da npm desteğine yazmak
+  gerekiyor.
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
   `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,

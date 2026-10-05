@@ -27,6 +27,49 @@ if [ ! -f dist/SHA256SUMS ]; then
 	exit 1
 fi
 
+# dist/ is not trusted to still be what release.sh built. Anything that runs
+# crosscheck.sh afterwards — ci.sh does — rewrites the binaries in place with
+# a build stamped from `git describe`, and SHA256SUMS is left behind
+# describing bytes that are gone. Packing those publishes a dev build under a
+# release version, and it happened: forgelore@0.1.4 reached npm carrying
+# v0.1.4-1-g9b2beba-dirty.
+#
+# The checksum file catches every case, including the cross-built targets
+# that cannot be run here.
+echo "==> checking dist/ is still the $version build"
+if command -v sha256sum >/dev/null 2>&1; then
+	checksums_ok() { (cd dist && sha256sum --check --quiet SHA256SUMS); }
+else
+	checksums_ok() { (cd dist && shasum -a 256 --check --status SHA256SUMS); }
+fi
+if ! checksums_ok; then
+	cat >&2 <<EOF
+dist/ no longer matches its own SHA256SUMS: something rebuilt the binaries
+after release.sh wrote it. Build the release again before packing:
+
+  ./scripts/release.sh $version
+EOF
+	exit 1
+fi
+
+# And the version is read back out of a binary rather than assumed, because
+# matching checksums only prove dist/ is internally consistent. The host's
+# own target is the one that can be run.
+case "$(uname -s)/$(uname -m)" in
+Darwin/arm64) host=dist/forgelore_darwin_arm64 ;;
+Darwin/x86_64) host=dist/forgelore_darwin_amd64 ;;
+Linux/aarch64 | Linux/arm64) host=dist/forgelore_linux_arm64 ;;
+Linux/x86_64) host=dist/forgelore_linux_amd64 ;;
+*) host="" ;;
+esac
+if [ -n "$host" ]; then
+	stamped=$("$host" version | awk '{print $2}')
+	if [ "$stamped" != "$version" ]; then
+		echo "$host says $stamped, not $version; rebuild with ./scripts/release.sh $version" >&2
+		exit 1
+	fi
+fi
+
 # npm names an architecture the way Node reports it, not the way Go does.
 # The mapping is here and nowhere else, because the wrapper reads
 # process.platform and process.arch straight out of Node.
