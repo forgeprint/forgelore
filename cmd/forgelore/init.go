@@ -18,6 +18,9 @@ cache/
 
 # Personal. Records in this scope are yours and are not shared (K10).
 local/
+
+# Measurements. Local, and never leaves the machine (K12).
+ledger/
 `
 
 // agentsLine is what a project adds to AGENTS.md to put the tool in front of

@@ -29,6 +29,7 @@ keeps its number and its text; the ADR that replaces it says so.
 | [0016](0016-record-types-and-injection.md) | Phase 1 | Record types and what each one costs |
 | [0017](0017-restricted-yaml.md) | Phase 1 | A restricted YAML dialect, written canonically |
 | [0018](0018-configuration-and-precedence.md) | Phase 1 | Configuration files and their precedence |
+| [0019](0019-cost-in-dollars-is-the-comparison.md) | Phase 3 | Cost in dollars is what the two arms are compared on |
 
 ## Writing a new one
 

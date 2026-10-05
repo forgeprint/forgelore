@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/forgeprint/forgelore/internal/config"
 	"github.com/forgeprint/forgelore/internal/store"
 )
 
@@ -68,3 +69,16 @@ func openIndex(s *store.Store) (*store.Index, error) {
 	}
 	return idx, nil
 }
+
+// loadConfig resolves the settings for a store. Problems are returned rather
+// than raised: a broken config file must not stop a recall (ADR-0007), and
+// `doctor` is where they are meant to be read.
+func loadConfig(e env, s *store.Store, overrides map[string]string) (*config.Config, []config.Problem) {
+	return config.Load(s.Root(), e.lookupEnv, overrides)
+}
+
+// ledgerRoot is where the measurement logs live. It is beside the records
+// rather than under them, because a measurement is not a memory, and beside
+// the cache rather than in it, because the cache is deleted when it cannot be
+// read and the ledger is the only copy of what happened.
+func ledgerRoot(s *store.Store) string { return s.Root() }

@@ -76,12 +76,21 @@ twenty seconds. `go test -short ./...` skips it.
 - `vendor/` is committed on purpose (135 MB on disk, 22 MiB packed). It is
   exempt from line-ending normalisation in `.gitattributes` so the tree stays
   byte-identical to what upstream published. Do not reformat it.
+- **Never run `gofmt -w .` from the repository root.** It walks into
+  `vendor/` and rewrites doc-comment indentation across the tree. CI will not
+  catch it: `scripts/test.sh` excludes `vendor/` from the format check by
+  design, so a reformatted vendor tree passes every check and only shows up
+  in `git status`. Format a directory you own instead: `gofmt -w ./internal`,
+  `gofmt -w ./cmd`. If it has already happened, `git checkout -- vendor/`.
 - `.gitattributes` forces LF everywhere else. A shell script checked out with
   CRLF fails on its shebang line, and this project is developed on Windows.
 - Shell scripts need their executable bit set explicitly on Windows:
   `git add --chmod=+x scripts/foo.sh`.
 - Commits are signed off: `git commit -s`. The DCO application on GitHub checks
   this; CI does not.
+- The ledger under `.forgelore/ledger/` is not in the SQLite index and must
+  not be moved there. The index is derived and is deleted and rebuilt whenever
+  it cannot be read; the ledger is the only copy of what was measured.
 - The host binary is 7.1 MB. `cmd/forgelore` links SQLite through
   `internal/store`, which is most of that; `scripts/build.sh` strips symbols
   already, so there is no easy win left to look for.

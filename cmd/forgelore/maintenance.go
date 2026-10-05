@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 
+	"github.com/forgeprint/forgelore/internal/config"
 	"github.com/forgeprint/forgelore/internal/record"
 	"github.com/forgeprint/forgelore/internal/store"
 )
@@ -88,6 +90,8 @@ func cmdDoctor(e env, args []string) error {
 		return err
 	}
 
+	cfg, configProblems := loadConfig(e, s, nil)
+
 	idx, err := openIndex(s)
 	if err != nil {
 		return err
@@ -105,20 +109,47 @@ func cmdDoctor(e env, args []string) error {
 		}
 	}
 
+	settings := cfg.Effective()
+
 	if *asJSON {
+		type setting struct {
+			Key    string `json:"key"`
+			Value  string `json:"value"`
+			Source string `json:"source"`
+			From   string `json:"from"`
+		}
+		rows := make([]setting, 0, len(settings))
+		for _, s := range settings {
+			rows = append(rows, setting{s.Key, s.Value, s.Source, s.From})
+		}
 		return writeJSON(e.stdout, struct {
-			Root     string   `json:"root"`
-			Records  int      `json:"records"`
-			Indexed  int      `json:"indexed"`
-			Skipped  int      `json:"skipped"`
-			Problems []string `json:"problems,omitempty"`
-		}{s.Root(), len(records), indexed, skipped, problemStrings(problems)})
+			Root           string    `json:"root"`
+			Records        int       `json:"records"`
+			Indexed        int       `json:"indexed"`
+			Skipped        int       `json:"skipped"`
+			Problems       []string  `json:"problems,omitempty"`
+			ConfigProblems []string  `json:"config_problems,omitempty"`
+			Config         []setting `json:"config"`
+		}{s.Root(), len(records), indexed, skipped,
+			problemStrings(problems), configProblemStrings(configProblems), rows})
 	}
 
 	fmt.Fprintf(e.stdout, "store    %s\n", relativeTo(e.wd, s.Root()))
 	fmt.Fprintf(e.stdout, "records  %d readable, %d skipped\n", len(records), skipped)
 	fmt.Fprintf(e.stdout, "index    %d records\n", indexed)
-	if len(problems) == 0 {
+
+	// ADR-0018: five sources means no file shows the effective value, so
+	// this has to say where each one actually came from.
+	fmt.Fprintln(e.stdout, "\nsettings")
+	for _, s := range settings {
+		from := s.From
+		if filepath.IsAbs(from) {
+			from = relativeTo(e.wd, from)
+		}
+		fmt.Fprintf(e.stdout, "  %-30s %-10s  %s\n", s.Key, s.Value, from)
+	}
+
+	if len(problems) == 0 && len(configProblems) == 0 {
 		fmt.Fprintln(e.stdout, "\nnothing to report")
 		return nil
 	}
@@ -126,7 +157,18 @@ func cmdDoctor(e env, args []string) error {
 	for _, p := range problems {
 		fmt.Fprintf(e.stdout, "%s\n", p)
 	}
+	for _, p := range configProblems {
+		fmt.Fprintf(e.stdout, "%s\n", p)
+	}
 	return nil
+}
+
+func configProblemStrings(problems []config.Problem) []string {
+	var out []string
+	for _, p := range problems {
+		out = append(out, p.String())
+	}
+	return out
 }
 
 // cmdStats summarises what the store holds.

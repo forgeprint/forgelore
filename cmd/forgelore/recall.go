@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/forgeprint/forgelore/internal/fingerprint"
+	"github.com/forgeprint/forgelore/internal/measure"
 	"github.com/forgeprint/forgelore/internal/store"
 )
 
@@ -28,6 +30,7 @@ func cmdRecall(e env, args []string) error {
 	fs := newFlags(e, "recall")
 	command := fs.String("command", "", "the command that failed")
 	errorFile := fs.String("error-file", "-", "the captured output; - for stdin")
+	session := fs.String("session", "", "the agent's session id, for the measurement ledger")
 	dir := fs.String("dir", "", "work on the project containing this directory")
 	asJSON := fs.Bool("json", false, "machine-readable output")
 	if err := fs.Parse(args); err != nil {
@@ -55,6 +58,13 @@ func cmdRecall(e env, args []string) error {
 	// a project that has not been initialised still gets its errors
 	// fingerprinted rather than an error message.
 	if s, err := openStore(e, *dir); err == nil {
+		cfg, _ := loadConfig(e, s, nil)
+		group := measure.Assign(
+			cfg.String("measure.ab.salt"),
+			*session,
+			int(cfg.Int("measure.ab.control_percent")),
+		)
+
 		if idx, err := openIndex(s); err == nil {
 			defer idx.Close()
 			for i := range results {
@@ -64,6 +74,25 @@ func cmdRecall(e env, args []string) error {
 				}
 				results[i].Matches = toHitJSON(hits)
 			}
+		}
+
+		// In the control arm the matches are dropped before anything is
+		// printed, so a control session is indistinguishable from a miss.
+		// The ledger still records that a match existed, which is what
+		// makes the two arms comparable; `report` is where a human sees
+		// the difference.
+		hadMatch := make([]bool, len(results))
+		for i := range results {
+			hadMatch[i] = len(results[i].Matches) > 0
+		}
+		if group == measure.GroupControl {
+			for i := range results {
+				results[i].Matches = []hitJSON{}
+			}
+		}
+
+		if cfg.Bool("measure.ledger") {
+			logRecall(s, *session, group, results, hadMatch)
 		}
 	}
 
@@ -114,4 +143,40 @@ func toHitJSON(hits []store.Hit) []hitJSON {
 		})
 	}
 	return out
+}
+
+// logRecall writes one ledger line per error looked up.
+//
+// The bytes counted are the bytes a treatment session would receive: the
+// titles that make up the hint. A control session is charged nothing, because
+// nothing was handed over, but the line still says a match was there.
+func logRecall(s *store.Store, session, group string, results []recallMatch, hadMatch []bool) {
+	root := ledgerRoot(s)
+	now := time.Now().UTC().Truncate(time.Second)
+
+	for i, r := range results {
+		e := measure.Entry{
+			Time:        now,
+			Session:     session,
+			Group:       group,
+			Event:       measure.EventMiss,
+			Fingerprint: r.Fingerprint,
+		}
+		if hadMatch[i] {
+			e.Event = measure.EventInject
+			if group == measure.GroupControl {
+				e.Event = measure.EventControl
+			}
+		}
+
+		for _, m := range r.Matches {
+			e.RecordID = m.ID
+			e.Bytes += len(m.Title)
+		}
+		e.EstTokens = measure.EstimateTokensFromBytes(e.Bytes)
+
+		// A ledger that cannot be written must not break the injection
+		// path (ADR-0007). The loss shows up as a gap in `report`.
+		_ = measure.AppendEntry(root, e)
+	}
 }

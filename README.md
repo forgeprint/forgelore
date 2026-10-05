@@ -7,10 +7,10 @@ whether it actually saves tokens.
 A single Go binary with no runtime dependencies. It works with any agent that
 can run a shell command.
 
-> **Status: early development.** The record store, error fingerprinting and
-> the command line work and are tested. Agent integrations, the measurement
-> ledger and the A/B mode are not built yet, and there is no release to
-> install — you build it yourself. Follow `docs/plan.md` for the roadmap.
+> **Status: early development.** The record store, error fingerprinting, the
+> command line and the measurement ledger work and are tested. Agent
+> integrations are not built yet, and there is no release to install — you
+> build it yourself. Follow `docs/plan.md` for the roadmap.
 
 ## What it does
 
@@ -55,6 +55,33 @@ forgelore record --type fix \
 `search <query>` returns ids and titles only; `show <id>` returns one record in
 full. Every command takes `--json`. `init` prints the one line to add to your
 `AGENTS.md` and does not write the file itself.
+
+## Measuring whether it helps
+
+Every lookup is written to a local ledger, and `forgelore report` shows what
+was spent against what it bought:
+
+```sh
+forgelore report
+```
+
+Two things are compared. **Repeated errors per session** comes from
+Forgelore's own ledger and needs nothing from your agent. **Cost per session**
+needs the agent to report what it spent; `forgelore usage --help-wiring`
+prints how to wire that up for Claude Code. Without it the report shows the
+spending and claims no saving.
+
+Turn on the A/B mode to get a control group — the same share of sessions get
+no injections at all, and see exactly what a session with no memory sees:
+
+```yaml
+# .forgelore/config.yaml
+measure.ab.control_percent: 20
+```
+
+Differences that are not statistically meaningful are printed as "not
+meaningful", with the interval, rather than as a win. The ledger is local and
+never leaves the machine.
 
 ## Design constraints
 

@@ -27,6 +27,11 @@ type env struct {
 	stdin  io.Reader
 	stdout io.Writer
 	stderr io.Writer
+
+	// lookupEnv reads an environment variable. It is a field rather than a
+	// direct call to os.LookupEnv so that a test can exercise the
+	// environment layer of ADR-0018 without setting a real variable.
+	lookupEnv func(string) (string, bool)
 }
 
 func main() {
@@ -36,11 +41,12 @@ func main() {
 		os.Exit(1)
 	}
 	e := env{
-		args:   os.Args[1:],
-		wd:     wd,
-		stdin:  os.Stdin,
-		stdout: os.Stdout,
-		stderr: os.Stderr,
+		args:      os.Args[1:],
+		wd:        wd,
+		stdin:     os.Stdin,
+		stdout:    os.Stdout,
+		stderr:    os.Stderr,
+		lookupEnv: os.LookupEnv,
 	}
 	if err := run(e); err != nil {
 		fmt.Fprintln(os.Stderr, "forgelore:", err)
@@ -77,6 +83,10 @@ func run(e env) error {
 		return cmdDoctor(e, rest)
 	case "stats":
 		return cmdStats(e, rest)
+	case "usage":
+		return cmdUsage(e, rest)
+	case "report":
+		return cmdReport(e, rest)
 	default:
 		return fmt.Errorf("unknown command %q (try: forgelore help)", name)
 	}
@@ -125,6 +135,8 @@ Commands:
   index rebuild   Rebuild the search index from the record files
   doctor          Report anything wrong with the store
   stats           Summarise what the store holds
+  usage           Record what a session has spent, read from the agent
+  report          What was injected, and whether it paid for itself
   version         Print the version and build platform
   help            Print this message
 

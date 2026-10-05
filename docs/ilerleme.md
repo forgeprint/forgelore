@@ -499,11 +499,6 @@ gerçek bir sızıntıya karşı tarayıcıyı kör eder.
 
 ---
 
-### Sırada
-
-Faz 3 — ölçüm altyapısı. `docs/plan.md`'deki adımlara bakılacak; Faz 2'den
-devreden açık karar kalmadı.
-
 ### Faz 2 — açık maddeler
 
 - `[SEN/CLAUDE]` `go/unknown-import` yeniden yakalanmalı: farklı import yolu,
@@ -514,3 +509,135 @@ devreden açık karar kalmadı.
 - `config.yaml` okunmuyor: ADR-0018 yazılı ama uygulanmadı, `init` de bu
   yüzden dosyayı oluşturmuyor. Bayrak > ortam > yerel > ekip > varsayılan
   önceliği hâlâ kodda yok.
+
+---
+
+## Faz 3 — Ölçüm altyapısı
+
+**Durum:** Tamam. Adım 0–6 bitti. Kabul kriterinin sentetik yarısı karşılandı,
+gerçek Claude Code oturumu yarısı `[SEN]` olarak açık.
+
+### 2026-10-05 — dış gerçekler doğrulandı, plan buna göre değişti
+
+Kural 7 gereği hafızadan değil kaynağından (resmî dokümantasyon, 2026-10-05).
+Çıkan tablo planın Adım 3 varsayımını bozdu:
+
+| Kanal | Kümülatif oturum kullanımı | Not |
+|---|---|---|
+| Hook stdin | **yok** | Ortak alanlar yalnızca `session_id`, `prompt_id`, `transcript_path`, `cwd`, `permission_mode`, `effort`, `hook_event_name` |
+| Status line stdin | **`cost.total_cost_usd`** | "the estimated cost of all API calls in the current session" |
+| Status line token alanları | **hayır** | `context_window.total_input_tokens` = "tokens currently in the context window, from the most recent API response" |
+| OpenTelemetry | evet, `claude_code.token.usage` | Dosya exporter'ı yok; collector = daemon = K8 ihlali |
+
+Üç sonuç:
+
+1. **Enjeksiyonu yapan kod yolu kullanımı göremiyor.** Hook ile status line
+   ayrı kanallar; ikisini birleştiren şey oturum kimliği.
+2. **Token kümülatif değil, dolar kümülatif.** Karşılaştırma birimi dolar
+   oldu. ADR-0019 olarak yazıldı.
+3. **Döngü sayımı hiçbir şeye muhtaç değil.** "Aynı oturumda aynı parmak izi
+   tekrar" tamamen kendi defterimizden ölçülüyor — kullanım okuyucusu olmayan
+   ajanda bile bir karşılaştırma kalıyor. Bu planda yoktu, eklendi.
+
+Bir de Faz 4'ü ilgilendiren bulgu: Claude Code'da **`PostToolUseFailure`**
+diye ayrı bir olay var, planın "PostTool + başarısız çıkış" davranışı için
+birebir. Faz 4 Adım 1'deki kanonik olay listesi gerçek adlarla güncellenmeli
+(`UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostCompact` de var).
+
+### Adım 0 (yeni) — ADR-0018 uygulandı
+
+Plan Faz 3'te config öngörmüyordu ama Adım 2 ve 4 ayar istiyor.
+`internal/config`: beş kaynak (bayrak > ortam > yerel > ekip > varsayılan),
+her değer nereden geldiğini taşıyor ve `doctor` bunu basıyor — ADR-0018'in
+açıkça istediği şey, çünkü beş kaynakla hiçbir dosya etkin değeri göstermiyor.
+
+Tanımlı anahtarlar yalnızca **tüketicisi olanlar**: `measure.ledger`,
+`measure.ab.control_percent`, `measure.ab.salt`, `report.period_days`.
+`inject.budget_tokens` gibi Faz 4 anahtarları eklenmedi — hiçbir şeyin
+okumadığı anahtar, aracın vermediği bir söz.
+
+### Adım 1 — defter
+
+`.forgelore/ledger/{injections,usage}-YYYY-AA.jsonl`, append-only.
+**İndekse konmadı:** indeks türetilmiş ve okunamayınca siliniyor, defter ise
+olanın tek kopyası. Kayıt da değil — kayıt birinin yazdığı hafıza, bu ölçüm.
+`init` artık `ledger/` satırını da `.gitignore`'a koyuyor.
+
+Satır tek `write` çağrısıyla yazılıyor: hook ile status line aynı anda
+tetiklenebiliyor ve yarım satırların iç içe girmemesi gerekiyor.
+
+### Adım 2 — A/B ataması
+
+Durumsuz: `sha256(salt + "\x00" + session) % 100 < control_percent`.
+Saklanan duruma güvenilemez çünkü her komut ayrı bir süreç (K8). Hash sayesinde
+oturumun yüzüncü sorgusu birincisiyle aynı kola düşüyor; saklanacak dosya,
+bozulacak durum, bayatlayacak şey yok. Varsayılan 0, yani deneme kapalı.
+
+**Kontrol kolu bir miss'ten ayırt edilemiyor** — eşleşmeler yazdırılmadan önce
+siliniyor, `--json` dahil. Defter eşleşmenin var olduğunu yine de kaydediyor;
+farkı insan `report`'ta görüyor. Ajan hangi kolda olduğunu anlarsa deneme
+bozulur.
+
+### Adım 4, 5 — rapor ve anlamlılık
+
+Bootstrap, t-testi değil: oturum maliyetleri çarpık, sıfırdan küçük olamıyor,
+kollar küçük. Yeniden örnekleme yalnızca "bu oturumlar kendilerinin örneği"
+varsayıyor. 2000 tur, medyan farkı üzerinde %95 aralık; aralık sıfırı
+kapsıyorsa "anlamlı değil" yazılıyor, kol başına 3 oturumun altında hiç
+hesaplanmıyor.
+
+Kullanım yoksa maliyet karşılaştırması **nil** — rapor ölçmediği tasarrufu
+iddia etmiyor, onun yerine nasıl bağlanacağını söylüyor.
+
+#### İki test, iki bulgu
+
+- **Aralık tekrarlanabilir değildi.** Seed sabitti ama kollar map üzerinde
+  dönülerek kuruluyordu ve Go map sırasını rastgeleleştiriyor; aynı veriden
+  farklı sıralı dilim, farklı yeniden örnekleme. Dilimler sıralanarak
+  düzeltildi. Aynı defterden iki kez farklı sayı veren ölçüme kimse inanmaz.
+- **Oturum kimliği olmayan satırlar döngü uyduruyordu.** Hepsi boş oturumda
+  birleşince alakasız çağrılar tek bir döngüye benziyordu. Artık harcama
+  tarafına sayılıyor, döngü ve maliyet tarafına sayılmıyor.
+
+### Kabul kriteri
+
+Plan: "Sentetik verilerle rapor doğru hesaplıyor. Gerçek bir Claude Code
+oturumundan kullanım verisi okunabiliyor."
+
+**Birinci yarı karşılandı.** Derlenmiş binary ile 24 oturumluk deneme: %50
+kontrol, kontrol kolu aynı hataya üç kez toslayacak şekilde, tedavi kolu bir
+kez. Rapor doğru çıkardı — döngü farkı 2.00 [2.00, 2.00], maliyet farkı
+$0.5500 [$0.4900, $0.6100], ikisi de anlamlı. Ayrıca iki kolun aynı dağılımdan
+geldiği durumda "anlamlı değil" dediği birim testiyle sabitlendi.
+
+**İkinci yarı açık.** Gerçek bir oturumdan okumak için status line'ın
+bağlanması gerekiyor (`forgelore usage --help-wiring` komutu tam ayarı
+basıyor). Bu makinedeki mevcut oturum verisine erişmem PII gerekçesiyle
+reddedildi; doğru karar. Faz 4 Adım 4 zaten gerçek örnek toplamayı `[SEN]`
+işaretlemiş, aynısı burada da geçerli.
+
+#### Ölçümler
+
+| Ölçüm | Değer |
+|---|---|
+| Test kapsamı | `fingerprint` %100, `measure` %93.1, `config` %89.3, `cmd` %87.4 |
+| Defter satırı | ~170 bayt |
+| Bootstrap | 2000 tur, raporda gözle görülür gecikme yok |
+
+### Sırada
+
+Faz 4 — Claude Code adaptörü ve hook çalıştırıcı. Planın sorduğu üç soru
+cevapsız: varsayılan enjeksiyon bütçesi, adayların onaya sunulma biçimi, hook
+zaman aşımı. Yukarıdaki `PostToolUseFailure` bulgusu Adım 1'i etkiliyor.
+
+### Faz 3 — açık maddeler
+
+- `[SEN]` Status line bağlanıp gerçek bir oturumdan kullanım okunduğunun
+  gösterilmesi. Kabul kriterinin ikinci yarısı.
+- Token tahmini dört bayt/token; düzyazı için kaba, kod için yanlış. Gerçek
+  cevap tokenizer ister (K3 yasaklıyor). Rapor bunu "estimated" diye
+  etiketliyor, ama karşılaştırma zaten dolar üzerinden.
+- `claude_code.token.usage` (OTel) kümülatif token veriyor. Prometheus
+  exporter'ı tek seferlik bir süreçle `localhost:9464/metrics` üzerinden
+  kazınabilir — daemon gerekmez. Dolar yerine token karşılaştırmak istenirse
+  yol bu; ölçülmedi, denenmedi.
