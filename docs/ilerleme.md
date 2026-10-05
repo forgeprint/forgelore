@@ -2101,9 +2101,72 @@ görmediği bir girdi ya da insanın tekrarlaması beklenen bir adımdı. Testle
 yazdığımız şeyin çalıştığını kanıtlıyor; anlatmak, kurmak ve yayımlamak
 yazmadığımız şeyin eksik olduğunu gösteriyor.
 
+---
+
+## 2026-10-05 — Gemini CLI eklendi, yarısı doğrulanmış
+
+Eşleme resmî kaynaktan yazıldı: `google-gemini/gemini-cli`,
+`docs/hooks/reference.md`, **v0.62.0 etiketinde** — main'den değil, kurulu
+sürümün etiketinden. Kurulu CLI de 0.62.0.
+
+Yapı Claude Code'a benziyor: `settings.json` içinde `hooks`, olay başına
+dizi, araç olaylarında `matcher` **regex**. İki fark: `timeout`
+**milisaniye** (Claude Code'da saniye), ve **`scratchpad_dir` yok** — oturum
+durumu store'un kendi cache'ine düşüyor.
+
+Kabuk komutu `AfterTool` ile geliyor, `tool_name: run_shell_command`, komut
+`tool_input.command`, sonuç `tool_response` içinde `llmContent`,
+`returnDisplay` ve **isteğe bağlı** `error`. Ayrı bir hata olayı yok, çıkış
+kodu payload'ın hiçbir yerinde yok — yani Claude Code'un durumu. Eşleme
+başarısızlığı **iki kez** test ediyor: `field_present: tool_response.error`
+ve `output_has_diagnostic`. ADR-0022 ikinci kez işe yaradı.
+
+### Yarısı doğrulandı, ve yarısı neden doğrulanamadı
+
+`SessionStart` ve `SessionEnd` gerçek payload olarak korpusa girdi; ikisi de
+`scratchpad_dir`'in yokluğunu doğruluyor.
+
+`AfterTool` **yok**, sebebi hesapta:
+
+```
+IneligibleTierError: This client is no longer supported for Gemini Code
+Assist for individuals.
+```
+
+Google hesabıyla giriş bu istemciden artık modele ulaşmıyor. Oturum hook'lar
+ateşlendikten sonra, hiçbir araç çalışmadan duruyor. `verified_against` boş
+kaldı, `doctor` "no mapping has been verified against any version" diyor,
+tablo "unverified". Önemli olan tek olay belgeye dayanıyor — ve bu projede
+belgeye dayanan her olay yanlış çıktı.
+
+Sentetik bir `AfterTool` ile eşlemenin kendi içinde çalıştığını gördüm:
+enjeksiyon üretti, `error` alanı olmadan — işi `output_has_diagnostic`
+yaptı. Bu eşlemenin tutarlı olduğunu gösterir, Gemini'nin o şekli
+gönderdiğini **değil**. Korpusa konmadı.
+
+### Dokümanın iki yanlışı
+
+İkisi de çalıştırınca çıktı, okuyunca değil.
+
+1. **Folder trust varsayılan olarak açık.** `docs/cli/trusted-folders.md`
+   "disabled by default" diyor; kod `settings.security?.folderTrust?.enabled
+   ?? true` okuyor. Güvenilmeyen klasörde workspace `settings.json` hiç
+   okunmuyor — hook'lar yüklenmezdi — ve `--yolo` sessizce onay istemeye
+   düşüyor. Geçici dizin hiçbir zaman güvenilmez, o yüzden profil kaynaktan
+   bulduğum `GEMINI_CLI_TRUST_WORKSPACE=true` kullanıyor; kullanıcının
+   `~/.gemini/trustedFolders.json`'ına dokunmuyor.
+2. **`run_shell_command` manuel onay istiyor**, etkileşimsiz yakalamada
+   verecek kimse yok — `--yolo`.
+
+Beşinci ajan, beşinci kez: dokümandan okunan ile ajanın yaptığı ayrışıyor.
+Bu sefer ayrışma hook formatında değil, ona ulaşmanın önündeki koşullardaydı.
+
 ### Kalanlar — hepsi `[SEN]`
+- Gemini CLI `AfterTool` yakalaması: `GEMINI_API_KEY` ya da Vertex AI
+  kimlik bilgisiyle `./scripts/capture-agent-events.sh gemini-cli`. Sonra
+  eşlemeyi düzelt, `verified_against`'i doldur, tabloyu güncelle.
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
   `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,
   `verified_against`'i doldur, `docs/compatibility.md`'yi güncelle.
-- Gemini CLI ve Cursor: araştırıldı, başlanmadı.
+- Cursor: araştırıldı, başlanmadı.

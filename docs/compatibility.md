@@ -23,7 +23,7 @@ listed as not measured, and does not count towards a tier.
 | Claude Code | **A** | 2.1.289 | ✅ 4 captured payloads | ✅ both protocol eras measured | ✅ status line |
 | Copilot CLI | **B**, hooks verified | 1.0.91 | ✅ 3 captured payloads | never connected | none known |
 | Codex CLI | **unverified** | — | mapping written from docs | never connected | none known |
-| Gemini CLI | researched, not started | — | — | — | — |
+| Gemini CLI | **unverified** | — | ✅ 2 session payloads, ❌ no tool payload | never connected | none known |
 | Cursor | researched, not started | — | — | — | — |
 
 Copilot CLI is listed as B rather than A on a technicality worth keeping:
@@ -178,16 +178,75 @@ rather than a general rule. If `.github/hooks` does nothing for you, try the
 home location before concluding anything is broken, and
 `forgelore report --days 1` is how you tell which happened.
 
-## Gemini CLI and Cursor
+## Gemini CLI
+
+Mapping written against the official hooks reference at **v0.62.0** on
+2026-10-05, and **half checked**: `SessionStart` and `SessionEnd` are in the
+corpus as real captured payloads; `AfterTool`, the one that matters, is not.
+
+Hooks live in `settings.json` under `hooks`, one array per event, each entry
+carrying an optional `matcher` — a **regex** for tool events — and a list of
+`{type, command, timeout}`. `timeout` is **milliseconds** here, where Claude
+Code counts seconds.
+
+Every payload carries `session_id`, `transcript_path`, `cwd`,
+`hook_event_name` and `timestamp`. There is no scratchpad directory, so
+session state falls back to the store's own cache.
+
+A shell command arrives as `AfterTool` with `tool_name: "run_shell_command"`
+and the command in `tool_input.command`. The result is in `tool_response`,
+which holds `llmContent`, `returnDisplay` and an **optional** `error`.
+
+There is no dedicated failure event and no exit code anywhere in the
+payload, which is the Claude Code situation again. So the mapping tests for
+failure twice: `field_present: tool_response.error` for when the documented
+field appears, and `output_has_diagnostic` for when it does not
+([ADR-0022](adr/0022-a-failure-test-that-is-not-data.md)). Whether `error`
+is ever set for a command that merely exits non-zero is unknown, and is the
+first thing a captured payload should settle.
+
+Context goes back as `hookSpecificOutput.additionalContext`, appended to the
+tool result. Exit code 2 blocks; this project never uses it.
+
+### Why the tool payload is missing
+
+The capture ran, the session hooks fired, and then the session stopped
+before any tool could run:
+
+```
+IneligibleTierError: This client is no longer supported for Gemini Code
+Assist for individuals.
+```
+
+Signing in with a Google account no longer reaches a model from this client.
+Capturing `AfterTool` needs `GEMINI_API_KEY` or Vertex AI credentials, and
+until someone runs `./scripts/capture-agent-events.sh gemini-cli` with one,
+`verified_against` stays empty and `doctor` says so.
+
+### Two things the documentation gets wrong
+
+Both were found by running it, which is the only reason they are here.
+
+**Folder trust is on by default.** `docs/cli/trusted-folders.md` says the
+feature is "disabled by default"; the code reads
+`settings.security?.folderTrust?.enabled ?? true`. An untrusted folder makes
+the CLI ignore the workspace `settings.json` outright — so the hooks never
+load — and quietly downgrades `--yolo` back to prompting. A throwaway
+capture directory is never trusted, so the capture profile sets
+`GEMINI_CLI_TRUST_WORKSPACE=true` rather than writing to the user's own
+`~/.gemini/trustedFolders.json`.
+
+**`run_shell_command` requires confirmation**, which a non-interactive
+capture cannot give, hence `--yolo`.
+
+## Cursor
 
 Researched on 2026-10-05, not started.
 
-Gemini CLI configures hooks in `.gemini/settings.json` and names its tool
-events `BeforeTool` and `AfterTool`. Cursor configures them in
-`.cursor/hooks.json` and hangs them off shell execution and file edits —
-`beforeShellExecution`, `afterFileEdit`, `afterMCPExecution` — rather than
-off a tool result, which is a different enough model to deserve its own
-round.
+Cursor configures hooks in `.cursor/hooks.json` and hangs them off shell
+execution and file edits — `beforeShellExecution`, `afterFileEdit`,
+`afterMCPExecution` — rather than off a tool result, which is a different
+enough model to deserve its own round.
 
 ## Keeping this table true
 

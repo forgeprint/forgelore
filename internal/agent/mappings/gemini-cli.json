@@ -1,0 +1,42 @@
+{
+  "mapping_version": 2,
+  "agent": "gemini-cli",
+  "verified_against": "",
+  "common": {
+    "event_name": "hook_event_name",
+    "session": "session_id",
+    "cwd": "cwd"
+  },
+  "events": [
+    {
+      "agent_event": "SessionStart",
+      "kind": "session_started"
+    },
+    {
+      "agent_event": "AfterTool",
+      "kind": "command_succeeded",
+      "tools": [
+        "run_shell_command"
+      ],
+      "tool": "tool_name",
+      "command": "tool_input.command",
+      "output": [
+        "tool_response.error",
+        "tool_response.llmContent",
+        "tool_response.returnDisplay",
+        "tool_response"
+      ],
+      "failure": {
+        "field_present": "tool_response.error",
+        "output_has_diagnostic": true
+      }
+    },
+    {
+      "agent_event": "SessionEnd",
+      "kind": "session_ended"
+    }
+  ],
+  "response": {
+    "context_path": "hookSpecificOutput.additionalContext"
+  }
+}

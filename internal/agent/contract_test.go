@@ -26,6 +26,14 @@ var withoutSamples = map[string]string{
 	// postToolUse with "exit code 1" in the result text. Provoking a real
 	// tool failure needs something other than a broken build.
 	"copilot-cli/postToolUseFailure": "a failing command is not a failing tool; needs a tool error to provoke",
+
+	// Gemini CLI's session events were captured; AfterTool was not,
+	// because the account the capture ran under cannot reach a model:
+	// "Sign in with Google" now returns IneligibleTierError for this
+	// client. The session never gets far enough to run a tool. Capturing
+	// it needs GEMINI_API_KEY or Vertex AI, and until then the one event
+	// that matters here is documentation only.
+	"gemini-cli/AfterTool": "no model access on the free tier; needs GEMINI_API_KEY to provoke a tool call",
 }
 
 // TestEveryBuiltInMappingParses: a mapping that ships broken is a feature

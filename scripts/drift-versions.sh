@@ -29,6 +29,10 @@ latest_version() {
 		curl -fsSL https://registry.npmjs.org/@openai/codex/latest |
 			sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
 		;;
+	gemini-cli)
+		curl -fsSL https://registry.npmjs.org/@google/gemini-cli/latest |
+			sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
+		;;
 	*)
 		return 1
 		;;

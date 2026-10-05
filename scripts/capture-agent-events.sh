@@ -57,6 +57,38 @@ codex-cli)
 			-c features.hooks=true "$1"
 	}
 	;;
+gemini-cli)
+	bin=gemini
+	version_cmd=(--version)
+	config_path=".gemini/settings.json"
+	# No PostToolUseFailure equivalent: AfterTool is the only tool event,
+	# and whether a command failed has to be read out of its payload.
+	events=(SessionStart AfterTool SessionEnd)
+	write_config() {
+		local h hooks=""
+		for e in "${events[@]}"; do
+			h="{\"type\":\"command\",\"command\":\"$1 $e\",\"timeout\":10000}"
+			hooks="$hooks,\"$e\":[{\"hooks\":[$h]}]"
+		done
+		# timeout is milliseconds here, unlike Claude Code's seconds.
+		printf '{"hooks":{%s}}' "${hooks:1}"
+	}
+	# Two things a capture has to force.
+	#
+	# --yolo because run_shell_command "requires manual confirmation" and
+	# there is nobody here to confirm it.
+	#
+	# GEMINI_CLI_TRUST_WORKSPACE because an untrusted folder makes the CLI
+	# ignore the workspace .gemini/settings.json entirely — the hooks would
+	# never load — and it downgrades --yolo back to prompting. A throwaway
+	# directory is never trusted. The alternative was writing to the user's
+	# own ~/.gemini/trustedFolders.json, which this script exists not to do.
+	#
+	# The documentation says folder trust is "disabled by default"; the code
+	# reads `settings.security?.folderTrust?.enabled ?? true`, so it is on.
+	# Checked against v0.62.0.
+	run_session() { GEMINI_CLI_TRUST_WORKSPACE=true "$bin" -p "$1" --yolo; }
+	;;
 copilot-cli)
 	bin=copilot
 	version_cmd=(--version)
@@ -75,7 +107,7 @@ copilot-cli)
 	run_session() { COPILOT_HOME="$work/copilot-home" "$bin" -p "$1" --allow-all-tools; }
 	;;
 *)
-	echo "unknown agent $agent (claude-code, codex-cli, copilot-cli)" >&2
+	echo "unknown agent $agent (claude-code, codex-cli, copilot-cli, gemini-cli)" >&2
 	exit 1
 	;;
 esac
