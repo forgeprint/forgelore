@@ -1511,3 +1511,40 @@ mesajı görmeyecekti. Ortak nokta: **aracı anlatmaya çalışmak, onu
 kullanmaktan daha iyi bir kontrol yöntemi çıktı.** Testler yazdığımız şeyin
 çalıştığını kanıtlıyor; bir doküman, yazmadığımız şeyin eksik olduğunu
 gösteriyor.
+
+---
+
+## 2026-10-05 — compatibility.md gözden geçirildi
+
+Dört düzeltme, biri kopuk bağlantı.
+
+**1. Copilot CLI "A" olarak fazla iddia ediyordu.** A'nın tanımı "hook + MCP
++ CLI". Copilot'un hook'ları doğrulandı ama **MCP istemcisi hiç
+bağlanmadı** — yani A hak edilmemişti. **B**'ye indirildi, gerekçesi
+tabloda yazılı. Tam olarak bu tablonun engellemek için var olduğu hata.
+
+**2. `docs/team-trial.md` buraya yönlendiriyordu ama kurulum talimatı
+yoktu.** Protokol "Copilot CLI: hooks per `docs/compatibility.md`" diyor,
+burada ise tek satır yazmıyordu. Artık tam hooks dosyası var — olay başına
+bir girdi, her biri kendi adını `--event` ile geçiriyor.
+
+`COPILOT_HOME` tercihinin sebebi de dürüstçe yazıldı: `.github/hooks`
+yakalama betiğinin geçici dizininde okunmadı, ama o dizin git deposu değil,
+yani sebep bu da olabilir. "Genel kural" diye yazmak elimizdeki kanıtı
+aşardı.
+
+**3. Codex'in ikinci tahmini de işaretlendi.** Eşleme `interrupted` /
+`is_interrupt` alanını atlıyor — bu Claude Code'dan kopyalandı. Oysa Codex
+`Interrupt`'ı bir **olay** olarak dokümante ediyor, alan olarak değil. Yani
+atlama hiç tetiklenmeyebilir ve iptal edilen komut hata olarak
+hatırlanabilir. Üç oturum açma denemesinin başarısız olduğu da yazıldı.
+
+**4. "MCP sunucusu ajana özgü değil" bölümü eklendi.** Tablodaki "never
+connected" o ajanın istemcisi hakkında bir ifade, Forgelore hakkında değil
+— sunucu iki revizyonu da sunuyor ve iki gerçek istemciyle sınandı.
+v0.1.2'nin `session` argümanı da burada: MCP üzerinden yapılan arama ancak
+çağıran onu geçerse rapora giriyor.
+
+Ayrıca "Keeping this table true" bölümü eklendi — iki drift betiği ve
+`doctor`, tabloyu dürüst tutmanın yolu olarak. "Adding an agent" listesine
+de "kontrol **etmediğin** sütunları da güncelle" maddesi kondu.
