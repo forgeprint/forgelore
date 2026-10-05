@@ -19,10 +19,13 @@ can run a shell command.
 ## What it looks like
 
 A fix recorded while running `go build` is found later by `go vet`, in a
-different file, on a different line. Real output:
+different file, on a different line. Real output, from `v0.1.1`:
 
 ```console
-$ go build ./... 2>err.txt
+$ go build ./...
+# example.com/app/cmd/app
+cmd/app/main.go:4:2: undefined: greet
+
 $ forgelore recall --command "go build ./..." --error-file err.txt
 1 error(s), 0 with something recorded
 
@@ -32,17 +35,22 @@ cd023fb609411574  undefined: greet
 $ forgelore record --type fix \
     --title "greet lives in internal/greeter; import it" \
     --command "go build ./..." --error-file err.txt
+01M45XT2HS8G3PXDBRTWWV3449  .forgelore/records/01M45XT2HS8G3PXDBRTWWV3449.md
+fingerprint cd023fb609411574
+```
 
-# ...later, a different file, a different command
+Later, a different file, a different command:
 
-$ go vet ./... 2>err2.txt
+```console
+$ go vet ./...
+# example.com/app/internal/svc
 vet: internal/svc/svc.go:4:2: undefined: greet
 
 $ forgelore recall --command "go vet ./..." --error-file err2.txt
 1 error(s), 1 with something recorded
 
 cd023fb609411574  undefined: greet
-  fix       01M45W8AM40B94WTEANTXK4BX5  greet lives in internal/greeter; import it
+  fix       01M45XT2HS8G3PXDBRTWWV3449  greet lives in internal/greeter; import it
 ```
 
 The fingerprint is the same because the file, the line and the subcommand are
