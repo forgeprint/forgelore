@@ -29,12 +29,16 @@ func TestBuiltMappingParses(t *testing.T) {
 	}
 }
 
-// TestBuiltMappingIsHonestAboutVerification: the mapping was written from
-// documentation, not from captured payloads, and has to say so until real
-// samples exist.
-func TestBuiltMappingIsHonestAboutVerification(t *testing.T) {
-	if v := mustBuilt(t).VerifiedAgainst; v != "" {
-		t.Errorf("verified_against = %q; set it only when real payloads back it", v)
+// TestBuiltMappingNamesTheVersionItWasCheckedAgainst: verified_against is a
+// claim, and a claim has to have a corpus behind it. Setting it to a version
+// with no captured payloads fails here.
+func TestBuiltMappingNamesTheVersionItWasCheckedAgainst(t *testing.T) {
+	v := mustBuilt(t).VerifiedAgainst
+	if v == "" {
+		t.Fatal("verified_against is empty; the corpus says otherwise")
+	}
+	if _, err := os.Stat(filepath.Join(corpusRoot, v)); err != nil {
+		t.Errorf("verified_against is %q but there are no payloads for it: %v", v, err)
 	}
 }
 

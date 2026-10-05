@@ -56,6 +56,12 @@ type Match struct {
 	// inside the payload needs a test.
 	Failure Failure `json:"failure,omitempty"`
 
+	// SkipWhen names a field that, when present and not false, means this
+	// event is not worth acting on. Claude Code sets is_interrupt on a
+	// command the user stopped; that is somebody pressing Ctrl-C, not an
+	// error anyone wants remembered.
+	SkipWhen Path `json:"skip_when,omitempty"`
+
 	// Untrusted marks every event from this match as coming from outside
 	// the project (ADR-0013).
 	Untrusted bool `json:"untrusted,omitempty"`
@@ -156,6 +162,9 @@ func (m *Mapping) Translate(payload []byte, now time.Time) (Event, bool, error) 
 		tool, _ := lookup(raw, match.Tool)
 		if len(match.Tools) > 0 && !contains(match.Tools, tool) {
 			continue
+		}
+		if v, ok := lookup(raw, match.SkipWhen); ok && v != "false" {
+			return Event{}, false, nil
 		}
 
 		e := Event{Kind: match.Kind, Time: now, Tool: tool, Untrusted: match.Untrusted}

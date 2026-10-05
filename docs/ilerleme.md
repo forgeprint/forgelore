@@ -712,51 +712,76 @@ Elle koşulan tam döngü (gerçek binary): SessionStart dizini → bilinmeyen h
 sessizlik → komut düzelince aday → `review --accept` → **başka oturumda** aynı
 hatada ipucu → kontrol kolunda sessizlik.
 
-### 2026-10-05 — Adım 4: CLI kuruldu, iki gerçek yük yakalandı
+### 2026-10-05 — Adım 4 tamam: gerçek yükler eşlemeyi yalanladı
 
 `claude` CLI kuruldu: **2.1.289**, resmî yerel yükleyiciyle
 (`https://claude.ai/install.sh` → `downloads.claude.ai`). Betik çalıştırılmadan
 önce okundu: `$HOME` altına kuruyor, SHA-256'yı manifest'ten doğruluyor, sudo
-istemiyor, sistem dizinine dokunmuyor. Node/npm gerekmedi.
+istemiyor. Node/npm gerekmedi.
 
-`scripts/capture-agent-events.sh` yazıldı — tek kullanımlık dizin, kendi
-`settings.json`'ı, derlenmeyen bir Go paketi. Kullanıcının kendi Claude Code
-yapılandırmasına dokunmuyor.
+**Oturum açma tuzağı:** CLI masaüstü uygulamasından **ayrı** kimlik doğruluyor.
+Keychain'de `Claude Code-credentials` vardı ama o uygulamanın; CLI
+`loggedIn: false` diyordu. Doğru komut `claude auth login`. İlk koşu login
+olmadan yapıldığı için model turu hiç olmadı ve yalnızca oturum olayları
+yakalandı — o koşudan çıkarılan "`scratchpad_dir` yok" sonucu **yanlıştı**,
+artefakttı.
 
-**Yakalananlar: `SessionStart` ve `SessionEnd`.** Tool olayları yakalanamadı:
-CLI masaüstü uygulamasından **ayrı** oturum açıyor ve `Not logged in` dedi,
-yani model turu hiç olmadı.
+`scripts/capture-agent-events.sh` tek kullanımlık dizinde çalışıyor, kendi
+`settings.json`'ıyla, kullanıcının yapılandırmasına dokunmadan; biri patlayan
+biri çalışan iki komut koşturup dört olayı da yakalıyor, hesap adını `dev` ile
+değiştiriyor ve kendi işini denetliyor.
 
-#### Gerçek yüklerin söyledikleri
+#### Asıl bulgu: eşleme yanlıştı ve sessizce yanlıştı
 
-| Bulgu | Sonuç |
-|---|---|
-| **`scratchpad_dir` yok** | Dokümantasyon "oturumun scratchpad'i yoksa yok" diyordu; pratikte yokluğu olağan hâl. `.forgelore/cache/sessions/` yedeği istisna değil **ana yol** — silinemez |
-| `permission_mode` bu iki olayda yok | Ortak alan sayılmamalı |
-| `hook_event_name`, `session_id`, `cwd` yerinde | Eşlemenin ortak alanları doğrulandı |
-| `SessionStart.source="startup"`, `SessionEnd.reason="other"` | Dokümantasyonla uyumlu |
+Başarısız Bash komutunda **`tool_response` alanı hiç yok.** Çıktı üst düzey
+`error` alanında, çıkış koduyla birlikte:
 
-Üçü de `contract_test.go` ile sabitlendi; `scratchpad_dir`'in yokluğu ayrı bir
-testle kayıt altında, çünkü yedeği silmek herkesin oturum durumunu bozar.
+```
+"error": "Exit code 1\n# example.com/broken/cmd/app\ncmd/app/main.go:4:2: undefined: greet"
+```
 
-Örnekler `testdata/agents/claude-code/2.1.289/` altında, hesap adı `dev` ile
-değiştirilmiş. Sözleşme testi hem çeviriyi doğruluyor hem de **örneği olmayan
-olayları `withoutSamples` listesinde görünür tutuyor** — yeni bir olay
-eşlenip örneksiz bırakılırsa test kırılıyor.
+Dokümantasyondan türetilen eşleme `tool_response.stderr`, `.stdout` ve
+`tool_response`'a bakıyordu; üçü de yok. Olay çıktısız üretiliyor, parmak izi
+boş dönüyor, **enjeksiyon yolu sonsuza kadar sessiz kalıyordu** — ve hiçbir
+yerde hata görünmüyordu. Kural 7'nin tam olarak engellemek istediği şey.
+
+*Başarılı* komutta ise `tool_response` **var**, nesne olarak (`stdout`,
+`stderr`, `interrupted`). Yani iki olay gerçekten farklı şekilde. Yol-listesi
+biçimi tam bunun içindi: düzeltme `error`'ı listenin başına eklemekten ibaret,
+**JSON'da, yeniden derleme yok**.
+
+Yüklerin söylediği iki şey daha:
+
+- `is_interrupt` / `tool_response.interrupted` — kullanıcının durdurduğu komut
+  hata değil. Eşlemeye `skip_when` eklendi.
+- `scratchpad_dir` **dört olayda da var**. Oturum durumu ajanın zaten
+  temizlediği yere yazılıyor; `.forgelore/cache/sessions/` yedeği duruyor
+  çünkü dokümantasyon alanın bulunmayabileceğini söylüyor.
+
+#### Durum
+
+- `testdata/agents/claude-code/2.1.289/` — dört gerçek yük, temizlenmiş.
+- `verified_against: "2.1.289"`, ve bir test bu iddianın arkasında külliyat
+  olmasını şart koşuyor.
+- `withoutSamples` **boş**, ve boş kalması zorunlu: eşlemeye örneksiz olay
+  eklenirse sözleşme testi kırılıyor.
+- Gerçek yük binary'den geçirildi: hafıza boşken sessiz, doluyken ipucu,
+  `is_interrupt` ile sessiz.
+- `internal/agent` kapsamı %95.6.
+
+ADR-0020'ye tarihli bir güncelleme eklendi. Doğrulanan şey eşlemenin içeriği
+değil **biçimi**: yanılmanın bedeli bir JSON düzenlemesi oldu.
 
 ### Sırada
 
-**Adım 4'ün kalanı.** `tool_response` sorusu hâlâ açık ve `verified_against`
-hâlâ boş.
+Faz 5 — kendi MCP sunucumuz (K4). Faz 4'ten devreden açık karar kalmadı.
 
 ### Faz 4 — açık maddeler
 
-- `[SEN]` **`claude` çalıştır ve `/login` yap** (CLI, masaüstü uygulamasından
-  ayrı kimlik doğruluyor). Sonrasında `./scripts/capture-agent-events.sh`
-  tool olaylarını da yakalar ve gerisini ben hallederim.
-- Örnekler gelince: `tool_response`'un şekli kesinleşecek, gerekiyorsa
-  `PostToolUse` için başarısızlık testi eklenecek, `withoutSamples` boşalacak
-  ve `verified_against` doldurulacak.
+- `PostToolUse` başarı yükünde `noOutputExpected` ve `isImage` gibi alanlar
+  var; hiçbiri kullanılmıyor. İhtiyaç doğarsa eşlemeye eklenir.
 - `UserPromptSubmit` ve `PreCompact` hiç kullanılmıyor. Planın kanonik
-  listesinde vardılar; dört olaylı modelde karşılıkları yok. İhtiyaç doğarsa
-  eşlemeye eklenir.
+  listesinde vardılar; dört olaylı modelde karşılıkları yok.
+- Eklenti elle kurulup gerçek bir oturumda denenmedi. `plugin/` hazır ve
+  hook'lar gerçek yüklerle test edildi, ama uçtan uca "eklentiyi kur, hatayı
+  tekrarla, ipucunu gör" adımı yapılmadı.

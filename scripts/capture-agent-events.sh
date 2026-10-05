@@ -55,8 +55,9 @@ printf 'package main\n\nfunc main() {\n\tgreet("world")\n}\n' > "$work/cmd/app/m
 echo "==> running a session"
 (
   cd "$work"
-  claude -p 'Run exactly this one shell command and then stop, do not fix anything: go build ./...' \
-    --allowedTools Bash --permission-mode acceptEdits >/dev/null 2>&1 || true
+  # One command that fails and one that succeeds, so both tool events fire.
+  claude -p 'Run these two shell commands in order and then stop. Do not fix anything, do not edit any file. First: go build ./...   Second: go version' \
+    --allowedTools Bash --permission-mode acceptEdits 2>&1 | tail -3 || true
 )
 
 shopt -s nullglob

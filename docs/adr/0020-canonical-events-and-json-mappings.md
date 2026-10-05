@@ -47,9 +47,38 @@ A field path is a list of dotted paths, and the first that resolves wins.
 - Field paths as lists are the hedge against the part of an agent's format
   that documentation does not pin down. A tool result that is a plain string
   today and an object tomorrow is handled by listing both, with no release.
-- `verified_against` is empty for the Claude Code mapping as shipped. The
-  shape of a failed Bash result is not in the documentation, so the mapping
-  trusts only the dedicated `PostToolUseFailure` event and treats every other
-  finished command as a success. The cost is a missed injection wherever that
-  event does not fire; the alternative was guessing a pattern and injecting a
-  hint after a command that worked. Silence is the cheaper mistake.
+- `verified_against` names the agent version whose captured payloads the
+  mapping was checked against, and a test fails if it names one with no
+  payloads. The Claude Code mapping shipped with it empty, and the mapping
+  trusted only the dedicated `PostToolUseFailure` event rather than guessing
+  how a failed command reports itself.
+
+## Update, 2026-10-05: what the captured payloads changed
+
+Holding the mapping against real payloads from Claude Code 2.1.289 found the
+documentation-derived version wrong in the one place that mattered.
+
+A failed Bash command has **no `tool_response` field at all**. Its output is
+in a top-level `error`, exit code included:
+
+```
+"error": "Exit code 1\n# example.com/broken/cmd/app\ncmd/app/main.go:4:2: undefined: greet"
+```
+
+The mapping read `tool_response.stderr`, `tool_response.stdout` and
+`tool_response`, found none of them, and produced an event with no output.
+Every fingerprint would have come back empty and the injection path would
+have been silent forever, with no error anywhere to show for it.
+
+A *succeeding* command does have `tool_response`, as an object with `stdout`
+and `stderr`. So the two events genuinely differ in shape, which is what the
+list-of-paths field format was for; adding `error` to the front of the list
+was the whole fix, in data.
+
+Two more things the payloads settled: `is_interrupt` marks a command the user
+stopped, which is not a failure worth remembering, so the mapping gained a
+`skip_when`; and `scratchpad_dir` is present on all four events, so session
+state lives where the agent already cleans up.
+
+The decision this vindicates is not the mapping's content but its format.
+Being wrong cost a JSON edit.
