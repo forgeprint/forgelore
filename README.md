@@ -1,5 +1,6 @@
 # Forgelore
 
+[![CI](https://github.com/forgeprint/forgelore/actions/workflows/ci.yml/badge.svg)](https://github.com/forgeprint/forgelore/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/forgeprint/forgelore)](https://github.com/forgeprint/forgelore/releases/latest)
 
 Local-first, team-shared memory for coding agents. Forgelore remembers fixes and
