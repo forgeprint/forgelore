@@ -85,6 +85,11 @@ it publishes.
 `forgelore@0.1.4` and `0.1.5` were published by hand and have no
 provenance. Nothing retroactive fixes that.
 
+Verified on v0.1.6, the first release to go out this way: seven packages
+published in order by the workflow, `npm audit signatures` reporting
+verified attestations, and the binary inside the npm package byte-identical
+to the one the GitHub release attests.
+
 **Node is not a dependency of Forgelore.** It is a dependency of this one
 packaging path. `npm-pack.sh` is not in `ci.sh`, nothing in the Go build
 knows about it, and a user who installs with `install.sh` never meets it.

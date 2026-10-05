@@ -32,10 +32,9 @@ Two things are deliberately **not** covered, and are worth knowing before
 you rely on this:
 
 - the npm packages `forgelore@0.1.4` and `0.1.5`, which were published by
-  hand and carry no provenance. Publishing has since moved into a workflow
-  using npm trusted publishing, which generates provenance on its own, but
-  no release has gone out that way yet — so treat this as arranged rather
-  than demonstrated until one has
+  hand and carry no provenance. From v0.1.6 they are published by a
+  workflow using npm trusted publishing, and `npm audit signatures` reports
+  a verified attestation
   ([ADR-0024](docs/adr/0024-npm-one-package-per-platform.md));
 - operating-system code signing. Sigstore means nothing to macOS Gatekeeper
   or Windows SmartScreen, and you will still meet their warnings.

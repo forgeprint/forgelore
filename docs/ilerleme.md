@@ -2064,11 +2064,44 @@ imkânsız kılıyor:
 bunu "ayarlandı, gösterilmedi" diye yazıyor. İlk gerçek sınav bir sonraki
 release.
 
-### Kalanlar — hepsi `[SEN]`
+---
 
-- npmjs.com'da yedi paketin her biri için Trusted Publisher kaydı:
-  `forgeprint/forgelore`, workflow `npm.yml`, ve `npm publish` izni açık.
-  Bu yapılmadan `npm.yml` ilk çalıştığında kimlik doğrulamadan düşer.
+## 2026-10-05 — v0.1.6: yayım zinciri uçtan uca otomatik, ve kanıtlandı
+
+https://github.com/forgeprint/forgelore/releases/tag/v0.1.6
+
+Kullanıcı yedi Trusted Publisher kaydını girdi. İlk gerçek sınav:
+
+1. Etiket itildi → `release.yml` derledi, attest etti, taslak çıkardı.
+2. Taslak okunup yayımlandı → `release: published` `npm.yml`'ı tetikledi.
+3. `npm.yml` 1 dk 7 sn'de bitti: npm yükseltildi, artefaktlar **release'ten
+   indirildi**, `npm-pack.sh` paketledi, `PUBLISH_ORDER` sırasıyla yedi
+   paket yayımlandı. Tek bir token yok.
+
+Doğrulamalar:
+
+- Yedi paket de registry'de `0.1.6`, `latest` 0.1.6.
+- `npm audit signatures` → **"2 packages have verified attestations"**.
+  npm provenance artık var; 0.1.4 ve 0.1.5'te yoktu.
+- `gh attestation verify` GitHub artefaktında 0 ile çıktı.
+- npm'deki ikilinin SHA-256'sı release'inkiyle birebir aynı:
+  `8784370d71d74fe2…`.
+
+Yani bu oturumda elle yaparken düşülen iki hata — yanlış baytlar ve yanlış
+sıra — artık yapılabilir değil, sakınılması gereken şeyler değil.
+
+### Bugünün özeti: altı sürüm, hepsi aynı aileden
+
+`v0.1.1` ve `v0.1.2` doküman yazarken, `v0.1.3` aracı kullanıcı gibi
+kurarken, `v0.1.4` imzalama/npm eklerken, `v0.1.5` npm'e yanlış bayt
+gönderdiğim için, `v0.1.6` o hatayı imkânsız kılmak için çıktı.
+
+Ortak nokta: hiçbirinde kod yanlış değildi. Hepsinde eksik olan, kodun hiç
+görmediği bir girdi ya da insanın tekrarlaması beklenen bir adımdı. Testler
+yazdığımız şeyin çalıştığını kanıtlıyor; anlatmak, kurmak ve yayımlamak
+yazmadığımız şeyin eksik olduğunu gösteriyor.
+
+### Kalanlar — hepsi `[SEN]`
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
   `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,
