@@ -7,9 +7,9 @@ whether it actually saves tokens.
 A single Go binary with no runtime dependencies. It works with any agent that
 can run a shell command.
 
-> **Status: early development.** The record store, error fingerprinting, the
-> command line and the measurement ledger work and are tested. Agent
-> integrations are not built yet, and there is no release to install — you
+> **Status: early development.** The record store, fingerprinting, the
+> command line, the measurement ledger, Claude Code hooks and the MCP server
+> all work and are tested. There is no published release yet, so for now you
 > build it yourself. Follow `docs/plan.md` for the roadmap.
 
 ## What it does
@@ -33,6 +33,20 @@ can run a shell command.
 - No network access, no telemetry.
 - Never blocks the agent. Hooks are fail-open with a hard timeout.
 - Does not duplicate an agent's built-in memory features.
+
+## Installing
+
+Once a release exists:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/forgeprint/forgelore/main/scripts/install.sh | bash
+```
+
+It verifies the download against the release's `SHA256SUMS` and refuses to
+install anything that does not match. No sudo, nothing outside your home
+directory, no runtime to install alongside it.
+
+Until then, `./scripts/build.sh` puts a binary in `dist/`.
 
 ## Using it
 

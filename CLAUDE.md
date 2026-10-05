@@ -57,6 +57,8 @@ Every check CI runs is a script, and CI runs nothing else:
 ./scripts/build.sh           # host binary into dist/
 ./scripts/capture-errors.sh  # regenerate testdata/errors
 ./scripts/capture-agent-events.sh  # regenerate testdata/agents
+./scripts/release.sh vX.Y.Z  # build every artifact and SHA256SUMS
+./scripts/install.sh         # what a user runs; not needed to develop
 ```
 
 `scripts/test.sh` includes a ten thousand record measurement that takes about

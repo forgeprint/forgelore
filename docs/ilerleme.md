@@ -1039,18 +1039,24 @@ Yakalama betiği de değişti: olay adı artık hook girdisinden **argüman olar
 geliyor, yükten ayrıştırılmıyor. Ayrıştırma zaten yalnızca Claude Code için
 çalışıyordu.
 
-### Sırada
+### 2026-10-05 — Codex atlandı
 
-`[SEN]` **`codex login`** — akış `c4` sekmesinde açıldı ama tamamlanmadı,
-`codex login status` hâlâ "Not logged in" diyor. Sonrasında
-`./scripts/capture-agent-events.sh codex-cli` ve aynı döngü.
+Üç oturum açma denemesi: tarayıcı akışı iki kez, `--device-auth` bir kez.
+Cihaz kodu kabul edilmedi; muhtemelen hesabın Codex CLI erişimiyle ilgili,
+yani bizim tarafımızda bir iş değil. Kullanıcı atlamaya karar verdi.
+
+Codex CLI'nin eşlemesi depoda duruyor, `verified_against: ""` ile, ve
+`docs/compatibility.md` onu **"A, doğrulanmamış"** diye gösteriyor. Copilot'ta
+dokümantasyondan türetilen iki varsayımın da yanlış çıktığı düşünülürse, bu
+eşlemenin de yanlış olduğu varsayılmalı. Tabloda öyle duruyor.
 
 Faz 4 ve Copilot'un dersi Codex'te de beklenmelidir: dokümantasyondan yazılan
 eşleme yanlış çıkacak, ve yanlışın bedeli bir JSON düzenlemesi olacak.
 
 ### Faz 7 — açık maddeler
 
-- `[SEN]` `codex login` (Copilot tamamlandı).
+- `[SEN]` Codex CLI doğrulanmadı — oturum açılamadı, atlandı. Erişim
+  olduğunda `./scripts/capture-agent-events.sh codex-cli` ve aynı döngü.
 - Gemini CLI ve Cursor ayrı turlar. Cursor'ın olay modeli (kabuk öncesi /
   dosya sonrası) dört anlamsal olaya en uzak duran; `command_failed`
   karşılığı olup olmadığı bakılmalı.
@@ -1059,3 +1065,68 @@ eşleme yanlış çıkacak, ve yanlışın bedeli bir JSON düzenlemesi olacak.
   bu satırı güncellenmemiş.
 - Kullanım okuyucusu hâlâ yalnızca Claude Code'da. Diğerlerinde karşılığı
   görünmüyor; ADR-0012'nin dürüstlük sınırı zaten kapsıyor.
+
+---
+
+## Faz 8 — Dağıtım ve yayın
+
+**Durum:** Adım 1–4 tamam. Adım 5 ve 6 `[SEN]`.
+
+### Alınan kararlar
+
+| # | Karar | Gerekçe |
+|---|---|---|
+| 1 | Release **etiketle tetiklenen CI**'da derleniyor, **taslak** çıkıyor | Yerelde derlemek imzalamanın önünü kapatıyor; taslak birinin okumasını zorunlu kılıyor |
+| 2 | npm sarmalayıcı **ertelendi** | Plan "isteğe bağlı" diyor; `install.sh` aynı ihtiyacı karşılıyor ve npm yeni bir yayın yüzeyi açıyor |
+| 3 | `~/.local/bin`'e kuruyor, PATH'te değilse **söylüyor** | Bugün `codex`/`copilot` ile tam bunu yaşadık: ikili oradaydı, kabuk görmüyordu |
+| 4 | İlk sürüm `v0.1.0` | |
+| 5 | İlk release'te **imzalama yok** | cosign keyless CI kimliğine bağlı; karar 1 sayesinde sonraki release'te ucuz |
+| 6 | `docs/versioning.md` | Faz 0'ın İngilizceye çevirme kararı; plan `surumleme.md` diyor, `uyumluluk.md` gibi güncellenmemiş |
+
+### Yazılanlar
+
+- `scripts/release.sh` — kirli ağacı reddediyor, `ci.sh`'i koşuyor, altı
+  hedefi etiket sürümüyle derliyor, `SHA256SUMS` yazıyor ve **kendi ürettiğini
+  doğruluyor**. Yayımlamıyor; komutu basıyor.
+- `scripts/install.sh` — platformu saptıyor, indiriyor, doğruluyor, kuruyor.
+  `FORGELORE_BASE_URL` ile başka bir kaynağa yönlendirilebiliyor, kabul testi
+  bunu kullanıyor.
+- `.github/workflows/release.yml` — `v*` etiketinde, action'lar SHA ile
+  sabitli, `contents: write`, taslak release.
+- `docs/versioning.md` — üç bağımsız sürüm numarası ve 1.0 için gereken üç
+  şey.
+
+#### Eşleme formatı neden hâlâ 1
+
+Faz 7'de iki kez genişledi (cevap şekli, çağıran-verir olay adı) ama ikisi de
+**ekleme**ydi: ikisini de kullanmayan bir eşlemeyi eski Forgelore hâlâ
+okuyabiliyor. Numara, var olan bir alanın anlamı değiştiğinde 2 olur.
+`versioning.md` bunu yazılı hâle getirdi.
+
+### Kabul kriteri — ölçüldü
+
+Plan: "Temiz bir makinede tek komutla kurulum çalışıyor, checksum
+doğrulanıyor."
+
+`dist/` yerel bir HTTP sunucusundan servis edildi ve `install.sh` boş bir
+`HOME` ile, kırpılmış `PATH` ile koşuldu: indirdi, doğruladı, kurdu,
+`forgelore v0.1.0-test darwin/arm64 go1.27.1` bastı, ve `~/.local/bin`'in
+PATH'te olmadığını söyledi.
+
+**Asıl test reddetme tarafıydı:** ikiliye bir bayt eklendi, aynı koşu
+checksum uyuşmazlığını iki hash'i de yazarak bildirdi ve **hiçbir şey
+kurmadı**. GitHub olmadan gerçek test; gerçek release sonrası tekrarlanacak.
+
+### Sırada
+
+Faz 9 — kayma dedektörü ve bakım.
+
+### Faz 8 — açık maddeler
+
+- `[SEN]` İlk release'i yayımla: `./scripts/release.sh v0.1.0` çıktısını oku,
+  etiketle, push et. Workflow taslağı üretir, yayımlamak sende.
+- `[SEN]` Forgeprint marketplace kaydı, ayrı depoda.
+- İmzalama sonraki release'e bırakıldı.
+- npm sarmalayıcı yazılmadı.
+- `release.sh` `crosscheck`'i iki kez koşuyor (biri `ci.sh` içinde, biri
+  etiket sürümüyle). Birkaç saniye; bölmeye değmedi.

@@ -1,0 +1,42 @@
+name: Release
+
+# Tags only. A release is never cut from a branch: the version in the binary
+# comes from the tag, and a branch build would stamp something that cannot be
+# pointed at later.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      # Actions are pinned to commit SHAs, not tags: a tag can be moved, a SHA
+      # cannot. Update the trailing comment whenever the SHA changes.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Build and checksum
+        run: ./scripts/release.sh "${GITHUB_REF_NAME}"
+
+      # A draft, so that a person reads what is in it and presses publish.
+      # Building here rather than on a laptop is also what makes signing the
+      # artifacts possible later: keyless signing needs the identity of the
+      # workflow that produced them.
+      - name: Draft the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --draft \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes
