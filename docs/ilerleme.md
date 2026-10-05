@@ -1408,3 +1408,58 @@ edilmeli.
 İki rozet eklendi: CI (**GitHub'ın kendi uç noktası**, üçüncü taraf yok) ve
 release sürümü (shields.io — bunun için pratik tek seçenek, ama README'yi
 açan herkesin tarayıcısı üçüncü tarafa istek yapıyor; bilerek kabul edildi).
+
+---
+
+## 2026-10-05 — ekip denemesi protokolü gözden geçirildi
+
+Faz 6'da yazılmıştı; o günden beri v0.1.1 yayımlandı ve Faz 7 geldi. Üç
+**gerçek hata** bulundu, üçü de denemeyi sessizce bozardı:
+
+1. **"`init --with-git-hook` bir kişi yapar, sonra commit edilir" yanlıştı.**
+   Hook `.git/hooks/` altına yazılıyor ve git orayı hiç commit etmiyor.
+   İkinci kişi sırrı durduran kontrolden tamamen yoksun kalırdı. Protokol
+   artık herkesin kendi makinesinde koşmasını söylüyor ve sebebini yazıyor.
+
+2. **MCP ölçüme hiç girmiyor.** `internal/mcp` deftere tek satır yazmıyor —
+   `grep -c "measure\." internal/mcp/*.go` → 0. Protokol MCP'yi hook'a
+   denk bir seçenek gibi sunuyordu; o yolu seçen kişi bir hafta çalışıp
+   **boş bir rapor** alırdı ve sebebini anlayamazdı.
+
+3. **Elle `forgelore recall` de ölçülmüyor.** `--session` varsayılanı boş ve
+   `loopsPerSession` boş oturumları atlıyor (Faz 3'te bilerek böyle
+   yapılmıştı, alakasız çağrılar döngü uydurmasın diye). Doğru davranış, ama
+   protokolde yazılı olması gerekiyordu.
+
+Artık hangi yolun ölçüldüğünü gösteren bir tablo var.
+
+### Eklenen: "gün sıfır" duman testi
+
+Protokolün en büyük eksiğiydi. Hafta sonunda "kimse bir şey promote etmedi"
+bulgusu ile "hook'lar hiç tetiklenmedi" ayırt edilemiyordu. Artık gerçek işe
+başlamadan önce kasıtlı bir hata kırdırıp `report --days 1` ile hook'un
+gördüğü doğrulanıyor, `doctor` ile ajanın doğrulanmış olup olmadığına
+bakılıyor.
+
+Bu sezgi bu oturumdan geliyor: Copilot'un `.github/hooks`'u geçici dizinde
+okumaması ve Claude Code'un eklentiyi etkinleştirme gerektirmesi, ikisi de
+"çalışıyor sandım, çalışmıyormuş" vakasıydı.
+
+### Diğer düzeltmeler
+
+- Kurulum satırı güncellendi (release artık var).
+- Copilot CLI eklendi (Faz 7'de doğrulandı).
+- Günlük not defterinin depo **dışında** tutulması söylendi.
+- Günde en az bir kez pull — iki kişinin ağacı buluşmazsa merge iddiası
+  sınanmamış olur.
+- Maliyet karşılaştırmasının status line bağlanmadan çıkmayacağı yazıldı.
+- A/B oranı 20'de bırakıldı ama **gerekçesi yazıldı**: bir hafta zaten
+  anlamlılık üretemez, büyük kontrol kolu kullanışlılıktan götürür ve
+  istatistik getirmez.
+
+### Açık madde — MCP ölçülmüyor
+
+Ürün tarafında gerçek bir boşluk. MCP protokolü durumsuz ve oturum kavramı
+yok (ADR-0021); `recall_error` aracına isteğe bağlı bir `session` argümanı
+eklenebilir ama bu bir tasarım kararı, protokol dokümanına sıkıştırılacak
+şey değil. Şimdilik yazılı ve görünür.
