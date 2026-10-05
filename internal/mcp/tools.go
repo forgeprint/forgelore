@@ -3,11 +3,14 @@ package mcp
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/forgeprint/forgelore/internal/candidate"
+	"github.com/forgeprint/forgelore/internal/config"
 	"github.com/forgeprint/forgelore/internal/fingerprint"
+	"github.com/forgeprint/forgelore/internal/measure"
 	"github.com/forgeprint/forgelore/internal/record"
 	"github.com/forgeprint/forgelore/internal/store"
 )
@@ -64,6 +67,7 @@ func (s *Server) listTools() map[string]any {
 				"inputSchema": object(map[string]any{
 					"output":  str("The failing command's output, verbatim."),
 					"command": str("The command that produced it. Pass it whenever you have it: the tool it names is part of the fingerprint, so leaving it out can miss a memory recorded with it."),
+					"session": str("An identifier for this conversation, the same string on every call. Without it the lookup still works but is not counted, so the project cannot tell whether this is helping."),
 				}, "output"),
 			},
 			{
@@ -215,6 +219,7 @@ func (s *Server) toolRecallError(raw json.RawMessage) (string, any, error) {
 	var args struct {
 		Output  string `json:"output"`
 		Command string `json:"command"`
+		Session string `json:"session"`
 	}
 	_ = json.Unmarshal(raw, &args)
 	if strings.TrimSpace(args.Output) == "" {
@@ -232,6 +237,15 @@ func (s *Server) toolRecallError(raw json.RawMessage) (string, any, error) {
 	}
 	defer idx.Close()
 
+	// MCP has no session of its own: the protocol is stateless and a server
+	// may not infer anything from a previous request (ADR-0021). The caller
+	// passes an identifier instead, which is what the specification's own
+	// guidance on stateful tools says to do.
+	cfg, _ := config.Load(s.store.Root(), os.LookupEnv, nil)
+	group := measure.Assign(cfg.String("measure.ab.salt"), args.Session,
+		int(cfg.Int("measure.ab.control_percent")))
+	now := time.Now().UTC().Truncate(time.Second)
+
 	out := make([]recalled, 0, len(events))
 	known := 0
 	for _, ev := range events {
@@ -240,6 +254,32 @@ func (s *Server) toolRecallError(raw json.RawMessage) (string, any, error) {
 			continue
 		}
 		hits := toHits(found)
+
+		entry := measure.Entry{
+			Time: now, Session: args.Session, Group: group,
+			Event: measure.EventMiss, Fingerprint: ev.Sum,
+		}
+		if len(hits) > 0 {
+			entry.Event = measure.EventInject
+			if group == measure.GroupControl {
+				entry.Event = measure.EventControl
+				// A control call has to look exactly like a miss, here as
+				// much as in the hook: an agent that can tell which arm it
+				// is in makes the arms incomparable. An empty list rather
+				// than nil, so the JSON stays an array either way.
+				hits = []hit{}
+			}
+		}
+		for _, h := range hits {
+			entry.RecordID = h.ID
+			entry.Bytes += len(h.Title)
+		}
+		entry.EstTokens = measure.EstimateTokensFromBytes(entry.Bytes)
+		if cfg.Bool("measure.ledger") {
+			// A ledger that cannot be written must not break a lookup.
+			_ = measure.AppendEntry(s.store.Root(), entry)
+		}
+
 		if len(hits) > 0 {
 			known++
 		}

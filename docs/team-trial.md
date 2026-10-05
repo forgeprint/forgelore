@@ -44,20 +44,24 @@ One session in five gets no injections. Twenty rather than fifty because
 this week cannot be powered to measure anything either way — a bigger
 control arm would cost usefulness and buy no significance.
 
-### Wire the agent up, and only through hooks
+### Wire the agent up
 
 | Agent | Wiring | Measured |
 |---|---|---|
 | Claude Code | enable the plugin in `plugin/` | yes |
 | Copilot CLI | hooks per `docs/compatibility.md` | yes |
-| anything via MCP | `forgelore mcp --dir .` | **no** |
-| `forgelore recall` by hand | — | **no** |
+| anything via MCP | `forgelore mcp --dir .` | only if the caller passes `session` |
+| `forgelore recall` by hand | — | only with `--session` |
 
-Only the hook path records to the ledger, so only the hook path appears in
-`report`. MCP and hand-run lookups work — they return hints — but they are
-invisible to the measurement, and a week spent on either produces an empty
-comparison. Both people should use the same wiring, or the two halves of the
-week are not comparable.
+A lookup with no session identifier still answers; it just cannot be
+attributed to a run, so it counts towards what was spent and drops out of
+the per-session comparisons. Through hooks the identifier comes from the
+agent and there is nothing to do. Through MCP the model has to pass it, and
+whether it reliably does is one of the things this week finds out — check on
+day zero rather than on Friday.
+
+Both people should use the same wiring, or the two halves of the week are
+not comparable.
 
 ### Day zero: prove the wiring works
 

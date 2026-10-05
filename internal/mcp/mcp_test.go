@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forgeprint/forgelore/internal/measure"
 	"github.com/forgeprint/forgelore/internal/record"
 	"github.com/forgeprint/forgelore/internal/store"
 )
@@ -411,5 +412,119 @@ func TestTheCommandChangesTheFingerprint(t *testing.T) {
 	withoutCommand := call(`"output":"` + output + `"`)
 	if strings.Contains(withoutCommand, "greet lives in internal/greeter") {
 		t.Errorf("the fingerprint ignored the command after all:\n%s", withoutCommand)
+	}
+}
+
+// recallWith calls recall_error and returns the reply text.
+func recallWith(t *testing.T, s *Server, args string) map[string]any {
+	t.Helper()
+	replies := session(t, s,
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{`+modernMeta+`,"name":"recall_error","arguments":{`+args+`}}}`)
+	return result(t, replies[0])
+}
+
+// ledgerOf reads what the server recorded.
+func ledgerOf(t *testing.T, s *Server) *measure.Ledger {
+	t.Helper()
+	l, err := measure.Read(s.store.Root(),
+		time.Now().UTC().AddDate(0, 0, -1), time.Now().UTC().AddDate(0, 0, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return l
+}
+
+// TestRecallThroughMCPIsMeasured closes the gap the trial protocol found:
+// before this, a week of work through MCP produced an empty report and no
+// way to tell why.
+func TestRecallThroughMCPIsMeasured(t *testing.T) {
+	s, _ := newServer(t)
+	recallWith(t, s, `"command":"go build ./...","output":"./main.go:5:14: undefined: greet","session":"s1"`)
+
+	l := ledgerOf(t, s)
+	if len(l.Entries) != 1 {
+		t.Fatalf("got %d ledger entries, want 1: %+v", len(l.Entries), l.Entries)
+	}
+	e := l.Entries[0]
+	if e.Session != "s1" {
+		t.Errorf("session = %q", e.Session)
+	}
+	if e.Event != measure.EventInject {
+		t.Errorf("event = %q, want %q", e.Event, measure.EventInject)
+	}
+	if e.Bytes == 0 || e.EstTokens == 0 {
+		t.Errorf("the injected hint was recorded as free: %+v", e)
+	}
+}
+
+func TestRecallThroughMCPRecordsAMiss(t *testing.T) {
+	s, _ := newServer(t)
+	recallWith(t, s, `"output":"./main.go:1:1: undefined: nobodyKnowsThis","session":"s1"`)
+
+	l := ledgerOf(t, s)
+	if len(l.Entries) != 1 || l.Entries[0].Event != measure.EventMiss {
+		t.Errorf("entries = %+v", l.Entries)
+	}
+	if l.Entries[0].Bytes != 0 {
+		t.Errorf("a miss was charged %d bytes", l.Entries[0].Bytes)
+	}
+}
+
+// TestMCPControlArmIsIndistinguishable: the arm has to be invisible on this
+// path too, or a session that uses MCP contaminates the trial.
+func TestMCPControlArmIsIndistinguishable(t *testing.T) {
+	s, _ := newServer(t)
+	if err := os.WriteFile(filepath.Join(s.store.Root(), "config.yaml"),
+		[]byte("measure.ab.control_percent: 100\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res := recallWith(t, s, `"command":"go build ./...","output":"./main.go:5:14: undefined: greet","session":"s1"`)
+	text := res["content"].([]any)[0].(map[string]any)["text"].(string)
+	if strings.Contains(text, "greet lives in internal/greeter") {
+		t.Errorf("the control arm was shown the hint:\n%s", text)
+	}
+	if !strings.Contains(text, "nothing recorded") {
+		t.Errorf("the control arm does not look like a miss:\n%s", text)
+	}
+
+	// The ledger still has to know a match existed.
+	l := ledgerOf(t, s)
+	if len(l.Entries) != 1 || l.Entries[0].Event != measure.EventControl {
+		t.Errorf("entries = %+v", l.Entries)
+	}
+}
+
+// TestRecallWithoutASessionStillAnswers: the identifier is what makes the
+// lookup countable, not what makes it work.
+func TestRecallWithoutASessionStillAnswers(t *testing.T) {
+	s, _ := newServer(t)
+	res := recallWith(t, s, `"command":"go build ./...","output":"./main.go:5:14: undefined: greet"`)
+	text := res["content"].([]any)[0].(map[string]any)["text"].(string)
+	if !strings.Contains(text, "greet lives in internal/greeter") {
+		t.Errorf("a lookup without a session returned nothing:\n%s", text)
+	}
+
+	// It is recorded, but unattributed, so the report counts the spending
+	// and leaves it out of the per-session comparisons.
+	l := ledgerOf(t, s)
+	if len(l.Entries) != 1 || l.Entries[0].Session != "" {
+		t.Errorf("entries = %+v", l.Entries)
+	}
+	if r := measure.Build(l, time.Now().UTC().AddDate(0, 0, -1), time.Now().UTC().AddDate(0, 0, 1)); r.Loops != nil {
+		t.Errorf("an unattributed lookup produced a loop comparison: %+v", r.Loops)
+	}
+}
+
+// TestTheLedgerCanBeTurnedOffForMCPToo
+func TestMCPRespectsTheLedgerSwitch(t *testing.T) {
+	s, _ := newServer(t)
+	if err := os.WriteFile(filepath.Join(s.store.Root(), "config.yaml"),
+		[]byte("measure.ledger: false\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	recallWith(t, s, `"output":"./main.go:5:14: undefined: greet","session":"s1"`)
+	if l := ledgerOf(t, s); len(l.Entries) != 0 {
+		t.Errorf("the ledger was written while switched off: %+v", l.Entries)
 	}
 }

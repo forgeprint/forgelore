@@ -1457,9 +1457,28 @@ okumaması ve Claude Code'un eklentiyi etkinleştirme gerektirmesi, ikisi de
   anlamlılık üretemez, büyük kontrol kolu kullanışlılıktan götürür ve
   istatistik getirmez.
 
-### Açık madde — MCP ölçülmüyor
+### MCP ölçüm boşluğu kapatıldı
 
-Ürün tarafında gerçek bir boşluk. MCP protokolü durumsuz ve oturum kavramı
-yok (ADR-0021); `recall_error` aracına isteğe bağlı bir `session` argümanı
-eklenebilir ama bu bir tasarım kararı, protokol dokümanına sıkıştırılacak
-şey değil. Şimdilik yazılı ve görünür.
+`recall_error` isteğe bağlı bir `session` argümanı aldı ve artık deftere
+yazıyor: inject / control / miss, bayt, tahmini token, A/B kolu.
+
+Durumsuzluk ihlali değil — spesifikasyonun kendi "Stateful Tools" bölümü
+tam bunu söylüyor: birden fazla isteğe yayılan durum, istemcinin her çağrıda
+geçirdiği açık bir tanımlayıcıyla taşınmalı. Sunucu hiçbir şey çıkarsamıyor.
+
+Kontrol kolu burada da görünmez: eşleşme varsa bile `hits` boşaltılıyor ve
+çağrı bir miss'ten ayırt edilemiyor; defter eşleşmenin var olduğunu yine de
+kaydediyor. Boş liste olarak, `nil` olarak değil — JSON her hâlükârda dizi
+kalsın diye.
+
+Oturum kimliği verilmezse arama yine cevap veriyor, yalnızca harcama
+tarafına sayılıp oturum başına karşılaştırmalardan düşüyor. Araç açıklaması
+bunu açıkça söylüyor.
+
+Gerçek istemciyle doğrulandı: MCP inspector'dan `session` geçirilerek
+yapılan bir `recall_error`, `report --days 1` çıktısında "hints injected 1,
+bytes injected 42" olarak göründü.
+
+Protokolün tablosu güncellendi: MCP artık "istemci `session` geçirirse
+ölçülür". Modelin bunu güvenilir biçimde geçirip geçirmediği denemenin
+kendi bulgularından biri olacak — gün sıfırda bakılmalı, cuma günü değil.
