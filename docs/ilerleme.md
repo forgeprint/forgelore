@@ -1999,6 +1999,31 @@ Boş dizinde registry'den: `npm install forgelore@0.1.5` →
 `forgelore v0.1.5 darwin/arm64 go1.26.8`, `--ignore-scripts` ile de aynısı.
 Yedi paket de registry'de, `latest` 0.1.5.
 
+### npm yayını yapıldı — sıradaki sefere not
+
+`forgelore` artık npm'de: yedi paket, `latest` 0.1.5, `0.1.4` deprecated.
+Yayımlarken öğrenilen, dokümandan çıkmayan şeyler:
+
+**Sıra gerçekten önemli, ve ilk seferinde kaçırıldı.** 0.1.4'te sarmalayıcı
+**önce** yayımlandı. Bağımlılıklar `optionalDependencies` olduğu için npm
+eksik olanları sessizce atlıyor: o pencerede kuran biri binary'siz bir
+sarmalayıcı alırdı. Script bunu yazdırıyordu, yine de oldu — sıralamayı bir
+insanın okumasına bırakmak yeterli değil. CI'a taşımanın asıl gerekçesi bu,
+provenance ikincil.
+
+**Her `npm publish` ayrı bir tarayıcı doğrulaması istiyor** (2FA açıkken).
+Etkileşimsiz bir kabuktan çalıştırınca `EOTP` ile düşüyor, `--otp=` bekliyor.
+Yani yayımlama adımı otomatikleştirilmeden önce automation token şart; bu da
+CI yolunu kendiliğinden gerektiriyor.
+
+**Registry hemen görünür olmuyor.** `npm publish` "+ paket@sürüm" dedikten
+sonra `npm view` birkaç dakika `MISSING` diyebiliyor. Yayımdan hemen sonraki
+doğrulama buna takılmamalı; beklemek gerekiyor.
+
+**Aynı `npm deprecate`'i ikinci kez çalıştırmak 422 veriyor.** Zaten
+uygulanmış bir deprecation'ı tekrar yazmaya çalışmak hata döndürüyor;
+durum bozulmuyor. `npm view <pkg>@<sürüm> deprecated` gerçek cevabı veriyor.
+
 ### Kalanlar — hepsi `[SEN]`
 
 - npm yayımlamayı CI'a taşımak: hem elle sıralama hatasını (0.1.4'te
@@ -2008,6 +2033,4 @@ Yedi paket de registry'de, `latest` 0.1.5.
 - Codex CLI doğrulaması, erişim olduğunda:
   `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,
   `verified_against`'i doldur, `docs/compatibility.md`'yi güncelle.
-- Sonraki release'te imzalama (cosign keyless) ve istenirse npm sarmalayıcı —
-  ikisi de Faz 8'de bilerek ertelendi.
 - Gemini CLI ve Cursor: araştırıldı, başlanmadı.
