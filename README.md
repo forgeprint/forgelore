@@ -104,6 +104,14 @@ your local scope are never committed.
 [`docs/team-trial.md`](docs/team-trial.md) is a protocol for trying this with
 two people for a week.
 
+## Which agents
+
+[`docs/compatibility.md`](docs/compatibility.md) lists what is supported and,
+more usefully, what has actually been checked against a running agent rather
+than read in its documentation. Claude Code is verified; mappings for Codex
+CLI and Copilot CLI are written but unverified. Everything else works through
+the CLI today.
+
 ## Measuring whether it helps
 
 Every lookup is written to a local ledger, and `forgelore report` shows what

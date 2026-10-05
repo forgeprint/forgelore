@@ -29,7 +29,11 @@ func hookContext(t *testing.T, dir, payload string, args ...string) string {
 	if strings.TrimSpace(out) == "" {
 		return ""
 	}
-	var r claudeHookResponse
+	var r struct {
+		HookSpecificOutput struct {
+			AdditionalContext string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
+	}
 	if err := json.Unmarshal([]byte(out), &r); err != nil {
 		t.Fatalf("hook wrote something that is not a response: %v\n%s", err, out)
 	}
@@ -304,6 +308,7 @@ func TestHookAcceptsAMappingFromDisk(t *testing.T) {
 	mapping := filepath.Join(t.TempDir(), "other.json")
 	if err := os.WriteFile(mapping, []byte(`{
 	  "mapping_version": 1, "agent": "other",
+	  "response":{"context_path":"additionalContext"},
 	  "common": {"event_name": "kind", "session": "sid"},
 	  "events": [{"agent_event": "boom", "kind": "command_failed",
 	              "command": "cmd", "output": "out", "failure": {"always": true}}]
@@ -313,9 +318,21 @@ func TestHookAcceptsAMappingFromDisk(t *testing.T) {
 	mustCLI(t, dir, "./main.go:5:14: undefined: greet\n",
 		"record", "--type", "fix", "--title", "A known fix", "--command", "go build ./...", "--error-file", "-")
 
+	// This mapping asks for context at the top level rather than inside
+	// Claude Code's wrapper, which is the point: the reply shape is data.
 	payload := `{"kind":"boom","sid":"s1","cmd":"go build ./...","out":"./main.go:5:14: undefined: greet"}`
-	got := hookContext(t, dir, payload, "--mapping", mapping)
-	if !strings.Contains(got, "A known fix") {
-		t.Errorf("the mapping from disk did not work:\n%s", got)
+	out := mustCLI(t, dir, payload, "hook", "--mapping", mapping)
+
+	var got struct {
+		AdditionalContext string `json:"additionalContext"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if !strings.Contains(got.AdditionalContext, "A known fix") {
+		t.Errorf("the mapping from disk did not work:\n%s", out)
+	}
+	if strings.Contains(out, "hookSpecificOutput") {
+		t.Errorf("the reply used Claude Code's shape for another agent:\n%s", out)
 	}
 }

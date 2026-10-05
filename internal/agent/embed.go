@@ -3,10 +3,17 @@ package agent
 import (
 	_ "embed"
 	"fmt"
+	"strings"
 )
 
 //go:embed mappings/claude-code.json
 var claudeCodeMapping []byte
+
+//go:embed mappings/copilot-cli.json
+var copilotCLIMapping []byte
+
+//go:embed mappings/codex-cli.json
+var codexCLIMapping []byte
 
 // Built returns a mapping that ships with this binary.
 //
@@ -18,6 +25,15 @@ func Built(name string) (*Mapping, error) {
 	switch name {
 	case "claude-code":
 		return ParseMapping(claudeCodeMapping)
+	case "copilot-cli":
+		return ParseMapping(copilotCLIMapping)
+	case "codex-cli":
+		return ParseMapping(codexCLIMapping)
 	}
-	return nil, fmt.Errorf("agent: no built-in mapping for %q", name)
+	return nil, fmt.Errorf("agent: no built-in mapping for %q (%s)", name, strings.Join(BuiltIn(), ", "))
+}
+
+// BuiltIn names the mappings that ship with this binary.
+func BuiltIn() []string {
+	return []string{"claude-code", "codex-cli", "copilot-cli"}
 }

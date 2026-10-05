@@ -22,87 +22,133 @@ const corpusRoot = "../../testdata/agents/claude-code"
 // the first place.
 var withoutSamples = map[string]string{}
 
-// TestContractAgainstCapturedPayloads translates every captured payload with
-// the mapping that ships, and fails if the mapping has drifted from what the
-// agent actually sends.
-func TestContractAgainstCapturedPayloads(t *testing.T) {
-	versions, err := os.ReadDir(corpusRoot)
-	if err != nil {
-		t.Fatalf("no captured payloads at all: %v", err)
-	}
-
-	mapping := mustBuilt(t)
-	seen := map[string]bool{}
-	total := 0
-
-	for _, version := range versions {
-		if !version.IsDir() {
+// TestEveryBuiltInMappingParses: a mapping that ships broken is a feature
+// that silently does nothing.
+func TestEveryBuiltInMappingParses(t *testing.T) {
+	for _, name := range BuiltIn() {
+		m, err := Built(name)
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
 			continue
 		}
-		dir := filepath.Join(corpusRoot, version.Name())
-		files, err := os.ReadDir(dir)
+		if m.Agent != name {
+			t.Errorf("%s is named %q inside", name, m.Agent)
+		}
+		if m.Response.ContextPath == "" {
+			t.Errorf("%s says nothing about where context goes", name)
+		}
+	}
+}
+
+// TestVerifiedMappingsHaveACorpus: `verified_against` is a claim, and a
+// claim needs payloads behind it. A mapping that names a version with no
+// captured payloads fails here; one that claims nothing is free to.
+func TestVerifiedMappingsHaveACorpus(t *testing.T) {
+	verified := 0
+	for _, name := range BuiltIn() {
+		m, err := Built(name)
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, f := range files {
-			if filepath.Ext(f.Name()) != ".json" {
-				continue
-			}
-			total++
-			payload, err := os.ReadFile(filepath.Join(dir, f.Name()))
-			if err != nil {
-				t.Fatal(err)
-			}
+		if m.VerifiedAgainst == "" {
+			t.Logf("%-14s not verified against any captured payload yet", name)
+			continue
+		}
+		verified++
+		if _, err := os.Stat(filepath.Join("../../testdata/agents", name, m.VerifiedAgainst)); err != nil {
+			t.Errorf("%s claims %q but there are no payloads for it: %v", name, m.VerifiedAgainst, err)
+		}
+	}
+	if verified == 0 {
+		t.Error("no mapping is verified against anything; the corpus has stopped being used")
+	}
+}
 
-			// The file is named after the event it holds.
-			event := strings.SplitN(strings.TrimSuffix(f.Name(), ".json"), "-", 2)[0]
-			seen[event] = true
-
-			e, ok, err := mapping.Translate(payload, now)
-			if err != nil {
-				t.Errorf("%s/%s: %v", version.Name(), f.Name(), err)
-				continue
-			}
-			if !ok {
-				t.Errorf("%s/%s: the mapping no longer covers %s", version.Name(), f.Name(), event)
-				continue
-			}
-			if e.Session == "" {
-				t.Errorf("%s/%s: the session id did not resolve", version.Name(), f.Name())
-			}
-			if e.Cwd == "" {
-				t.Errorf("%s/%s: the working directory did not resolve", version.Name(), f.Name())
-			}
-
-			want := map[string]Kind{
-				"SessionStart":       SessionStarted,
-				"SessionEnd":         SessionEnded,
-				"PostToolUseFailure": CommandFailed,
-				"PostToolUse":        CommandSucceeded,
-			}[event]
-			if want != "" && e.Kind != want {
-				t.Errorf("%s/%s: kind = %q, want %q", version.Name(), f.Name(), e.Kind, want)
+// TestContractAgainstCapturedPayloads replays what a real client sent
+// against the mapping that ships for it.
+func TestContractAgainstCapturedPayloads(t *testing.T) {
+	for _, name := range BuiltIn() {
+		mapping, err := Built(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dir := filepath.Join("../../testdata/agents", name)
+		versions, err := os.ReadDir(dir)
+		if err != nil {
+			continue // No payloads for this agent yet; the test above says so.
+		}
+		for _, version := range versions {
+			if version.IsDir() {
+				replayAgent(t, mapping, filepath.Join(dir, version.Name()))
 			}
 		}
 	}
+}
 
-	if total == 0 {
-		t.Fatal("the corpus directory exists but holds no payloads")
+// replayAgent checks one captured version of one agent.
+func replayAgent(t *testing.T, mapping *Mapping, dir string) {
+	t.Helper()
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
 	}
-	t.Logf("%d captured payload(s) check out", total)
 
-	// Every event the mapping claims to handle either has a sample or is
-	// listed as not having one. A new mapped event with neither fails here.
+	seen := map[string]bool{}
+	total := 0
+	for _, f := range files {
+		if filepath.Ext(f.Name()) != ".json" {
+			continue
+		}
+		total++
+		payload, err := os.ReadFile(filepath.Join(dir, f.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		event := strings.SplitN(strings.TrimSuffix(f.Name(), ".json"), "-", 2)[0]
+		seen[event] = true
+
+		e, ok, err := mapping.Translate(payload, now)
+		if err != nil {
+			t.Errorf("%s/%s: %v", dir, f.Name(), err)
+			continue
+		}
+		if !ok {
+			t.Errorf("%s/%s: the mapping no longer covers %s", dir, f.Name(), event)
+			continue
+		}
+		if e.Session == "" {
+			t.Errorf("%s/%s: the session id did not resolve", dir, f.Name())
+		}
+		if e.Cwd == "" {
+			t.Errorf("%s/%s: the working directory did not resolve", dir, f.Name())
+		}
+
+		want := map[string]Kind{
+			"SessionStart": SessionStarted, "sessionStart": SessionStarted,
+			"SessionEnd": SessionEnded, "sessionEnd": SessionEnded,
+			"PostToolUseFailure": CommandFailed, "postToolUseFailure": CommandFailed,
+			"PostToolUse": CommandSucceeded, "postToolUse": CommandSucceeded,
+		}[event]
+		if want != "" && e.Kind != want {
+			t.Errorf("%s/%s: kind = %q, want %q", dir, f.Name(), e.Kind, want)
+		}
+	}
+	if total == 0 {
+		t.Errorf("%s holds no payloads", dir)
+		return
+	}
+	t.Logf("%-40s %d payload(s) check out", dir, total)
+
 	for _, m := range mapping.Events {
 		if seen[m.AgentEvent] {
 			continue
 		}
-		why, listed := withoutSamples[m.AgentEvent]
-		if !listed {
-			t.Errorf("%s is mapped but has no captured payload and is not listed in withoutSamples", m.AgentEvent)
+		if why, listed := withoutSamples[mapping.Agent+"/"+m.AgentEvent]; listed {
+			t.Logf("%s/%s no sample yet: %s", mapping.Agent, m.AgentEvent, why)
 			continue
 		}
-		t.Logf("%-20s no sample yet: %s", m.AgentEvent, why)
+		t.Errorf("%s maps %s but has no captured payload for it, and it is not listed in withoutSamples",
+			mapping.Agent, m.AgentEvent)
 	}
 }
 
@@ -118,7 +164,7 @@ func TestCapturedPayloadsAreScrubbed(t *testing.T) {
 		t.Skip("the account name is not distinctive enough to search for")
 	}
 
-	err = filepath.WalkDir(corpusRoot, func(path string, d os.DirEntry, err error) error {
+	err = filepath.WalkDir("../../testdata/agents", func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || filepath.Ext(path) != ".json" {
 			return err
 		}

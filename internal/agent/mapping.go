@@ -27,8 +27,25 @@ type Mapping struct {
 	// against anything but documentation, and `doctor` says so.
 	VerifiedAgainst string `json:"verified_against"`
 
-	Common Common  `json:"common"`
-	Events []Match `json:"events"`
+	Common   Common   `json:"common"`
+	Events   []Match  `json:"events"`
+	Response Response `json:"response"`
+}
+
+// Response is how this agent wants context handed back.
+//
+// The shape differs more than the input does. Claude Code reads
+// `hookSpecificOutput.additionalContext`; Copilot CLI reads
+// `additionalContext` at the top level. Hard-coding either one would have
+// meant a code change per agent, which is what K5 exists to prevent.
+type Response struct {
+	// ContextPath is where the text goes, as dotted keys. The object is
+	// built from it.
+	ContextPath string `json:"context_path"`
+
+	// EventNamePath, when set, is where the agent's own event name is
+	// echoed back. Claude Code requires it; nothing else seen so far does.
+	EventNamePath string `json:"event_name_path,omitempty"`
 }
 
 // Common are the fields every payload of this agent carries.
@@ -118,6 +135,8 @@ func ParseMapping(data []byte) (*Mapping, error) {
 		return nil, fmt.Errorf("agent: the mapping does not say which agent it is for")
 	case len(m.Events) == 0:
 		return nil, fmt.Errorf("agent: the mapping maps no events")
+	case m.Response.ContextPath == "":
+		return nil, fmt.Errorf("agent: the mapping does not say where context goes")
 	}
 	for i, ev := range m.Events {
 		if ev.AgentEvent == "" {
@@ -167,7 +186,7 @@ func (m *Mapping) Translate(payload []byte, now time.Time) (Event, bool, error) 
 			return Event{}, false, nil
 		}
 
-		e := Event{Kind: match.Kind, Time: now, Tool: tool, Untrusted: match.Untrusted}
+		e := Event{Kind: match.Kind, Time: now, Tool: tool, AgentEvent: name, Untrusted: match.Untrusted}
 		e.Session, _ = lookup(raw, m.Common.Session)
 		e.Cwd, _ = lookup(raw, m.Common.Cwd)
 		e.Scratchpad, _ = lookup(raw, m.Common.Scratchpad)
@@ -250,4 +269,34 @@ func contains(xs []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// Context builds the reply that hands text back to the agent, in whatever
+// shape its mapping says it reads.
+func (m *Mapping) Context(agentEvent, text string) ([]byte, error) {
+	reply := map[string]any{}
+	setPath(reply, m.Response.ContextPath, text)
+	if m.Response.EventNamePath != "" && agentEvent != "" {
+		setPath(reply, m.Response.EventNamePath, agentEvent)
+	}
+	data, err := json.Marshal(reply)
+	if err != nil {
+		return nil, err
+	}
+	return append(data, '\n'), nil
+}
+
+// setPath writes a value at dotted keys, creating the objects on the way.
+func setPath(root map[string]any, path string, value any) {
+	keys := strings.Split(path, ".")
+	node := root
+	for _, key := range keys[:len(keys)-1] {
+		next, ok := node[key].(map[string]any)
+		if !ok {
+			next = map[string]any{}
+			node[key] = next
+		}
+		node = next
+	}
+	node[keys[len(keys)-1]] = value
 }

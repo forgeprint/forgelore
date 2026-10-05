@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -171,6 +173,7 @@ func TestFutureMappingNamesTheProblem(t *testing.T) {
 func TestPathAcceptsStringOrList(t *testing.T) {
 	m, err := ParseMapping([]byte(`{
 	  "mapping_version":1,"agent":"a",
+	  "response":{"context_path":"additionalContext"},
 	  "common":{"event_name":"e","session":["a.b","s"]},
 	  "events":[{"agent_event":"X","kind":"session_started"}]}`))
 	if err != nil {
@@ -192,6 +195,7 @@ func TestPathAcceptsStringOrList(t *testing.T) {
 func TestFailureByFieldPresence(t *testing.T) {
 	m, err := ParseMapping([]byte(`{
 	  "mapping_version":1,"agent":"a",
+	  "response":{"context_path":"additionalContext"},
 	  "common":{"event_name":"e","session":"s"},
 	  "events":[{"agent_event":"X","kind":"command_succeeded","failure":{"field_present":"err"}}]}`))
 	if err != nil {
@@ -254,5 +258,147 @@ func TestCorruptStateIsEmptyNotFatal(t *testing.T) {
 	}
 	if got := LoadState(path); len(got.Failed) != 0 {
 		t.Errorf("%+v", got)
+	}
+}
+
+// TestContextShapeComesFromTheMapping is the gap Copilot CLI opened: Claude
+// Code reads context inside a wrapper and Copilot reads it at the top level,
+// and neither should need a line of Go.
+func TestContextShapeComesFromTheMapping(t *testing.T) {
+	claude, err := Built("claude-code")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply, err := claude.Context("PostToolUseFailure", "a hint")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var nested struct {
+		HookSpecificOutput struct {
+			HookEventName     string `json:"hookEventName"`
+			AdditionalContext string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
+	}
+	if err := json.Unmarshal(reply, &nested); err != nil {
+		t.Fatalf("%v\n%s", err, reply)
+	}
+	if nested.HookSpecificOutput.AdditionalContext != "a hint" {
+		t.Errorf("claude-code reply = %s", reply)
+	}
+	if nested.HookSpecificOutput.HookEventName != "PostToolUseFailure" {
+		t.Errorf("the event name was not echoed: %s", reply)
+	}
+
+	copilot, err := Built("copilot-cli")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply, err = copilot.Context("postToolUseFailure", "a hint")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var flat struct {
+		AdditionalContext string `json:"additionalContext"`
+	}
+	if err := json.Unmarshal(reply, &flat); err != nil {
+		t.Fatalf("%v\n%s", err, reply)
+	}
+	if flat.AdditionalContext != "a hint" {
+		t.Errorf("copilot-cli reply = %s", reply)
+	}
+	if bytes.Contains(reply, []byte("hookSpecificOutput")) {
+		t.Errorf("copilot-cli got Claude Code's wrapper: %s", reply)
+	}
+	if !bytes.HasSuffix(reply, []byte("\n")) {
+		t.Error("the reply is not newline terminated")
+	}
+}
+
+// TestDocumentedPayloadsTranslate pins what the documentation says each
+// agent sends, for the two mappings no captured payload backs yet.
+//
+// Passing here is not verification. It is a record of what was believed on
+// the day the mapping was written, so that the first real payload shows up
+// as a difference rather than as a mystery.
+func TestDocumentedPayloadsTranslate(t *testing.T) {
+	cases := []struct {
+		agent   string
+		payload string
+		want    Kind
+		output  string
+	}{
+		{
+			agent: "copilot-cli",
+			payload: `{"hookEventName":"postToolUseFailure","sessionId":"s1","cwd":"/w",
+			           "toolName":"bash","toolArgs":{"command":"go build ./..."},
+			           "error":"./main.go:5:14: undefined: greet"}`,
+			want:   CommandFailed,
+			output: "undefined: greet",
+		},
+		{
+			agent: "copilot-cli",
+			payload: `{"hookEventName":"postToolUse","sessionId":"s1","cwd":"/w",
+			           "toolName":"bash","toolArgs":{"command":"go version"},
+			           "toolResult":{"resultType":"success","textResultForLlm":"go1.27.1"}}`,
+			want:   CommandSucceeded,
+			output: "go1.27.1",
+		},
+		{
+			agent:   "copilot-cli",
+			payload: `{"hook_event_name":"sessionStart","session_id":"s1","cwd":"/w"}`,
+			want:    SessionStarted,
+		},
+		{
+			agent: "codex-cli",
+			payload: `{"hook_event_name":"PostToolUse","session_id":"s1","cwd":"/w",
+			           "tool_name":"shell","tool_input":{"command":"go build ./..."},
+			           "error":"./main.go:5:14: undefined: greet"}`,
+			want:   CommandFailed,
+			output: "undefined: greet",
+		},
+		{
+			agent: "codex-cli",
+			payload: `{"hook_event_name":"PostToolUse","session_id":"s1","cwd":"/w",
+			           "tool_name":"shell","tool_input":{"command":"go version"},
+			           "tool_output":"go1.27.1"}`,
+			want:   CommandSucceeded,
+			output: "go1.27.1",
+		},
+	}
+
+	for _, c := range cases {
+		m, err := Built(c.agent)
+		if err != nil {
+			t.Fatal(err)
+		}
+		e, ok, err := m.Translate([]byte(c.payload), now)
+		if err != nil || !ok {
+			t.Errorf("%s: ok=%v err=%v", c.agent, ok, err)
+			continue
+		}
+		if e.Kind != c.want {
+			t.Errorf("%s: kind = %q, want %q", c.agent, e.Kind, c.want)
+		}
+		if e.Session != "s1" || e.Cwd != "/w" {
+			t.Errorf("%s: session=%q cwd=%q", c.agent, e.Session, e.Cwd)
+		}
+		if c.output != "" && !strings.Contains(e.Output, c.output) {
+			t.Errorf("%s: output = %q, want it to contain %q", c.agent, e.Output, c.output)
+		}
+	}
+}
+
+// TestCodexInterruptIsIgnored: the mapping decides a Codex failure from an
+// error field, so a stopped command must be excluded some other way.
+func TestCodexInterruptIsIgnored(t *testing.T) {
+	m, err := Built("codex-cli")
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := `{"hook_event_name":"PostToolUse","session_id":"s1","cwd":"/w",
+	             "tool_name":"shell","tool_input":{"command":"go test ./..."},
+	             "error":"interrupted","interrupted":true}`
+	if _, ok, _ := m.Translate([]byte(payload), now); ok {
+		t.Error("an interrupted command produced an event")
 	}
 }

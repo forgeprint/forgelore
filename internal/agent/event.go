@@ -39,6 +39,10 @@ type Event struct {
 	// project's own cache is used instead.
 	Scratchpad string
 
+	// AgentEvent is what the agent called this, kept so a reply can echo
+	// it back where the agent expects to see it.
+	AgentEvent string
+
 	// Tool, Command and Output are set for the two command events.
 	Tool    string
 	Command string

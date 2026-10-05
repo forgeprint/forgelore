@@ -1,0 +1,41 @@
+{
+  "mapping_version": 1,
+  "agent": "copilot-cli",
+  "verified_against": "",
+  "common": {
+    "event_name": ["hookEventName", "hook_event_name"],
+    "session": ["sessionId", "session_id"],
+    "cwd": "cwd",
+    "scratchpad": ""
+  },
+  "events": [
+    {
+      "agent_event": "sessionStart",
+      "kind": "session_started"
+    },
+    {
+      "agent_event": "postToolUseFailure",
+      "kind": "command_failed",
+      "tools": ["bash", "shell", "Bash"],
+      "tool": ["toolName", "tool_name"],
+      "command": ["toolArgs.command", "tool_args.command"],
+      "output": ["error", "toolResult.textResultForLlm"],
+      "failure": { "always": true }
+    },
+    {
+      "agent_event": "postToolUse",
+      "kind": "command_succeeded",
+      "tools": ["bash", "shell", "Bash"],
+      "tool": ["toolName", "tool_name"],
+      "command": ["toolArgs.command", "tool_args.command"],
+      "output": ["toolResult.textResultForLlm", "tool_result.text_result_for_llm"]
+    },
+    {
+      "agent_event": "sessionEnd",
+      "kind": "session_ended"
+    }
+  ],
+  "response": {
+    "context_path": "additionalContext"
+  }
+}

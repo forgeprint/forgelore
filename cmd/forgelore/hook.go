@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -29,7 +28,7 @@ import (
 // what happened.
 func cmdHook(e env, args []string) error {
 	fs := newFlags(e, "hook")
-	adapter := fs.String("adapter", "claude-code", "which agent is calling")
+	adapter := fs.String("adapter", "claude-code", "which agent is calling: "+strings.Join(agent.BuiltIn(), ", "))
 	mappingFile := fs.String("mapping", "", "use this mapping file instead of the built-in one")
 	dir := fs.String("dir", "", "work on the project containing this directory")
 	if err := fs.Parse(args); err != nil {
@@ -89,17 +88,27 @@ func runHook(e env, adapter, mappingFile, dir string, started *time.Time) (resp 
 	cfg, _ := loadConfig(e, s, nil)
 
 	deadline := started.Add(time.Duration(cfg.Int("hook.deadline_ms")) * time.Millisecond)
+
+	var text string
 	switch event.Kind {
 	case agent.SessionStarted:
-		return sessionIndex(s, cfg, deadline)
+		text, err = sessionIndex(s, cfg, deadline)
 	case agent.CommandFailed:
-		return onCommandFailed(s, cfg, event, deadline, *started)
+		text, err = onCommandFailed(s, cfg, event, deadline, *started)
 	case agent.CommandSucceeded:
-		return "", onCommandSucceeded(s, event)
+		err = onCommandSucceeded(s, event)
 	case agent.SessionEnded:
-		return onSessionEnded(s, event)
+		text, err = onSessionEnded(s, event)
 	}
-	return "", nil
+	if err != nil || text == "" {
+		return "", err
+	}
+
+	reply, err := mapping.Context(event.AgentEvent, text)
+	if err != nil {
+		return "", err
+	}
+	return string(reply), nil
 }
 
 func loadMapping(adapter, file string) (*agent.Mapping, error) {
@@ -111,26 +120,6 @@ func loadMapping(adapter, file string) (*agent.Mapping, error) {
 		return nil, err
 	}
 	return agent.ParseMapping(data)
-}
-
-// claudeHookResponse is the shape Claude Code reads from a hook's stdout.
-// Verified against https://code.claude.com/docs/en/hooks on 2026-10-05.
-type claudeHookResponse struct {
-	HookSpecificOutput struct {
-		HookEventName     string `json:"hookEventName"`
-		AdditionalContext string `json:"additionalContext"`
-	} `json:"hookSpecificOutput"`
-}
-
-func contextResponse(eventName, text string) (string, error) {
-	var r claudeHookResponse
-	r.HookSpecificOutput.HookEventName = eventName
-	r.HookSpecificOutput.AdditionalContext = text
-	data, err := json.Marshal(r)
-	if err != nil {
-		return "", err
-	}
-	return string(data) + "\n", nil
 }
 
 // sessionIndex is the budgeted list handed over once per session: the titles
@@ -165,9 +154,8 @@ func sessionIndex(s *store.Store, cfg *config.Config, deadline time.Time) (strin
 		return "", nil
 	}
 
-	text := "Project memory (forgelore). Ask for detail with: forgelore show <id>\n" +
-		strings.Join(lines, "\n")
-	return contextResponse("SessionStart", text)
+	return "Project memory (forgelore). Ask for detail with: forgelore show <id>\n" +
+		strings.Join(lines, "\n"), nil
 }
 
 // onCommandFailed is the injection path.
@@ -230,8 +218,7 @@ func onCommandFailed(s *store.Store, cfg *config.Config, e agent.Event, deadline
 	if len(lines) == 0 {
 		return "", nil
 	}
-	return contextResponse("PostToolUseFailure",
-		"forgelore has seen this error before:\n"+strings.Join(lines, "\n"))
+	return "forgelore has seen this error before:\n" + strings.Join(lines, "\n"), nil
 }
 
 // onCommandSucceeded proposes a fix when a command that failed earlier in
@@ -284,8 +271,9 @@ func onSessionEnded(s *store.Store, e agent.Event) (string, error) {
 	if err != nil || len(pending) == 0 {
 		return "", err
 	}
-	return contextResponse("SessionEnd",
-		fmt.Sprintf("forgelore: %d fix candidate(s) from this session are waiting. Review with: forgelore review", len(pending)))
+	return fmt.Sprintf(
+		"forgelore: %d fix candidate(s) from this session are waiting. Review with: forgelore review",
+		len(pending)), nil
 }
 
 // cmdReview is where a candidate becomes a memory, or stops being one.

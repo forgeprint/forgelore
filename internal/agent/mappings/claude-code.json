@@ -50,5 +50,9 @@
       "agent_event": "SessionEnd",
       "kind": "session_ended"
     }
-  ]
+  ],
+  "response": {
+    "context_path": "hookSpecificOutput.additionalContext",
+    "event_name_path": "hookSpecificOutput.hookEventName"
+  }
 }

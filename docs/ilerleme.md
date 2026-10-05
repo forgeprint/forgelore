@@ -945,3 +945,83 @@ Faz 7 — diğer ajanlar. Faz 6'dan devreden tek şey `[SEN]` bir haftalık dene
 - `check` ekip kayıtlarını tarıyor, commit edilecek **diff'i** değil. Bir sır
   kayda girip aynı commit'te silinirse yakalanmaz; bu hâliyle depoda duran
   hâli kontrol ediyor, ki asıl mesele de o.
+
+---
+
+## Faz 7 — Diğer ajanlar
+
+**Durum:** Codex CLI ve Copilot CLI için eşlemeler yazıldı ama **hiçbiri
+doğrulanmadı** — ikisi de oturum açılmasını bekliyor. `docs/compatibility.md`
+yayımlandı.
+
+### 2026-10-05 — dördü de A adayı çıktı
+
+| Ajan | Hook yapılandırması | Olay adları | Hata olayı |
+|---|---|---|---|
+| Codex CLI | `~/.codex/hooks.json` veya `config.toml`; **varsayılan kapalı** (`features.hooks`), proje kapsamı güven istiyor | `PreToolUse`, `PostToolUse`, `SessionStart/End`… (12) | yok |
+| Copilot CLI | `.github/hooks/*.json`, `~/.copilot/hooks/` | camelCase: `postToolUse`, **`postToolUseFailure`** | var |
+| Gemini CLI | `.gemini/settings.json` | **`BeforeTool`/`AfterTool`** | doğrulanmadı |
+| Cursor | `.cursor/hooks.json` | `beforeShellExecution`, `afterFileEdit`, `afterMCPExecution` | yok |
+
+Planın A/B/C seviyelendirmesi beklenenden az ayırt edici: 2026 sonunda büyük
+dördün hepsinde hook **ve** MCP var. Bu yüzden tabloda seviye, **reklam
+edileni değil doğrulananı** gösteriyor.
+
+### Eşleme formatında gerçek bir boşluk çıktı
+
+Copilot CLI bağlamı **üst düzey `additionalContext`** ile istiyor; Claude Code
+`hookSpecificOutput` sarmalayıcısıyla. Eşleme formatında cevap şekli yoktu —
+`cmd/forgelore/hook.go` Claude Code'un şeklini kodda sabitlemişti. K5'in
+engellemesi gereken şey tam buydu ve ikinci ajan gelene kadar görünmedi.
+
+Format `response` bölümü kazandı:
+
+```json
+"response": { "context_path": "hookSpecificOutput.additionalContext",
+              "event_name_path": "hookSpecificOutput.hookEventName" }
+```
+
+Copilot için yalnızca `"context_path": "additionalContext"`. Noktalı yoldan iç
+içe nesne kuruluyor. Artık yeni bir ajan için Go değişikliği gerekmiyor —
+gerekirse bu, formatın bir eksiği demektir ve öyle kaydedilmeli.
+
+### Yazılanlar
+
+- `internal/agent/mappings/{codex-cli,copilot-cli}.json` — ikisi de
+  `verified_against: ""`, ve bir test boş olmayan bir iddianın arkasında
+  külliyat olmasını şart koşuyor.
+- `scripts/capture-agent-events.sh` artık **profil alıyor**: ajan başına
+  binary adı, sürüm komutu, hook config yolu ve biçimi, headless çağrı.
+  Codex için `features.hooks=true` ve hook güvenini atlama da profilde.
+- `docs/compatibility.md` — seviye, doğrulanan sürüm, ve her ajan için neyin
+  test edilmediği.
+- Belgelenen yükleri sabitleyen testler. **Geçmeleri doğrulama değil**;
+  eşleme yazıldığı gün neye inanıldığının kaydı, ki ilk gerçek yük bir fark
+  olarak görünsün, gizem olarak değil.
+
+### Kurulanlar
+
+Codex CLI 0.160.0 ve GitHub Copilot CLI 1.0.91, mevcut Node ile
+`~/.local` altına. İkisi de **oturum açmamış** — `codex login`,
+`copilot login` senin hesaplarını istiyor.
+
+### Sırada
+
+`[SEN]` İki oturum açma. Sonrasında her biri için:
+`./scripts/capture-agent-events.sh codex-cli` → eşleme düzeltilir →
+`verified_against` dolar → MCP dönemi ölçülür → tablo güncellenir.
+
+Faz 4'ün dersi burada da geçerli olacak: dokümantasyondan yazılan eşleme
+yanlış çıkacak, ve yanlışın bedeli bir JSON düzenlemesi olacak.
+
+### Faz 7 — açık maddeler
+
+- `[SEN]` `codex login` ve `copilot login`.
+- Gemini CLI ve Cursor ayrı turlar. Cursor'ın olay modeli (kabuk öncesi /
+  dosya sonrası) dört anlamsal olaya en uzak duran; `command_failed`
+  karşılığı olup olmadığı bakılmalı.
+- Plan `docs/uyumluluk.md` diyor; dosya `docs/compatibility.md` olarak
+  yazıldı. Faz 0 kamuya açık doküman adlarını İngilizceye çevirmişti, planın
+  bu satırı güncellenmemiş.
+- Kullanım okuyucusu hâlâ yalnızca Claude Code'da. Diğerlerinde karşılığı
+  görünmüyor; ADR-0012'nin dürüstlük sınırı zaten kapsıyor.
