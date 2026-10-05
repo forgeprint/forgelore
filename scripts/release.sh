@@ -60,13 +60,19 @@ echo "dist/ holds $(echo "$artifacts" | wc -w | tr -d ' ') binaries and SHA256SU
 sed 's/^/  /' dist/SHA256SUMS
 echo
 cat <<EOF
-Read the above, then publish:
+Read the above, then push the tag. That is the whole publish step: the
+release workflow builds these same artifacts again on a clean runner and
+drafts a release from them, for you to read and publish.
 
   git tag -s $version -m "$version"   # or -a if you do not sign tags
   git push origin $version
-  gh release create $version dist/* \\
-    --title "$version" --notes-file <(git log --oneline -20)
 
-The install script reads SHA256SUMS from the release, so it has to be
-uploaded with the binaries.
+If CI is unavailable, the same release can be made by hand from what is in
+dist/ right now:
+
+  gh release create $version dist/* --draft \\
+    --title "$version" --generate-notes
+
+Either way SHA256SUMS has to be among the uploaded files: the install script
+reads it from the release and refuses anything that does not match.
 EOF
