@@ -2024,11 +2024,51 @@ doğrulama buna takılmamalı; beklemek gerekiyor.
 uygulanmış bir deprecation'ı tekrar yazmaya çalışmak hata döndürüyor;
 durum bozulmuyor. `npm view <pkg>@<sürüm> deprecated` gerçek cevabı veriyor.
 
+### npm yayımı CI'a taşındı — Trusted Publishing
+
+Kullanıcı Trusted Publisher'ı sordu, ve bir önceki maddenin ("automation
+token gerekiyor") varsayımını geçersiz kıldı: **token gerekmiyor.** npm
+Temmuz 2025'ten beri OIDC ile yayımlamayı destekliyor, ve provenance'ı
+kendiliğinden üretiyor. Yani eksik bıraktığımız iki şey tek çözümle
+kapanıyor.
+
+Belgelerden doğrulananlar (ezberden değil):
+
+- npm **≥ 11.5.1**, Node **≥ 22.14**. Node 22 npm 10.x ile geliyor, workflow
+  yayımlamadan önce npm'i yükseltmek zorunda — yoksa olmayan bir token
+  aranmaya düşüyor.
+- Yapılandırma **paket başına** npmjs.com'da: depo + workflow dosya adı.
+  Yedi kayıt. Ve kayıtta **`npm publish`'e açıkça izin verilmeli**;
+  varsayılan yalnızca `npm stage publish`.
+- `repository.url` depoyla birebir eşleşmeli. Bizimki uyuyor.
+- Tarball (`.tgz`) ile yayımlamak destekleniyor; provenance tarball'ın
+  içinden değil OIDC iddialarından üretiliyor, ve registry'ye yüklenen
+  baytlar bizim tarball'ımızın baytları.
+- Reusable workflow (`workflow_call`) doğrulamayı şaşırtabiliyor — publish
+  komutu üst seviye dosyada kalmalı. Kaldı.
+
+**Tetikleyici `release: published`**, etiket değil. Sen taslak release'i
+okuyup yayımladıktan sonra çalışıyor. npm'de geri alma penceresi 72 saat
+olduğu için insan kapısının önce gelmesi GitHub'dakinden daha değerli.
+
+İki yapısal kazanç, ikisi de bu oturumda yaptığımız hataların tekrarını
+imkânsız kılıyor:
+
+1. İkililer release'ten **indiriliyor**, yeniden derlenmiyor. npm'in
+   gönderdiği baytlarla attestation'ın kapsadığı baytlar ayrışamaz.
+2. Sıra `npm-pack.sh`'in yazdığı `dist/npm/PUBLISH_ORDER` dosyasından
+   okunuyor. Doğru sırayı bir insanın okuyup uygulamasına bırakmak zaten
+   yetmemişti.
+
+**Henüz kanıtlanmadı.** Hiçbir release bu yoldan geçmedi; `SECURITY.md`
+bunu "ayarlandı, gösterilmedi" diye yazıyor. İlk gerçek sınav bir sonraki
+release.
+
 ### Kalanlar — hepsi `[SEN]`
 
-- npm yayımlamayı CI'a taşımak: hem elle sıralama hatasını (0.1.4'te
-  sarmalayıcı önce gitmişti) hem de npm provenance eksikliğini kapatır.
-  Automation token gerekiyor.
+- npmjs.com'da yedi paketin her biri için Trusted Publisher kaydı:
+  `forgeprint/forgelore`, workflow `npm.yml`, ve `npm publish` izni açık.
+  Bu yapılmadan `npm.yml` ilk çalıştığında kimlik doğrulamadan düşer.
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
   `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,

@@ -168,16 +168,28 @@ for d in "$out"/*/; do
 done
 echo
 
+# The order is written to a file as well as printed. A human reading the
+# right order and then not following it is how forgelore@0.1.4 reached the
+# registry before its own dependencies; the release workflow reads this file
+# instead of being told the order a second time.
+order="$out/PUBLISH_ORDER"
+: > "$order"
+for t in $targets; do
+	rest="${t#*:}"
+	echo "$out/forgelore-$(name_for "${rest%%:*}")-${rest#*:}-$npm_version.tgz" >> "$order"
+done
+echo "$out/forgelore-$npm_version.tgz" >> "$order"
+
 # Each tarball is named, rather than globbed. dist/npm/forgelore-* matches
 # the wrapper's own tarball and every platform tarball as well as the
 # directories, so a glob here would either publish the wrapper first — the
 # one order that leaves a user with no binary — or try to cd into a .tgz.
 publish=""
-for t in $targets; do
-	rest="${t#*:}"
-	publish="$publish  npm publish --access public dist/npm/forgelore-$(name_for "${rest%%:*}")-${rest#*:}-$npm_version.tgz
+while read -r t; do
+	[ "$t" = "$out/forgelore-$npm_version.tgz" ] && continue
+	publish="$publish  npm publish --access public $t
 "
-done
+done < "$order"
 
 cat <<EOF
 Publishing is a human action, as it is for a release. The platform packages

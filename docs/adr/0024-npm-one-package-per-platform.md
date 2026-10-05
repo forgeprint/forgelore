@@ -40,9 +40,16 @@ stdio inherited — inherited rather than piped because `forgelore mcp` speaks
 a protocol on stdin and stdout, and anything in between would have to stay
 correct about framing forever.
 
-`scripts/npm-pack.sh` assembles the packages from what `release.sh` built.
-It does not publish, for the same reason `release.sh` does not: a release
-nobody looked at is a release nobody checked.
+`scripts/npm-pack.sh` assembles the packages and writes the order they must
+go out in to `dist/npm/PUBLISH_ORDER`.
+
+Publishing runs in `.github/workflows/npm.yml`, on `release: published` —
+after a person has read the drafted release and pressed publish, not when
+the tag is pushed. It authenticates with npm **trusted publishing** over
+OIDC, so there is no npm token anywhere, and npm generates provenance for
+each package on its own. The binaries are downloaded from the release
+rather than rebuilt, so what npm ships and what the release attests cannot
+drift apart.
 
 ## Consequences
 
@@ -61,12 +68,22 @@ dependencies are not on the registry yet installs with no binary at all.
 wrapper and the platform packages always move together; a wrapper may never
 be republished alone, because its dependencies are pinned exactly.
 
-**Publishing by hand means no npm provenance.** That badge requires
-publishing from a workflow. The GitHub release is attested (ADR-0023) and
-the npm packages are not, which is a real gap and is written down rather
-than papered over. Wiring the publish into CI needs an automation token in
-the repository's secrets, and is the obvious next step if npm turns out to
-be used.
+**Publishing moved into CI after two releases of doing it by hand**, and
+both of those releases were damaged by it: `0.1.4` went out with the
+wrapper published *before* its dependencies, and carrying a development
+build. The ordering is now read from a file the packing script wrote, and
+the bytes come from the release.
+
+Trusted publishing removes the automation token this would otherwise need —
+nothing long-lived exists to leak — and brings npm provenance with it. It
+costs a one-time configuration **per package** on npmjs.com, seven of them,
+each naming the repository and `npm.yml`, each with `npm publish` allowed
+rather than only `npm stage publish`. It also pins the floor: npm 11.5.1 and
+Node 22.14, and Node 22 ships npm 10.x, so the workflow upgrades npm before
+it publishes.
+
+`forgelore@0.1.4` and `0.1.5` were published by hand and have no
+provenance. Nothing retroactive fixes that.
 
 **Node is not a dependency of Forgelore.** It is a dependency of this one
 packaging path. `npm-pack.sh` is not in `ci.sh`, nothing in the Go build

@@ -1,0 +1,73 @@
+name: npm
+
+# When a release is published, not when a tag is pushed. The tag-triggered
+# workflow drafts a release for a person to read; this one runs after that
+# person has pressed publish. npm's unpublish window is 72 hours, so the
+# human gate is worth more here than it is on GitHub.
+on:
+  release:
+    types: [published]
+
+# id-token: to authenticate to npm through trusted publishing, which also
+# makes npm generate provenance for each package. No npm token exists.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    # A prerelease is published to be looked at, not installed by default.
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-24.04
+    steps:
+      # Actions are pinned to commit SHAs, not tags: a tag can be moved, a SHA
+      # cannot. Update the trailing comment whenever the SHA changes.
+      #
+      # The ref is the release's own tag. A release event does not guarantee
+      # which ref the workflow checks out by default, and packing the wrong
+      # commit's wrapper against this release's binaries is exactly the kind
+      # of mismatch this project has already shipped once.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      # Node 22 ships npm 10.x, and trusted publishing needs 11.5.1 or
+      # later. Without this the publish falls back to looking for a token
+      # that does not exist.
+      - name: Upgrade npm
+        run: |
+          npm install -g npm@latest
+          npm --version
+
+      # The binaries come from the release rather than from a build here.
+      # They are the bytes `gh attestation verify` covers, so what npm ships
+      # and what the release attests cannot drift apart. forgelore@0.1.4
+      # went out carrying a development build because they were allowed to.
+      - name: Take the artifacts from the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          mkdir -p dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -D dist
+          chmod +x dist/forgelore_*
+
+      # npm-pack.sh verifies dist/ against SHA256SUMS and reads the version
+      # back out of the host binary before it packs anything.
+      - name: Pack
+        run: ./scripts/npm-pack.sh "${{ github.event.release.tag_name }}"
+
+      # The order is read from the file npm-pack.sh wrote, not repeated
+      # here. The wrapper depends on the platform packages by exact version,
+      # so publishing it first leaves anyone installing in that window with
+      # no binary at all — which has happened.
+      - name: Publish, platform packages first
+        run: |
+          while read -r tarball; do
+            echo "==> $tarball"
+            npm publish --access public "$tarball"
+          done < dist/npm/PUBLISH_ORDER
