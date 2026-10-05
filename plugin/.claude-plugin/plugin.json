@@ -1,0 +1,10 @@
+{
+  "name": "forgelore",
+  "displayName": "Forgelore",
+  "description": "Remembers fixes and dead ends, and injects one only when the same error comes back",
+  "version": "0.1.0",
+  "author": { "name": "Forgeprint" },
+  "repository": "https://github.com/forgeprint/forgelore",
+  "license": "Apache-2.0",
+  "keywords": ["memory", "errors", "tokens"]
+}

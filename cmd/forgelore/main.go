@@ -87,6 +87,10 @@ func run(e env) error {
 		return cmdUsage(e, rest)
 	case "report":
 		return cmdReport(e, rest)
+	case "hook":
+		return cmdHook(e, rest)
+	case "review":
+		return cmdReview(e, rest)
 	default:
 		return fmt.Errorf("unknown command %q (try: forgelore help)", name)
 	}
@@ -137,6 +141,8 @@ Commands:
   stats           Summarise what the store holds
   usage           Record what a session has spent, read from the agent
   report          What was injected, and whether it paid for itself
+  review          Accept or discard the fixes a session proposed
+  hook            Agent-facing entry point; reads a hook payload on stdin
   version         Print the version and build platform
   help            Print this message
 

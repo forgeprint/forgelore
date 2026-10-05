@@ -34,7 +34,19 @@ type Report struct {
 	Loops *Comparison
 	Cost  *Comparison
 
+	// Hook latency, in milliseconds. Nil when no hook has run: the CLI path
+	// records nothing here, because nobody is waiting on it.
+	Hook *Latency
+
 	Unreadable int
+}
+
+// Latency is what a hook cost the user in wall time.
+type Latency struct {
+	Samples int     `json:"samples"`
+	P50     float64 `json:"p50_ms"`
+	P95     float64 `json:"p95_ms"`
+	Max     float64 `json:"max_ms"`
 }
 
 // Arm is one side of the trial.
@@ -81,6 +93,7 @@ func Build(l *Ledger, since, until time.Time) *Report {
 		}
 	}
 
+	r.Hook = hookLatency(l.Entries)
 	r.Loops = compare("repeated errors per session", loopsPerSession(l.Entries))
 	r.Cost = compare("USD per session", costPerSession(l.Usage))
 	return r
@@ -260,4 +273,24 @@ func percentile(sorted []float64, p float64) float64 {
 		return sorted[lo]
 	}
 	return sorted[lo] + (pos-float64(lo))*(sorted[hi]-sorted[lo])
+}
+
+// hookLatency summarises how long the agent waited on Forgelore.
+func hookLatency(entries []Entry) *Latency {
+	var ms []float64
+	for _, e := range entries {
+		if e.HookMS > 0 {
+			ms = append(ms, float64(e.HookMS))
+		}
+	}
+	if len(ms) == 0 {
+		return nil
+	}
+	sort.Float64s(ms)
+	return &Latency{
+		Samples: len(ms),
+		P50:     percentile(ms, 50),
+		P95:     percentile(ms, 95),
+		Max:     ms[len(ms)-1],
+	}
 }

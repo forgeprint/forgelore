@@ -58,6 +58,10 @@ type Entry struct {
 	RecordID    string    `json:"record_id,omitempty"`
 	Bytes       int       `json:"bytes"`
 	EstTokens   int       `json:"est_tokens"`
+
+	// HookMS is how long the hook that wrote this line took, end to end.
+	// Zero for a line written by the CLI, where nobody is waiting.
+	HookMS int `json:"hook_ms,omitempty"`
 }
 
 // Usage is one report of what a session has spent so far.

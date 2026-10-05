@@ -641,3 +641,92 @@ zaman aşımı. Yukarıdaki `PostToolUseFailure` bulgusu Adım 1'i etkiliyor.
   exporter'ı tek seferlik bir süreçle `localhost:9464/metrics` üzerinden
   kazınabilir — daemon gerekmez. Dolar yerine token karşılaştırmak istenirse
   yol bu; ölçülmedi, denenmedi.
+
+---
+
+## Faz 4 — Claude Code adaptörü ve hook çalıştırıcı
+
+**Durum:** Adım 1, 2, 3, 5, 6, 7, 8 tamam. **Adım 4 (gerçek olay örnekleri) açık**
+ve kabul kriterinin bir yarısını kilitliyor.
+
+### 2026-10-05 — doğrulananlar (resmî dokümantasyon)
+
+| Konu | Bulgu |
+|---|---|
+| Olay adları | Planın listesi yanlış: gerçekte `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostCompact` ve ayrıca **`PostToolUseFailure`**; 30'dan fazla olay var |
+| Çıktı | `hookSpecificOutput.additionalContext` ile bağlam verilir. Çıkış **2 = engelleme**, diğer sıfırdan farklı = kullanıcıya hata bildirimi |
+| Zaman aşımı | `settings.json`'da hook başına saniye; varsayılan 600 s. Ama **`SessionEnd` için tüm hook'ların paylaştığı 1.5 s bütçe** var |
+| Oturum durumu | Hook girdisi `scratchpad_dir` taşıyor (v2.1.257+) — oturuma özel geçici dizin |
+| Eklenti | `.claude-plugin/plugin.json`, `hooks/hooks.json` `"hooks"` sarmalayıcısıyla. **`bin/` dizini olan eklentiyi claude.ai kurmuyor** |
+
+**Doğrulanamayan, ve kritik olan:** başarısız bir Bash komutunda `tool_response`'un
+şekli. Dokümantasyon örneği düz dize gösteriyor, şema vermiyor; sıfırdan farklı
+çıkışta `PostToolUse` mi `PostToolUseFailure` mi tetiklediği de yazmıyor.
+
+### Alınan kararlar
+
+Yedi öneri kullanıcı tarafından onaylandı. ADR-0020 ikisini kayda geçiriyor.
+
+| # | Karar | Gerekçe |
+|---|---|---|
+| 1 | Bütçe 500 token (`inject.budget_tokens`) | Dizin her oturumun ödediği sabit maliyet |
+| 2 | Aday asla otomatik kayıt olmaz; `forgelore review` ile onaylanır | Komutun düzelmesi, birinin nedenini anladığı anlamına gelmiyor |
+| 3 | Kendi son teslimimiz 500 ms (`hook.deadline_ms`); dış guard 5 s, SessionEnd 1 s | 1.5 s paylaşımlı bütçe |
+| 4 | **Dört anlamsal olay**, ajanın yaşam döngüsü değil | Mirror edersek kanonik model her ajanla büyür |
+| 5 | Eşlemeler **JSON** | ADR-0017 lehçesi iç içe harita kaldırmıyor; eşleme doğası gereği iç içe |
+| 6 | Oturum durumu `scratchpad_dir`, yoksa `.forgelore/cache/sessions/` | Her hook ayrı süreç (K8) |
+| 7 | Örnekler tek kullanımlık projede üretilecek | Senin oturum geçmişini okumamak için |
+
+### Belirsizliği koda değil veriye hapsettik
+
+`tool_response`'un şekli bilinmediği için ikisini birden yaptık:
+
+- **Alan yolu bir liste.** `["tool_response.stderr", "tool_response.stdout", "tool_response"]` —
+  ilk çözülen kazanıyor. Alan bugün dize, yarın nesne olsa da metin yerinde kalıyor.
+- **Yalnızca `PostToolUseFailure` başarısızlık sayılıyor.** `PostToolUse` her
+  durumda "başarılı" olarak eşleniyor. Çıkarım deseni uydurmadık: o olay
+  tetiklenmiyorsa bedel *kaçırılmış bir enjeksiyon*, uydurursak bedel *çalışan
+  bir komuttan sonra verilen yanlış ipucu*. Sessizlik ucuz olan hata.
+
+Her ikisi de eşleme JSON'ında, yani gerçek örnekler gelince **yeniden derleme
+olmadan** düzeltilir. `verified_against` şu an boş ve testi bunu sabitliyor.
+
+### Yazılanlar
+
+- `internal/agent/` — kanonik olaylar, eşleme formatı, çevirici, oturum durumu.
+  Gömülü `mappings/claude-code.json`.
+- `cmd/forgelore/hook.go` — çalıştırıcı, davranışlar, adaylar, `review`.
+- `plugin/` — manifest + `hooks/hooks.json` + README.
+- Oturum kimliği dosya adına **hash'lenerek** giriyor: dışarıdan gelen bir
+  değer yol bileşeni olacaksa traversal'i kendimiz kesiyoruz.
+
+### Kabul kriteri
+
+| Kriter | Durum |
+|---|---|
+| Bozuk indeks, silinmiş klasör, zaman aşımında ajan etkilenmiyor | ✅ A–E senaryosu elle koşuldu, hepsi çıkış 0 |
+| Gecikme ölçülmüş | ✅ defterde `hook_ms`, raporda p50/p95; ölçülen **p50 1 ms** |
+| Gerçek Claude Code oturumunda ipucu enjekte ediliyor | ❌ **açık** |
+
+Elle koşulan tam döngü (gerçek binary): SessionStart dizini → bilinmeyen hatada
+sessizlik → komut düzelince aday → `review --accept` → **başka oturumda** aynı
+hatada ipucu → kontrol kolunda sessizlik.
+
+### Sırada
+
+**Adım 4.** `claude` CLI bu makinede kurulu değil (masaüstü uygulaması kendi
+binary'sini gömüyor), yani onaylanan "tek kullanımlık projede `claude -p`"
+yolu kapalı.
+
+### Faz 4 — açık maddeler
+
+- `[SEN]` Ya `npm i -g @anthropic-ai/claude-code` ile CLI'yi kur (sonrasını ben
+  yaparım), ya da eklentiyi kendi oturumunda etkinleştirip kasıtlı patlayan bir
+  komut çalıştır ve yakalanan yükleri `testdata/agents/claude-code/<sürüm>/`
+  altına koy. İkisi de `tool_response` sorusunu kapatır.
+- Örnekler gelince: `verified_against` doldurulacak, gerekiyorsa
+  `PostToolUse` için başarısızlık testi eklenecek, sözleşme testleri yazılacak
+  (Adım 6'nın gerçek yarısı).
+- `UserPromptSubmit` ve `PreCompact` hiç kullanılmıyor. Planın kanonik
+  listesinde vardılar; dört olaylı modelde karşılıkları yok. İhtiyaç doğarsa
+  eşlemeye eklenir.

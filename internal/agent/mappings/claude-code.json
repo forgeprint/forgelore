@@ -1,0 +1,38 @@
+{
+  "mapping_version": 1,
+  "agent": "claude-code",
+  "verified_against": "",
+  "common": {
+    "event_name": "hook_event_name",
+    "session": "session_id",
+    "cwd": "cwd",
+    "scratchpad": "scratchpad_dir"
+  },
+  "events": [
+    {
+      "agent_event": "SessionStart",
+      "kind": "session_started"
+    },
+    {
+      "agent_event": "PostToolUseFailure",
+      "kind": "command_failed",
+      "tools": ["Bash"],
+      "tool": "tool_name",
+      "command": "tool_input.command",
+      "output": ["tool_response.stderr", "tool_response.stdout", "tool_response"],
+      "failure": { "always": true }
+    },
+    {
+      "agent_event": "PostToolUse",
+      "kind": "command_succeeded",
+      "tools": ["Bash"],
+      "tool": "tool_name",
+      "command": "tool_input.command",
+      "output": ["tool_response.stdout", "tool_response"]
+    },
+    {
+      "agent_event": "SessionEnd",
+      "kind": "session_ended"
+    }
+  ]
+}

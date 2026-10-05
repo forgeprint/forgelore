@@ -53,6 +53,11 @@ func printReport(e env, r *measure.Report, days int) error {
 	fmt.Fprintf(out, "  bytes injected      %d\n", r.InjectedBytes)
 	fmt.Fprintf(out, "  tokens injected     %d  (estimated at four bytes per token)\n", r.InjectedTokens)
 
+	if r.Hook != nil {
+		fmt.Fprintf(out, "\n  hook latency        p50 %.0f ms, p95 %.0f ms, worst %.0f ms over %d call(s)\n",
+			r.Hook.P50, r.Hook.P95, r.Hook.Max, r.Hook.Samples)
+	}
+
 	printComparison(e, "Repeated errors per session", r.Loops,
 		"Measured from Forgelore's own ledger, so it needs nothing from the agent.",
 		func(v float64) string { return fmt.Sprintf("%.2f", v) })

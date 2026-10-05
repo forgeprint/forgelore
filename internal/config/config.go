@@ -70,6 +70,18 @@ var known = []spec{
 		doc:  "changes every session's A/B assignment, for starting a fresh trial",
 	},
 	{
+		key:  "inject.budget_tokens",
+		kind: record.KindInt,
+		def:  record.Value{Kind: record.KindInt, Int: 500},
+		doc:  "ceiling on the session-start index handed to the agent",
+	},
+	{
+		key:  "hook.deadline_ms",
+		kind: record.KindInt,
+		def:  record.Value{Kind: record.KindInt, Int: 500},
+		doc:  "how long a hook may take before it gives up and stays silent",
+	},
+	{
 		key:  "report.period_days",
 		kind: record.KindInt,
 		def:  record.Value{Kind: record.KindInt, Int: 30},

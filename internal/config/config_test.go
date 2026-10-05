@@ -113,7 +113,7 @@ func TestTeamConfigAloneIsUsed(t *testing.T) {
 // TestUnknownKeyIsAWarning: a config written for a newer Forgelore has to
 // keep working on an older one (ADR-0011).
 func TestUnknownKeyIsAWarning(t *testing.T) {
-	root := project(t, "report.period_days: 7\ninject.budget_tokens: 500\n", "")
+	root := project(t, "report.period_days: 7\nfrom.a.later.version: 500\n", "")
 	c, problems := Load(root, noEnv, nil)
 
 	if got := c.Int("report.period_days"); got != 7 {
@@ -122,7 +122,7 @@ func TestUnknownKeyIsAWarning(t *testing.T) {
 	if len(problems) != 1 {
 		t.Fatalf("got %d problems, want 1: %v", len(problems), problems)
 	}
-	if !strings.Contains(problems[0].Msg, "inject.budget_tokens") {
+	if !strings.Contains(problems[0].Msg, "from.a.later.version") {
 		t.Errorf("the warning does not name the key: %s", problems[0])
 	}
 }

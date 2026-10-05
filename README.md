@@ -56,6 +56,17 @@ forgelore record --type fix \
 full. Every command takes `--json`. `init` prints the one line to add to your
 `AGENTS.md` and does not write the file itself.
 
+## With Claude Code
+
+[`plugin/`](plugin/) is a Claude Code plugin that wires the hooks up: a
+budgeted index at session start, a hint when a command fails with an error it
+has seen, and a proposed fix when a command that was failing starts working.
+Nothing is recorded without you accepting it with `forgelore review`.
+
+Every hook exits successfully whatever happens. A broken store, a corrupt
+index or a missing directory makes Forgelore silent, never your session
+slower or louder.
+
 ## Measuring whether it helps
 
 Every lookup is written to a local ledger, and `forgelore report` shows what

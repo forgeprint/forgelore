@@ -30,6 +30,7 @@ keeps its number and its text; the ADR that replaces it says so.
 | [0017](0017-restricted-yaml.md) | Phase 1 | A restricted YAML dialect, written canonically |
 | [0018](0018-configuration-and-precedence.md) | Phase 1 | Configuration files and their precedence |
 | [0019](0019-cost-in-dollars-is-the-comparison.md) | Phase 3 | Cost in dollars is what the two arms are compared on |
+| [0020](0020-canonical-events-and-json-mappings.md) | Phase 4 | Four canonical events, and mappings in JSON |
 
 ## Writing a new one
 
