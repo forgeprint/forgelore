@@ -1576,7 +1576,7 @@ değişikliğinde doküman değişiklikleri zaten onunla gider.
 
 ---
 
-## 2026-10-05 — marketplace kaydı: PR açıldı, onay bekliyor
+## 2026-10-05 — marketplace kaydı: yayında
 
 Plan bunu `[SEN]` ve "ayrı depoda" işaretlemişti; kullanıcı buradan
 yapılmasını istedi.
@@ -1585,8 +1585,9 @@ Marketplace zaten `forgeprint/forgeprint/.claude-plugin/marketplace.json`'da
 duruyordu, dört eklentiyle. Forgelore beşinci girdi olarak eklendi:
 
 **PR: https://github.com/forgeprint/forgeprint/pull/207** — altı kontrol de
-yeşil (validate, DCO, lint-setup, render-check, similarity, setup-test),
-`protect-main` ruleset'i review istiyor, o da `[SEN]`.
+yeşildi (validate, DCO, lint-setup, render-check, similarity, setup-test).
+Kullanıcı 12:37 UTC'de birleştirdi; `forgeprint/forgeprint` main'de `5df475d`.
+Girdi canlı, ve `forgelore.git` içindeki `plugin/` yolu çözülüyor.
 
 ### Kaynak tipi ve açıklama kasıtlı
 
@@ -1631,3 +1632,22 @@ API'ye göre koruma yok. Ama son beş commit'in hepsi bir PR numarası
 taşıyordu, ve ruleset API'si bakılınca `protect-main` gerçekten `pull_request`
 ve `required_status_checks` dayatıyor. Klasik koruma uç noktasının 404'üne
 bakıp "doğrudan yazılabilir" demek yanlış olurdu.
+
+### Birleştikten sonra: `ref` kararı artık geri alınamaz değil ama canlı
+
+`ref` sabitlemediğimiz için marketplace Forgelore `main`'ini izliyor:
+`plugin/` altına atılan her commit, eklentiyi kuranların aldığı sürümü
+anında değiştirir. `plugin/` bir manifest ile bir hooks dosyasından ibaret
+olduğu için risk düşük, ama hook komutlarını değiştirirken bunun bir release
+beklemediğini hatırla. Sabitlemek istenirse marketplace girdisine `ref`
+eklemek yeter; Forgelore tarafında bir değişiklik gerekmiyor.
+
+### Kalanlar — hepsi `[SEN]`
+
+- İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
+- Codex CLI doğrulaması, erişim olduğunda:
+  `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,
+  `verified_against`'i doldur, `docs/compatibility.md`'yi güncelle.
+- Sonraki release'te imzalama (cosign keyless) ve istenirse npm sarmalayıcı —
+  ikisi de Faz 8'de bilerek ertelendi.
+- Gemini CLI ve Cursor: araştırıldı, başlanmadı.
