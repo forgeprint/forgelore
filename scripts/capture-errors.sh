@@ -72,7 +72,10 @@ capture() {
 		echo "exit: $code"
 		echo "family: $family"
 		echo "tool: \"$tool\""
-		echo "platform: windows/amd64"
+		# The platform of the machine that captured it. Hard-coding this was
+		# wrong: the Go corpus was captured on Windows and regenerating it on
+		# a Mac left every file claiming Windows while holding Unix paths.
+		echo "platform: $(go env GOOS 2>/dev/null || uname -s | tr 'A-Z' 'a-z')/$(go env GOARCH 2>/dev/null || uname -m)"
 		echo "captured: $TODAY"
 		echo "---"
 		printf '%s\n' "$out" | scrub
@@ -147,6 +150,19 @@ capture_go() {
 			echo "}"
 		} >"$dir/main.go"
 		capture go/unused-variable "$variant" "$dir" "$tool" "go build ./..."
+
+		# go vet reports the same compiler error through a different shape,
+		# with a "vet: " prefix in front of the position. Dropping the verb
+		# from a fingerprint was meant to make one error one memory across
+		# build, test, run and vet; this is the family that proves it.
+		{
+			echo "package main"
+			pad "$pad_lines"
+			echo "func main() {"
+			echo '	greet("world")'
+			echo "}"
+		} >"$dir/main.go"
+		capture go/vet-undefined "$variant" "$dir" "$tool" "go vet ./..."
 
 		{
 			echo "package main"

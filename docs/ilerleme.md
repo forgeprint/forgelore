@@ -1285,3 +1285,71 @@ asgari Go ile derlenmiş.
   `verified_against`'i doldur, `docs/compatibility.md`'yi güncelle.
 - Sonraki release'te imzalama (cosign keyless, artık CI'da derlendiği için
   mümkün) ve istenirse npm sarmalayıcı — ikisi de Faz 8'de bilerek ertelendi.
+
+---
+
+## 2026-10-05 — README demosu yazarken bulunan hata: `go vet` tanınmıyormuş
+
+README'ye gerçek bir transcript koymak için demoyu koştururken çıktı:
+**Forgelore `go vet` çıktısını hiç tanımıyordu.**
+
+```
+vet: ./main.go:3:2: undefined: greet
+```
+
+Konum eşleştiricisi satırın **ilk jetonuna** çapalı (bu, Node yığın
+karelerini dışarıda tutan şeydi) ve ilk jeton `vet:` olunca nokta-uzantı
+taşımadığı için hiç eşleşmiyordu. Hata `v0.1.0`'da var.
+
+Acısı şurada: Faz 2'de fiili parmak izinden çıkarmanın **gerekçesi** "aynı
+derleme hatası `go build`, `go test`, `go run` ve `go vet` altında çıkar"
+idi. Fiili çıkardık, ama `go vet`'in çıktı biçimi yüzünden o yola hiç
+varamıyorduk. Karar doğruydu, uygulaması yarımdı.
+
+### Düzeltme
+
+- `scripts/capture-errors.sh`'e `go/vet-undefined` ailesi eklendi, iki
+  varyantla. Külliyat 58 dosya / 29 aile.
+- `fileLineDiag` artık konumun önünde isteğe bağlı bir `kelime: ` öneki
+  kabul ediyor. Çapa korunuyor, yani Node kareleri hâlâ dışarıda.
+
+### Test düzeltmeyi yasaklıyordu
+
+Düzeltmeden sonra `go/undefined-identifier` ile `go/vet-undefined` **aynı
+parmak izini** üretti — `cd023fb609411574` — ve `TestFamiliesSeparate` bunu
+çakışma sayıp kırıldı. Oysa istenen tam olarak buydu: iki aile, bir hata, iki
+komut.
+
+Test yeniden yazıldı. `sameError` listesi "bunlar bilerek aynı" diyor,
+ayrışma kontrolü onları muaf tutuyor, ve yeni `TestOneErrorThroughTwoCommands`
+**paylaştıklarını zorunlu kılıyor** — kesişim alarak, deterministik olarak.
+Yani test artık özelliği yasaklamak yerine kanıtlıyor.
+
+### Açık karar
+
+Düzeltme `main`'de, ama **`v0.1.0` bu hatayla yayımlandı**. `go vet` kullanan
+biri hiçbir şey göremez ve sebebini anlayamaz. `v0.1.1` çıkarmaya değer mi,
+yoksa bir sonraki sürüme mi kalsın — `[SEN]`.
+
+README'ye gerçek transcript eklendi (demo GIF'in birinci alternatifi) ve
+durum paragrafı düzeltildi: "yayımlanmış release yok" diyordu, oysa v0.1.0
+yayımlanmıştı.
+
+### Yeniden üretme külliyatı bozuyordu — iki şey daha çıktı
+
+`./scripts/capture-errors.sh go` yalnızca yeni aileyi eklemedi, **mevcut
+sekiz aileyi de yeniden üretti** ve macOS'ta koştuğu için Windows yol
+biçimlerini sildi: `.\main.go` → `./main.go`, `C:/Users/...` →
+`/var/folders/...`. Oysa külliyatın README'si tam olarak "bir Windows ev
+dizini Windows ev dizini olarak kalır, çünkü normalleştirmenin başa çıkması
+gereken şey budur" diyor. Eski dosyalar geri alındı, yalnızca
+`go/vet-undefined` tutuldu.
+
+İkincisi: frontmatter'daki `platform` alanı betikte **sabit** yazılmıştı
+(`windows/amd64`). macOS'ta üretilen dosyalar darwin yolları taşırken
+Windows olduklarını iddia ediyordu. Artık `go env GOOS/GOARCH`'tan türüyor.
+
+Sonuç beklenmedik biçimde daha iyi: paylaşan iki aile artık farklı
+işletim sistemlerinde yakalanmış durumda, yani
+`TestOneErrorThroughTwoCommands` parmak izinin işletim sistemi, yol biçimi,
+satır numarası ve alt komuttan **aynı anda** bağımsız olduğunu kanıtlıyor.

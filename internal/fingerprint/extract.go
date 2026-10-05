@@ -35,7 +35,13 @@ var (
 	// file:line: message. The file must carry an extension, which is what
 	// keeps "goroutine 1 [running]:" and "node:internal/modules/cjs/loader"
 	// out.
-	fileLineDiag = regexp.MustCompile(`^\s*\S*?[^\s:]\.[A-Za-z0-9_+-]+:\d+(?::\d+)?: (.+)$`)
+	//
+	// The optional word before the position is for a tool that labels its
+	// own output. `go vet` prints "vet: ./main.go:3:2: undefined: greet"
+	// for the error `go build` prints bare, and without this the whole vet
+	// path was invisible — which defeated the point of leaving the verb out
+	// of a fingerprint in the first place.
+	fileLineDiag = regexp.MustCompile(`^\s*(?:[A-Za-z][A-Za-z0-9_-]*:\s+)?\S*?[^\s:]\.[A-Za-z0-9_+-]+:\d+(?::\d+)?: (.+)$`)
 
 	// go test's per-test header. The duration is dropped: it is different
 	// every run.

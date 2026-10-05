@@ -12,8 +12,41 @@ can run a shell command.
 
 > **Status: early development.** The record store, fingerprinting, the
 > command line, the measurement ledger, Claude Code hooks and the MCP server
-> all work and are tested. There is no published release yet, so for now you
-> build it yourself. Follow `docs/plan.md` for the roadmap.
+> all work and are tested. `v0.1.0` is published; the record format and the
+> command line may still change before `1.0`. Follow `docs/plan.md` for the
+> roadmap and `docs/compatibility.md` for which agents are verified.
+
+## What it looks like
+
+A fix recorded while running `go build` is found later by `go vet`, in a
+different file, on a different line. Real output:
+
+```console
+$ go build ./... 2>err.txt
+$ forgelore recall --command "go build ./..." --error-file err.txt
+1 error(s), 0 with something recorded
+
+cd023fb609411574  undefined: greet
+  nothing recorded
+
+$ forgelore record --type fix \
+    --title "greet lives in internal/greeter; import it" \
+    --command "go build ./..." --error-file err.txt
+
+# ...later, a different file, a different command
+
+$ go vet ./... 2>err2.txt
+vet: internal/svc/svc.go:4:2: undefined: greet
+
+$ forgelore recall --command "go vet ./..." --error-file err2.txt
+1 error(s), 1 with something recorded
+
+cd023fb609411574  undefined: greet
+  fix       01M45W8AM40B94WTEANTXK4BX5  greet lives in internal/greeter; import it
+```
+
+The fingerprint is the same because the file, the line and the subcommand are
+not part of it. The error is.
 
 ## What it does
 
@@ -39,8 +72,6 @@ can run a shell command.
 
 ## Installing
 
-Once a release exists:
-
 ```sh
 curl -fsSL https://raw.githubusercontent.com/forgeprint/forgelore/main/scripts/install.sh | bash
 ```
@@ -49,7 +80,7 @@ It verifies the download against the release's `SHA256SUMS` and refuses to
 install anything that does not match. No sudo, nothing outside your home
 directory, no runtime to install alongside it.
 
-Until then, `./scripts/build.sh` puts a binary in `dist/`.
+To build it yourself instead, `./scripts/build.sh` puts a binary in `dist/`.
 
 ## Using it
 

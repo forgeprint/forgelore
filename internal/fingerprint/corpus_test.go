@@ -25,6 +25,32 @@ var variantsIdentical = map[string]bool{
 	"go/unknown-import": true,
 }
 
+// sameError groups families that are one error reached through different
+// commands. They are expected to share a fingerprint, and the test below
+// insists on it rather than tolerating it.
+//
+// This is the property that dropping the verb from a fingerprint bought: a
+// fix recorded while running `go build` has to be found when `go vet`
+// reports the same thing, and vet says it in a different shape.
+var sameError = [][]string{
+	{"go/undefined-identifier", "go/vet-undefined"},
+}
+
+// equivalent reports whether two families are the same error by declaration.
+func equivalent(a, b string) bool {
+	for _, group := range sameError {
+		var foundA, foundB bool
+		for _, family := range group {
+			foundA = foundA || family == a
+			foundB = foundB || family == b
+		}
+		if foundA && foundB {
+			return true
+		}
+	}
+	return false
+}
+
 type sample struct {
 	family  string
 	variant string
@@ -166,7 +192,7 @@ func TestFamiliesSeparate(t *testing.T) {
 			switch prior, seen := owner[e.Sum]; {
 			case !seen:
 				owner[e.Sum] = s.family
-			case prior != s.family:
+			case prior != s.family && !equivalent(prior, s.family):
 				collisions++
 				t.Errorf("fingerprint %s is shared by %s and %s: %q", e.Sum, prior, s.family, e.Message)
 			}
@@ -307,6 +333,65 @@ func sortedKeys[V any](m map[string]V) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {
 		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// TestOneErrorThroughTwoCommands is the other half of family separation, and
+// the reason the verb is not in a fingerprint: `go build` and `go vet`
+// report the same undefined identifier in different shapes, and a memory
+// recorded under one has to be found under the other.
+func TestOneErrorThroughTwoCommands(t *testing.T) {
+	samples := make(map[string]sample)
+	for _, s := range loadCorpus(t) {
+		if s.variant == "a" {
+			samples[s.family] = s
+		}
+	}
+
+	for _, group := range sameError {
+		// The shared error is the intersection of what each family
+		// produces, not the first event of the first one: go vet prints a
+		// package line that go build does not, so the families differ in
+		// how many diagnostics they yield.
+		var shared map[string]bool
+		for _, family := range group {
+			s, ok := samples[family]
+			if !ok {
+				t.Fatalf("%s is declared equivalent but is missing from the corpus", family)
+			}
+			sums := map[string]bool{}
+			for _, e := range Scan(s.command, s.output) {
+				sums[e.Sum] = true
+			}
+			if len(sums) == 0 {
+				t.Errorf("%s: nothing extracted", family)
+				continue
+			}
+			if shared == nil {
+				shared = sums
+				continue
+			}
+			for sum := range shared {
+				if !sums[sum] {
+					delete(shared, sum)
+				}
+			}
+		}
+		if len(shared) == 0 {
+			t.Errorf("%v produce no fingerprint in common, so a memory recorded "+
+				"under one would not be found under the others", group)
+			continue
+		}
+		t.Logf("%v share %v", group, sortedSums(shared))
+	}
+}
+
+func sortedSums(set map[string]bool) []string {
+	out := make([]string, 0, len(set))
+	for sum := range set {
+		out = append(out, sum)
 	}
 	sort.Strings(out)
 	return out

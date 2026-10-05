@@ -59,6 +59,25 @@ captured: 2026-09-29
 .\main.go:5:14: undefined: greet
 ```
 
+## More than one machine
+
+Most families were captured on Windows; `go/vet-undefined` was captured on
+macOS. The `platform` field in each file says which, and the mixture is worth
+keeping rather than tidying away.
+
+It also makes one test stronger than it looks. `go/undefined-identifier` and
+`go/vet-undefined` are the same error reached two ways, and they are expected
+to share a fingerprint — so that test now proves the fingerprint survives the
+operating system, the path shape, the line number and the subcommand at once:
+
+```
+.\main.go:5:14: undefined: greet        (go build, Windows)
+vet: ./main.go:3:2: undefined: greet    (go vet, macOS)
+```
+
+Regenerating a family on a different machine replaces its path shapes with
+that machine's. Run `./scripts/capture-errors.sh go` only when you mean to.
+
 ## Scrubbing
 
 Paths are rewritten so that no account name survives, while the shape of the

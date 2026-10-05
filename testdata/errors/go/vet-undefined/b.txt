@@ -1,0 +1,11 @@
+---
+command: "go vet ./..."
+exit: 1
+family: go/vet-undefined
+tool: "go version go1.27.1 darwin/arm64"
+platform: darwin/arm64
+captured: 2026-10-05
+---
+# beta
+# [beta]
+vet: ./main.go:10:2: undefined: greet
