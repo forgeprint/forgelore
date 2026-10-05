@@ -1573,3 +1573,61 @@ düzenlendi.
 Doküman düzeltmesi sürüm çıkarmaz. Okuyucunun release sayfasında görmesi
 gereken bir şeyse, o sürümün notu güncellenir. Bir sonraki kod
 değişikliğinde doküman değişiklikleri zaten onunla gider.
+
+---
+
+## 2026-10-05 — marketplace kaydı: PR açıldı, onay bekliyor
+
+Plan bunu `[SEN]` ve "ayrı depoda" işaretlemişti; kullanıcı buradan
+yapılmasını istedi.
+
+Marketplace zaten `forgeprint/forgeprint/.claude-plugin/marketplace.json`'da
+duruyordu, dört eklentiyle. Forgelore beşinci girdi olarak eklendi:
+
+**PR: https://github.com/forgeprint/forgeprint/pull/207** — altı kontrol de
+yeşil (validate, DCO, lint-setup, render-check, similarity, setup-test),
+`protect-main` ruleset'i review istiyor, o da `[SEN]`.
+
+### Kaynak tipi ve açıklama kasıtlı
+
+`git-subdir`, `github` değil: eklenti **başka** bir deponun alt dizininde
+(`plugin/`), ve spesifikasyon tam bu durum için `git-subdir` diyor. `ref`
+sabitlenmedi — `plugin/` bir manifest ve bir hooks dosyasından ibaret,
+nadiren değişiyor; etikete bağlamak her Forgelore release'inde katalogu
+güncellemeyi gerektirirdi.
+
+Açıklama **"Requires the forgelore binary on your PATH"** ile bitiyor. `bin/`
+dizinini bilerek koymamıştık (o dizin varsa claude.ai eklentiyi kurmuyor), ve
+bunun sonucu şu: kullanıcı eklentiyi kurar, binary yoksa hook'lar sessizce
+hiçbir şey yapmaz. Bugünün tekrar eden hatası bu aileden; cümle o yüzden
+orada.
+
+### Eklenti ilk kez doğrulandı
+
+`claude plugin validate ./plugin` — geçti, `--strict` dahil. Dokümantasyon
+bunu yetkili kontrol diye tanımlıyor ama Faz 4'te manifesti yazarken hiç
+çalıştırmamışız. Birleşmiş `marketplace.json` da aynı doğrulayıcıdan
+geçirildi.
+
+### Üç şey öğrenildi, ikisi benim hatamdı
+
+1. **Prettier.** O depo `marketplace.json`'ı Prettier ile biçimlendiriyor;
+   `json.dump(indent=2)` çıktısı uymadı ve `validate` kırıldı. Kendi
+   `.prettierrc.json`'larıyla (printWidth 100) yeniden biçimlendirildi —
+   `tags` tek satıra indi.
+2. **DCO imzası yazarla eşleşmeli.** Forgelore'un biçimini
+   (`aliosman.mho@gmail.com`) kullandım, oysa o deponun commit'leri
+   `aliosmanmho@users.noreply.github.com` ile imzalanıyor. İki deponun iki
+   ayrı konvansiyonu var.
+3. **Dalı base'e sıfırlamak PR'ı kapattırdı.** Düzeltilmiş commit'i atmak
+   için önce dalı main'e force ettim; o anda fark sıfır olunca GitHub PR'ı
+   otomatik kapattı. Geri açıldı, dal tek temiz commit taşıyor. Doğrusu tek
+   adımda yeni commit'e force etmekti.
+
+### Neden doğrudan main'e değil PR
+
+`branches/main/protection` 404 veriyor ("Branch not protected"), yani klasik
+API'ye göre koruma yok. Ama son beş commit'in hepsi bir PR numarası
+taşıyordu, ve ruleset API'si bakılınca `protect-main` gerçekten `pull_request`
+ve `required_status_checks` dayatıyor. Klasik koruma uç noktasının 404'üne
+bakıp "doğrudan yazılabilir" demek yanlış olurdu.
