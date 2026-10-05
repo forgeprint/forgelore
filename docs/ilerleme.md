@@ -1633,14 +1633,49 @@ taşıyordu, ve ruleset API'si bakılınca `protect-main` gerçekten `pull_reque
 ve `required_status_checks` dayatıyor. Klasik koruma uç noktasının 404'üne
 bakıp "doğrudan yazılabilir" demek yanlış olurdu.
 
-### Birleştikten sonra: `ref` kararı artık geri alınamaz değil ama canlı
+### Birleştikten sonra: kurup denedik, ve `ref` notu yanlıştı
 
-`ref` sabitlemediğimiz için marketplace Forgelore `main`'ini izliyor:
-`plugin/` altına atılan her commit, eklentiyi kuranların aldığı sürümü
-anında değiştirir. `plugin/` bir manifest ile bir hooks dosyasından ibaret
-olduğu için risk düşük, ama hook komutlarını değiştirirken bunun bir release
-beklemediğini hatırla. Sabitlemek istenirse marketplace girdisine `ref`
-eklemek yeter; Forgelore tarafında bir değişiklik gerekmiyor.
+Marketplace'ten kurulum denendi: `claude plugin marketplace add
+forgeprint/forgeprint`, sonra `claude plugin install forgelore@forgeprint`.
+İkisi de sorunsuz. `git-subdir` doğru çözüldü — önbelleğe deponun tamamı
+değil yalnızca `plugin/` içeriği indi.
+
+Yukarıda "`ref` koymadığımız için her commit kuranları anında etkiler"
+yazmıştım. **Yanlış.** `~/.claude/plugins/installed_plugins.json` kurulumu
+commit sha'sına sabitliyor ve `installPath`'i sürüme göre adlandırıyor:
+
+```
+"installPath": ".../cache/forgeprint/forgelore/0.1.0",
+"version": "0.1.0",
+"gitCommitSha": "08658f5da309f0790244cdc9c05fe47b15e790c7"
+```
+
+Yani `ref` koymamanın etkisi **yeni** kurulumlarda: onlar main'in o anki
+hâlini alıyor. Mevcut kurulumlar güncellenene kadar sabit kalıyor.
+
+Doğrulanmayan kısmı olduğu gibi bırakıyorum: `plugin.json` içindeki sürüm
+`0.1.0` dururken sha ilerlerse `claude plugin update` ne yapıyor? Dizin adı
+aynı sürüme düşüyor, ve bunu denemeden söylemeyeceğim. Pratik sonuç: `plugin/`
+altında bir şey değişirse `plugin.json` sürümünü de artır.
+
+### Hook'un enjekte ettiği ölçüldü
+
+Scratchpad'de kırık bir Go projesi (`undefined: greet`), bir kayıt, sonra
+gerçek yakalanmış `PostToolUseFailure` payload'ı o dizine yönlendirilip
+çalıştırıldı:
+
+```
+{"hookSpecificOutput":{"additionalContext":"forgelore has seen this error
+before:\n- fix: greet lives in ... (01M461QEF80ZCNA9ADQ0PV57P8)",
+"hookEventName":"PostToolUseFailure"}}
+```
+
+Bilinmeyen bir hatada çıktı boş. `report --days 1`: 3 arama, 2 enjeksiyon,
+1 "bilinmiyor", hook gecikmesi p95 9 ms.
+
+Canlı oturum içinde denenemedi: `claude -p` "OAuth session expired" verdi.
+Eklenti kurulu ve binary PATH'te olduğunda gerçek bir oturumda `go build`
+kırmak kalan tek adım — `[SEN]`, çünkü CLI'ya giriş kullanıcıya ait.
 
 ### Kalanlar — hepsi `[SEN]`
 
@@ -1651,3 +1686,5 @@ eklemek yeter; Forgelore tarafında bir değişiklik gerekmiyor.
 - Sonraki release'te imzalama (cosign keyless) ve istenirse npm sarmalayıcı —
   ikisi de Faz 8'de bilerek ertelendi.
 - Gemini CLI ve Cursor: araştırıldı, başlanmadı.
+- Marketplace'ten kurulan eklentinin canlı bir Claude Code oturumunda
+  denenmesi; CLI'ya giriş gerekiyor.
