@@ -1906,6 +1906,27 @@ başarıda **hiçbir şey yazmıyor**. Komutu çalıştıran biri hiçbir şey o
 sanabilir; cevap çıkış kodunda. README ve SECURITY.md bunu söylüyor, bir de
 attestation'ın v0.1.4'ten önce bulunmadığını.
 
+### `npm-pack.sh` ilk gerçek kullanımında iki hata verdi
+
+Kullanıcı script'i v0.1.4 için çalıştırınca ikisi de çıktıda görünür oldu:
+
+1. **"dist/npm holds 14 packages"** — `ls | wc -l` dizinleri *ve* tarball'ları
+   sayıyordu. Altındaki liste yedi satırdı; sayı ile liste birbirini
+   yalanlıyordu.
+2. **Yazdırılan publish komutu çalışmazdı.** `for p in dist/npm/forgelore-*`
+   artık tarball'ları da yakalıyor (tarball'ları `dist/npm` içine taşıdığım
+   için), ve `cd` bir `.tgz`'ye giremez. Dahası glob sarmalayıcıyı da
+   yakalıyordu — yani şans eseri çalışsaydı **sarmalayıcı önce** yayımlanmış
+   olabilirdi, ki bu tam olarak kaçınılması gereken sıra.
+
+İkisi de yerel testimden kaçtı, çünkü ben publish komutunu hiç çalıştırmadım
+— sadece tarball'lardan kurulumu denedim. Script'in *yazdırdığı* şey de
+teslim edilen şeyin parçası.
+
+Düzeltme: sayım yalnızca dizinleri sayıyor, ve publish komutları glob yerine
+**tek tek adlandırılıyor** — script platform listesini zaten biliyor.
+Yazdırılan her tarball'ın diskte var olduğu doğrulandı.
+
 ### Kalanlar — hepsi `[SEN]`
 
 - npm paketlerini yayımla (`./scripts/npm-pack.sh v0.1.4`, önce platform

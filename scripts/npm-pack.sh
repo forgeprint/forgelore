@@ -111,18 +111,30 @@ for d in "$out"/*/; do
 done
 
 echo
-echo "dist/npm holds $(ls "$out" | wc -l | tr -d ' ') packages:"
+echo "dist/npm holds $(find "$out" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ') packages:"
 for d in "$out"/*/; do
 	echo "  $(basename "$d")"
 done
 echo
+
+# Each tarball is named, rather than globbed. dist/npm/forgelore-* matches
+# the wrapper's own tarball and every platform tarball as well as the
+# directories, so a glob here would either publish the wrapper first — the
+# one order that leaves a user with no binary — or try to cd into a .tgz.
+publish=""
+for t in $targets; do
+	rest="${t#*:}"
+	publish="$publish  npm publish --access public dist/npm/forgelore-${rest%%:*}-${rest#*:}-$npm_version.tgz
+"
+done
+
 cat <<EOF
 Publishing is a human action, as it is for a release. The platform packages
 go first: the wrapper depends on them by exact version, and a wrapper on the
 registry whose dependencies are not there yet installs with no binary.
 
-  for p in dist/npm/forgelore-*; do (cd "\$p" && npm publish --access public); done
-  (cd dist/npm/forgelore && npm publish --access public)
+$publish
+  npm publish --access public dist/npm/forgelore-$npm_version.tgz
 
 Then check what a user gets, in an empty directory:
 
