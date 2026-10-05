@@ -75,6 +75,14 @@ fi
 # process.platform and process.arch straight out of Node.
 targets="linux_amd64:linux:x64 linux_arm64:linux:arm64 darwin_amd64:darwin:x64 darwin_arm64:darwin:arm64 windows_amd64:win32:x64 windows_arm64:win32:arm64"
 
+# The package is named "windows" where the os field says "win32". npm's
+# spam detection refuses to create a package called forgelore-win32-x64 —
+# twice, on two separate days, while the other four went through in the same
+# burst — and "win32" is a token that turns up in a lot of typosquats. The
+# os field is matched against process.platform, so it has to stay win32; the
+# name is only a name, and the wrapper maps between them.
+name_for() { [ "$1" = "win32" ] && echo windows || echo "$1"; }
+
 out=dist/npm
 rm -rf "$out"
 mkdir -p "$out"
@@ -94,7 +102,7 @@ for t in $targets; do
 	fi
 	[ -f "$src" ] || { echo "missing $src" >&2; exit 1; }
 
-	pkg="forgelore-$os-$cpu"
+	pkg="forgelore-$(name_for "$os")-$cpu"
 	mkdir -p "$out/$pkg"
 	# The executable bit is part of the tarball. Without it npm installs a
 	# file nobody can run, and the wrapper's error would blame the wrong
@@ -167,7 +175,7 @@ echo
 publish=""
 for t in $targets; do
 	rest="${t#*:}"
-	publish="$publish  npm publish --access public dist/npm/forgelore-${rest%%:*}-${rest#*:}-$npm_version.tgz
+	publish="$publish  npm publish --access public dist/npm/forgelore-$(name_for "${rest%%:*}")-${rest#*:}-$npm_version.tgz
 "
 done
 

@@ -9,7 +9,13 @@
 
 const { spawnSync } = require("child_process");
 
-const pkg = `forgelore-${process.platform}-${process.arch}`;
+// "windows" rather than Node's own "win32": npm's spam detection refuses
+// to create a package named forgelore-win32-x64, twice, while every other
+// platform went through in the same burst. The package.json inside still
+// declares os: ["win32"], because that field is matched against
+// process.platform and nothing else.
+const osName = process.platform === "win32" ? "windows" : process.platform;
+const pkg = `forgelore-${osName}-${process.arch}`;
 const exe = process.platform === "win32" ? "forgelore.exe" : "forgelore";
 
 let binary;

@@ -1951,12 +1951,59 @@ karşılaştırıyor. Bayat `dist/` ile denendi: reddediyor.
 Asıl ders şu: `dist/` bir yapı çıktısı değil, **paylaşılan mutable durum**.
 release.sh onu bir anlık görüntü sanıyordu, ci.sh ise çalışma alanı.
 
+---
+
+## 2026-10-05 — v0.1.5: npm düzeltildi, Windows paketleri yeniden adlandırıldı
+
+https://github.com/forgeprint/forgelore/releases/tag/v0.1.5
+
+Kod değişikliği yok; 0.1.4'ün npm tarafını düzelten bir paketleme sürümü.
+
+### npm'e giden baytlar artık attested baytlar
+
+Bu sefer `dist/`'i yerelde derlemedim, **release'ten indirdim**. Yedi paket o
+baytlardan kuruldu. Kanıt, kurulum sonrası karşılaştırmayla:
+
+```
+npm      70df577968205691cee51949d3b3640c38b4d188d529ecfd0727aa5fe94890d3
+release  70df577968205691cee51949d3b3640c38b4d188d529ecfd0727aa5fe94890d3
+```
+
+Bu, `npm-pack.sh`'in `dist/` korumasından daha güçlü bir alışkanlık: koruma
+yalnızca `dist/`'in kendi içinde tutarlı olduğunu söylüyor, release'ten
+indirmek ise yayımlananla aynı olduğunu garanti ediyor. Bir sonraki sürümde
+de böyle yapılmalı.
+
+`forgelore@0.1.4` npm'de deprecated, mesajı 0.1.5'e yönlendiriyor. GitHub
+release'i v0.1.4 zaten doğruydu, ona dokunulmadı.
+
+### `win32` adı npm'de yayımlanamıyor
+
+`forgelore-win32-x64` iki ayrı gün, iki ayrı yayın turunda **403 "Package
+name triggered spam detection"** aldı. Aynı turda diğer dördü sorunsuz
+geçti, yani hız sınırı değil, isme bağlı. `win32` token'ı typosquat
+paketlerinde sık geçiyor; muhtemel sebep bu.
+
+Paketler `forgelore-windows-x64` ve `-arm64` olarak yeniden adlandırıldı ve
+ilk denemede geçti. **İçerideki `"os": ["win32"]` olduğu gibi kaldı** —
+npm o alanı `process.platform` ile eşleştiriyor, "windows" yazsaydık paket
+Windows'ta hiç seçilmezdi. Yani ad ile alan bilerek uyuşmuyor ve çeviriyi
+sarmalayıcı yapıyor. ADR-0024'e bu cümleyle yazıldı, çünkü ileride biri
+"tutarsızlık" diye düzeltmeye kalkar.
+
+Filtreyi üçüncü kez yoklamamak üzerine anlaşılmıştı; bir deneme yetti.
+
+### Son kontrol
+
+Boş dizinde registry'den: `npm install forgelore@0.1.5` →
+`forgelore v0.1.5 darwin/arm64 go1.26.8`, `--ignore-scripts` ile de aynısı.
+Yedi paket de registry'de, `latest` 0.1.5.
+
 ### Kalanlar — hepsi `[SEN]`
 
-- npm'deki `forgelore@0.1.4` düzeltilmeli: v0.1.5 ve `npm deprecate`.
-- `forgelore-win32-x64` ve `-arm64` npm'de **403 spam detection** aldı;
-  diğer dördü yayımlandı. Yeniden denemek ya da npm desteğine yazmak
-  gerekiyor.
+- npm yayımlamayı CI'a taşımak: hem elle sıralama hatasını (0.1.4'te
+  sarmalayıcı önce gitmişti) hem de npm provenance eksikliğini kapatır.
+  Automation token gerekiyor.
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
   `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,

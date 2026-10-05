@@ -30,11 +30,12 @@ Two shapes:
 ## Decision
 
 One package per platform: `forgelore-linux-x64`, `forgelore-darwin-arm64`,
-`forgelore-win32-x64` and so on, each holding only the binary, plus a
+`forgelore-windows-x64` and so on, each holding only the binary, plus a
 `forgelore` wrapper that depends on all six as optional dependencies.
 
 The wrapper is one file. It resolves
-`forgelore-${process.platform}-${process.arch}` and runs the binary with
+`forgelore-${platform}-${process.arch}`, where `platform` is
+`process.platform` with `win32` spelled `windows`, and runs the binary with
 stdio inherited — inherited rather than piped because `forgelore mcp` speaks
 a protocol on stdin and stdout, and anything in between would have to stay
 correct about framing forever.
@@ -74,3 +75,11 @@ knows about it, and a user who installs with `install.sh` never meets it.
 **A user who runs `npm install --no-optional` gets a wrapper with nothing
 behind it.** The wrapper says so in a sentence and points at the direct
 install, rather than failing with a module resolution stack trace.
+
+**The Windows packages are named `windows`, not `win32`.** npm's spam
+detection refused to create `forgelore-win32-x64` with a 403, twice, on two
+separate days, while the other four went through in the same burst; under
+the new name it published. The `os` field inside still says `win32`,
+because npm matches that against `process.platform` and nothing else, so
+the name and the field disagree on purpose and the wrapper maps between
+them. Worth knowing before anyone "fixes" the inconsistency.
