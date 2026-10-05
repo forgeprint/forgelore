@@ -59,6 +59,34 @@ puts its output in a top-level `error`, not in `tool_response`; a successful
 one uses `tool_response` as an object. `is_interrupt` marks a command the
 user stopped, and it is ignored.
 
+Measured end to end on 2026-10-05: the plugin was installed from the
+Forgeprint marketplace, a recorded fix was injected into five real sessions,
+and `forgelore report` counted them. Hook latency was 10 ms at p95.
+
+### A piped command hides its failure
+
+This is the one gap worth knowing about, and no mapping can close it.
+
+A Bash command's exit status reaches Forgelore only through which event
+fires: `PostToolUseFailure` for a command that failed, `PostToolUse` for one
+that did not. Neither payload carries an exit code. So when the agent writes
+
+```
+go build ./... 2>&1 | head -40
+```
+
+the pipeline exits with `head`'s status, which is zero. Claude Code is right
+to send `PostToolUse`, and Forgelore is right to treat it as a success — but
+the build failed, and nothing is recorded or recalled. It happens silently
+and looks exactly like an agent that met no errors.
+
+Whether the agent pipes a build is its own habit, not something this project
+controls. If it does it often, the fix would be to decide failure from the
+output text rather than from the event, the way the Copilot CLI mapping
+already does with `failure.output_matches`. That is a change to the mapping
+and to what "failed" means for this agent, so it is not made here on the
+strength of one observation.
+
 MCP: both protocol eras are served, because the client speaks either one
 depending on a feature flag. Its v2 runtime opens with `server/discover` at
 `2026-07-28`; its v1 runtime opens with `initialize` at `2025-11-25`. See

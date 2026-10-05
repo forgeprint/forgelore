@@ -1677,6 +1677,45 @@ Canlı oturum içinde denenemedi: `claude -p` "OAuth session expired" verdi.
 Eklenti kurulu ve binary PATH'te olduğunda gerçek bir oturumda `go build`
 kırmak kalan tek adım — `[SEN]`, çünkü CLI'ya giriş kullanıcıya ait.
 
+### Canlı oturumda denendi: çalışıyor, ve bir kör nokta çıktı
+
+CLI'ya giriş yapıldı, ikili `~/.local/bin`'e kuruldu, ve marketplace'ten
+kurulu eklenti gerçek oturumlarda çalıştırıldı. Beş oturumda kayıt enjekte
+edildi, hepsi gerçek Claude Code oturum kimlikleriyle ledger'da:
+`report --days 1` 8 arama, 7 enjeksiyon, 6 oturum, hook p95 10 ms.
+
+İlk iki oturum hiçbir şey üretmedi ve bunu "hook çalışmıyor" diye okudum.
+Yanlıştı. Yakalanan payload'da model komutu şöyle yazmıştı:
+
+```
+go build ./... 2>&1 | head -40
+```
+
+Pipeline'ın çıkış kodu `head`'inki, yani sıfır. Komut gerçekten başarıyla
+bitmiş; Claude Code doğru şekilde `PostToolUse` göndermiş, Forgelore da doğru
+şekilde "başarı" deyip hiçbir şey yazmamış. Düz `go build ./...` ile
+`PostToolUseFailure` geliyor ve enjeksiyon oluyor — `default`, `acceptEdits`
+ve `bypassPermissions` ile ayrı ayrı doğrulandı.
+
+**Kör nokta bu:** çıkış kodu payload'ın hiçbir yerinde yok. Başarısızlık
+yalnızca hangi olayın tetiklendiğinden anlaşılıyor. Ajan build'i `head`,
+`tail` veya `tee`'ye borularsa hata Forgelore'a hiç ulaşmaz, ve bu sessizce
+olur — ajanın hiç hata görmemesinden ayırt edilemez. Bugünün ailesinden bir
+hata daha: doğru çalışan kod, hiçbir testin yakalayamayacağı bir boşluk.
+
+Düzeltmek mümkün ama bedava değil: başarısızlığı olaydan değil çıktı
+metninden okumak gerekir, yani Copilot CLI eşlemesindeki
+`failure.output_matches`. Bu, bu ajan için "başarısız" tanımını değiştirmek
+demek; tek bir gözleme dayanarak yapılmadı. `docs/compatibility.md`'ye de
+yazıldı.
+
+### Yöntem notu
+
+Teşhis, tahminle değil, aynı komutu üç izin modunda çalıştırıp payload'ları
+yan yana koyarak çıktı. Çıktıyı dosyaya döken geçici bir `settings.json`
+hook'u, eklentininkinin yanında çalıştı ve ikisi birbirine karışmadı —
+sonraki bir ajan için en ucuz teşhis aracı bu.
+
 ### Kalanlar — hepsi `[SEN]`
 
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
@@ -1686,5 +1725,5 @@ kırmak kalan tek adım — `[SEN]`, çünkü CLI'ya giriş kullanıcıya ait.
 - Sonraki release'te imzalama (cosign keyless) ve istenirse npm sarmalayıcı —
   ikisi de Faz 8'de bilerek ertelendi.
 - Gemini CLI ve Cursor: araştırıldı, başlanmadı.
-- Marketplace'ten kurulan eklentinin canlı bir Claude Code oturumunda
-  denenmesi; CLI'ya giriş gerekiyor.
+- Borulanmış komutun gizlediği hata: eşlemeyi `output_matches`'a geçirmek mi,
+  olduğu gibi bırakmak mı? Karar verilmedi.
