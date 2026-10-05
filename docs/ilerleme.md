@@ -1775,10 +1775,40 @@ Dokunulan dosyalar: `internal/agent/mapping.go`,
 `docs/adr/0022-a-failure-test-that-is-not-data.md`, `docs/versioning.md`,
 `docs/mappings.md`, `docs/compatibility.md`.
 
+---
+
+## 2026-10-05 — v0.1.3
+
+https://github.com/forgeprint/forgelore/releases/tag/v0.1.3
+
+Borulanmış komutun gizlediği hata (ADR-0022) ve mapping formatının 2'ye
+çıkışı. Tag push → CI taslağı kurdu → notlar yazılıp yayımlandı, `latest`
+işaretlendi.
+
+Yayımlanan ikiliyle doğrulandı — v0.1.0 dersinin gereği: indirildi, checksum
+tuttu, `v0.1.3 darwin/arm64 go1.26.8`. Borulanmış build payload'ı enjeksiyon
+üretti, başarılı `go version` payload'ı sessiz kaldı. Yani düzeltme ağaçta
+değil, **release'te** var.
+
+Notların söylemesi gereken şeyler `docs/versioning.md`'nin listesinden
+geldi; bu sefer kritik olan madde "mapping formatı taşındı mı, hangi
+ajanları etkiliyor" idi. Not açıkça `--mapping` ile kendi dosyasını ezen
+kullanıcıya da sesleniyor: hiçbir şey kırılmıyor, yeni testi istiyorsa
+`"mapping_version": 2` yazacak.
+
+### Dördüncü sürümün ritmi
+
+`v0.1.1` ve `v0.1.2` bir **doküman yazarken** bulunan hatalardan doğmuştu.
+`v0.1.3` farklı bir yerden geldi: **kendi aracımızı bir kullanıcı gibi
+kurup çalıştırmaktan.** Marketplace'ten kurulmasaydı ve gerçek bir oturumda
+denenmeseydi borulanmış komut sonsuza kadar sessiz kalırdı — hiçbir test
+kırılmıyordu, korpustaki dört payload da geçiyordu.
+
+Dört sürümün dördü de aynı aileden: kod doğru çalışıyordu, eksik olan şey
+kodun hiç görmediği bir girdiydi. Sırayla anlatmak, kullanmak, kurmak.
+
 ### Kalanlar — hepsi `[SEN]`
 
-- Bu değişiklik bir release istiyor: mapping formatı 2'ye çıktı, ve
-  `docs/versioning.md` release notunun bunu söylemesini şart koşuyor.
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
   `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,
