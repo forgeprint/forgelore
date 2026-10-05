@@ -28,6 +28,23 @@ Reaching `1.0.0` needs three things that are not true yet:
 A release is cut with `./scripts/release.sh vX.Y.Z`. It refuses a dirty tree,
 runs every check, builds all six targets and writes `SHA256SUMS`.
 
+### Which Go builds a release
+
+The published binaries are built by CI with the **minimum** Go this project
+claims to support — the version in `go.mod`, at its latest patch — and not
+with the newest Go available. Shipping what the README promises is the only
+way that promise is ever tested.
+
+The consequence is worth knowing before it confuses somebody: running
+`./scripts/release.sh` on a machine with a newer toolchain produces different
+bytes from the release, and the checksums will not match. That is the
+compiler, not a tampered artifact. To reproduce a release exactly, build with
+the Go version in `go.mod`.
+
+CI also runs every check a second time on the newest Go, so a toolchain
+release that breaks the build is found here rather than by somebody running
+`go install`.
+
 ## The record schema
 
 Records carry `schema: 1`. This number changes only when a field changes

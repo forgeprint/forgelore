@@ -1213,3 +1213,45 @@ Dokuz fazın tamamı bitti. Kalan işler `[SEN]`:
   `drift-versions.sh`'e bir kaynak eklenmeli.
 - Dokümantasyon kayması ölçülmüyor. Bir ajan hook sayfasını değiştirirse
   sürüm değişmeden kayma olabilir; bunu yakalayan tek şey yeniden yakalama.
+
+---
+
+## 2026-10-05 — v0.1.0 taslak release, ve CI'ın hangi Go'yu kullandığı
+
+Dokuz faz push edildi (`a8cd53f..0d1f0da`), CI yeşil. `v0.1.0` etiketlendi,
+release workflow altı ikiliyi ve `SHA256SUMS`'u **taslak** release'e koydu.
+Yayımlamak `[SEN]`.
+
+### CI ile yerel derleme aynı baytları üretmiyor
+
+Taslağı kontrol ederken çıktı: CI'ın ürettiği ikililer yereldekilerle
+eşleşmiyor.
+
+```
+CI    go1.26.8 linux   darwin_arm64 -> 860b20b7...
+yerel go1.27.1 darwin  darwin_arm64 -> 754facb9...
+```
+
+Sebep: `go-version-file: go.mod` + `check-latest: true`, ve `go.mod` `go 1.26`
+diyor. Yani bu "**1.26'nın en son yaması**" demek, Go 1.27 değil. Üç sonuç:
+
+1. Kullanıcıların indirdiği ikililer, desteklediğimizi iddia ettiğimiz asgari
+   Go ile derleniyor. Kasıtlı değildi ama **doğru olan bu** — yoksa
+   "Go 1.26 veya üstü" iddiası hiçbir yerde sınanmıyor.
+2. `release.sh`'i daha yeni bir toolchain'le koşan biri eşleşmeyen baytlar
+   üretir ve tekrarlanabilirlik sanıp kafası karışır.
+3. En yeni Go yalnızca benim makinemde 1.27 olduğu için **kazara** kapsanıyordu.
+
+Karar: asgari sürümle derlemeye devam, ve `docs/versioning.md`'ye "Which Go
+builds a release" bölümü. Ayrıca `ci.yml`'ye ikinci bir iş eklendi
+(`latest-go`, `go-version: stable`) — en yeni Go artık kaza eseri değil,
+gerçekten test ediliyor. Matris yerine iki iş: setup-go ikisi için farklı
+girdi alıyor, iki kez okunması gereken bir koşuldansa açık açık yazmak daha
+iyi.
+
+### Kalanlar — hepsi `[SEN]`
+
+- Taslak release'i oku ve yayımla.
+- Forgeprint marketplace kaydı.
+- İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
+- Codex CLI doğrulaması, erişim olduğunda.
