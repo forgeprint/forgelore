@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/forgeprint/forgelore/internal/fingerprint"
 )
 
 // corpusRoot holds real hook payloads, captured from a running agent by
@@ -26,14 +28,6 @@ var withoutSamples = map[string]string{
 	// postToolUse with "exit code 1" in the result text. Provoking a real
 	// tool failure needs something other than a broken build.
 	"copilot-cli/postToolUseFailure": "a failing command is not a failing tool; needs a tool error to provoke",
-
-	// Gemini CLI's session events were captured; AfterTool was not,
-	// because the account the capture ran under cannot reach a model:
-	// "Sign in with Google" now returns IneligibleTierError for this
-	// client. The session never gets far enough to run a tool. Capturing
-	// it needs GEMINI_API_KEY or Vertex AI, and until then the one event
-	// that matters here is documentation only.
-	"gemini-cli/AfterTool": "no model access on the free tier; needs GEMINI_API_KEY to provoke a tool call",
 }
 
 // TestEveryBuiltInMappingParses: a mapping that ships broken is a feature
@@ -354,6 +348,82 @@ func TestOutputHasDiagnosticNeedsItsFormatVersion(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "output_has_diagnostic") {
 		t.Errorf("the error does not say which field is at fault: %v", err)
+	}
+}
+
+// TestGeminiReportsItsExitCodeInTheOutput is the third agent in a row whose
+// documented failure marker was not the one it sends.
+//
+// The hooks reference says a tool result carries an optional `error`. A
+// shell command that exits non-zero sets no such field — the mapping built
+// on it would have called every failing build a success. What the payload
+// does carry is the exit code, as a line inside `llmContent`, which is the
+// same shape Copilot CLI turned out to use.
+func TestGeminiReportsItsExitCodeInTheOutput(t *testing.T) {
+	m, err := Built("gemini-cli")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		file string
+		want Kind
+	}{
+		{"AfterTool-1.json", CommandFailed},
+		{"AfterTool-2.json", CommandSucceeded},
+	} {
+		payload, err := os.ReadFile(filepath.Join("../../testdata/agents/gemini-cli/0.62.0", tc.file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var raw map[string]any
+		if err := json.Unmarshal(payload, &raw); err != nil {
+			t.Fatal(err)
+		}
+		if resp, ok := raw["tool_response"].(map[string]any); ok {
+			if _, present := resp["error"]; present {
+				t.Errorf("%s: the capture now has tool_response.error, so the documented field does fire after all", tc.file)
+			}
+		}
+
+		e, ok, err := m.Translate(payload, "", now)
+		if err != nil || !ok {
+			t.Fatalf("%s: ok=%v err=%v", tc.file, ok, err)
+		}
+		if e.Kind != tc.want {
+			t.Errorf("%s: kind = %q, want %q", tc.file, e.Kind, tc.want)
+		}
+	}
+}
+
+// TestGeminiWrappingDoesNotReachTheFingerprint: Gemini hands the output
+// back inside an <untrusted_context> wrapper, with an "Output:" prefix, an
+// "Exit Code:" line and a process group id that is different on every run.
+//
+// If any of that reached the fingerprint, the same error would hash
+// differently each time and memory would never match anything — silently,
+// because every individual lookup still succeeds. So this checks the
+// stronger property the whole design rests on: one error, one fingerprint,
+// whichever agent reported it.
+func TestGeminiWrappingDoesNotReachTheFingerprint(t *testing.T) {
+	const command = "go build ./..."
+	const wrapped = "<untrusted_context>\nOutput: # example.com/broken/cmd/app\n" +
+		"cmd/app/main.go:4:2: undefined: greet\nExit Code: 1\n" +
+		"Process Group PGID: %s\n</untrusted_context>"
+
+	// The same error as Claude Code reports it, with no wrapper at all.
+	plain := fingerprint.Scan(command, "# example.com/broken/cmd/app\ncmd/app/main.go:4:2: undefined: greet")
+	if len(plain) != 1 {
+		t.Fatalf("the plain output produced %d events", len(plain))
+	}
+
+	for _, pgid := range []string{"72958", "99999"} {
+		got := fingerprint.Scan(command, strings.Replace(wrapped, "%s", pgid, 1))
+		if len(got) != 1 {
+			t.Fatalf("pgid %s produced %d events", pgid, len(got))
+		}
+		if got[0].Sum != plain[0].Sum {
+			t.Errorf("pgid %s: %s, but the same error unwrapped is %s", pgid, got[0].Sum, plain[0].Sum)
+		}
 	}
 }
 

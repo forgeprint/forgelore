@@ -1,7 +1,7 @@
 {
-  "mapping_version": 2,
+  "mapping_version": 1,
   "agent": "gemini-cli",
-  "verified_against": "",
+  "verified_against": "0.62.0",
   "common": {
     "event_name": "hook_event_name",
     "session": "session_id",
@@ -28,7 +28,7 @@
       ],
       "failure": {
         "field_present": "tool_response.error",
-        "output_has_diagnostic": true
+        "output_matches": "Exit Code: [1-9]"
       }
     },
     {

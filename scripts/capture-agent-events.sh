@@ -70,8 +70,20 @@ gemini-cli)
 			h="{\"type\":\"command\",\"command\":\"$1 $e\",\"timeout\":10000}"
 			hooks="$hooks,\"$e\":[{\"hooks\":[$h]}]"
 		done
+
+		# The CLI reads the auth method from the *merged* settings, so a
+		# workspace file can choose one for this capture alone. With
+		# GEMINI_API_KEY set, say so here: otherwise a machine whose user
+		# settings say oauth-personal ignores the key and the session dies
+		# on IneligibleTierError before any tool runs — which is exactly
+		# how the first two attempts failed.
+		local auth=""
+		if [ -n "${GEMINI_API_KEY:-}" ]; then
+			auth=',"security":{"auth":{"selectedType":"gemini-api-key"}}'
+		fi
+
 		# timeout is milliseconds here, unlike Claude Code's seconds.
-		printf '{"hooks":{%s}}' "${hooks:1}"
+		printf '{"hooks":{%s}%s}' "${hooks:1}" "$auth"
 	}
 	# Two things a capture has to force.
 	#

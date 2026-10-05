@@ -2161,10 +2161,83 @@ gönderdiğini **değil**. Korpusa konmadı.
 Beşinci ajan, beşinci kez: dokümandan okunan ile ajanın yaptığı ayrışıyor.
 Bu sefer ayrışma hook formatında değil, ona ulaşmanın önündeki koşullardaydı.
 
+---
+
+## 2026-10-06 — Gemini CLI doğrulandı: tier B, 0.62.0
+
+`AfterTool` yakalandı ve dokümandan yazdığım eşlemeyi **yine** yalanladı.
+Beşinci ajan, beşinci kez, ve yine sessizce başarısız olacak türden.
+
+### Belgedeki `error` alanı başarısız komutta hiç yok
+
+Hooks reference "`tool_response` ... ve isteğe bağlı `error`" diyor. `go
+build` 1 ile çıktığında payload yalnızca `llmContent` ve `returnDisplay`
+taşıyor. Yalnız o alanı test eden bir eşleme her kırık build'i başarı
+sayardı.
+
+Ama çıkış kodu payload'da **var**, `llmContent` metninin içinde:
+
+```
+<untrusted_context>
+Output: # example.com/broken/cmd/app
+cmd/app/main.go:4:2: undefined: greet
+Exit Code: 1
+Process Group PGID: 72958
+</untrusted_context>
+```
+
+Başarılı komutta `Exit Code` satırı hiç yok. Yani Copilot CLI'ın
+(`completed with exit code [1-9]`) tam karşılığı: `output_matches` ile
+`Exit Code: [1-9]`.
+
+**`output_has_diagnostic` kaldırıldı ve mapping_version 1'e indi.** Gerçek
+bir çıkış kodu varken "çıktı hataya benziyor mu" testini kullanmak gereksiz
+yanlış pozitif demekti; `compatibility.md` zaten "ajan sana daha dar bir
+test veriyorsa onu tercih et" diyor. Yazdığımız kurala kendimiz uyduk:
+mapping yalnızca ihtiyacı olan sürümü taşıyor, yani eski bir Forgelore de
+bu dosyayı okuyabiliyor.
+
+### Ölçülen asıl şey: sarmal parmak izine ulaşmıyor
+
+`llmContent` çıktı olarak seçildi (çünkü çıkış kodunu o taşıyor), ama içinde
+her çalıştırmada değişen bir `Process Group PGID` satırı var. O parmak izine
+girseydi aynı hata her seferinde farklı hash'lenirdi — ve bu **sessizce**
+olurdu, çünkü tek tek her arama yine başarılı görünür, sadece hiçbir zaman
+eşleşme bulunmazdı.
+
+Ölçüldü: PGID değişse de parmak izi sabit, **ve Gemini'nin sarmalı
+çıktısı Claude Code'un temiz çıktısıyla aynı parmak izini veriyor**
+(`cd023fb609411574`). Projenin dayandığı "bir hata, bir parmak izi, hangi
+ajan bildirirse bildirsin" özelliği ilk kez iki ajan arasında ölçüldü.
+`TestGeminiWrappingDoesNotReachTheFingerprint` bunu tutuyor.
+
+### Çözülmemiş bir nokta
+
+Kullanıcının durdurduğu komut 130 ile çıkıyor ve `[1-9]` ile eşleşiyor.
+Claude Code bunu `is_interrupt` ile işaretliyor, Gemini'de karşılığı
+belgelenmemiş. İptal edilen bir komut başarısızlık olarak hatırlanabilir.
+`compatibility.md`'ye yazıldı.
+
+### Yakalamanın önündeki iki engel
+
+Hiçbiri hook'larla ilgili değildi, ikisi de script içinde çözüldü:
+
+- Google hesabıyla giriş modele ulaşmıyor (`IneligibleTierError`).
+  `GEMINI_API_KEY` gerekiyor.
+- Değişkeni ayarlamak da yetmiyor: CLI yöntemi **birleşik** ayarlardan
+  (`security.auth.selectedType`) okuyor, ve bir kez Google ile girmiş makine
+  onu kullanmaya devam ediyor. Script artık `GEMINI_API_KEY` varken geçici
+  workspace'in kendi `settings.json`'ına `"gemini-api-key"` yazıyor —
+  kullanıcının `~/.gemini/settings.json`'ı `oauth-personal` olarak kalıyor.
+
+### Bir güvenlik notu
+
+Kullanıcı anahtarı `export GEMINI_API_KEY="..."` diye terminale yazdı; o
+pane benim okuyabildiğim bir yer ve değer orada göründü. Söylendi,
+değiştirildi. Bir sonraki sefer için doğru biçim komutun önüne tek
+kullanımlık değişken koymak ve satırı geçmişe sokmamak.
+
 ### Kalanlar — hepsi `[SEN]`
-- Gemini CLI `AfterTool` yakalaması: `GEMINI_API_KEY` ya da Vertex AI
-  kimlik bilgisiyle `./scripts/capture-agent-events.sh gemini-cli`. Sonra
-  eşlemeyi düzelt, `verified_against`'i doldur, tabloyu güncelle.
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
   `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,

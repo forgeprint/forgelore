@@ -23,8 +23,11 @@ listed as not measured, and does not count towards a tier.
 | Claude Code | **A** | 2.1.289 | ✅ 4 captured payloads | ✅ both protocol eras measured | ✅ status line |
 | Copilot CLI | **B**, hooks verified | 1.0.91 | ✅ 3 captured payloads | never connected | none known |
 | Codex CLI | **unverified** | — | mapping written from docs | never connected | none known |
-| Gemini CLI | **unverified** | — | ✅ 2 session payloads, ❌ no tool payload | never connected | none known |
+| Gemini CLI | **B**, hooks verified | 0.62.0 | ✅ 4 captured payloads | never connected | none known |
 | Cursor | researched, not started | — | — | — | — |
+
+Gemini CLI is B for the same reason as Copilot CLI: its hooks are verified,
+but nobody has pointed its MCP client at `forgelore mcp`.
 
 Copilot CLI is listed as B rather than A on a technicality worth keeping:
 its hooks are verified against captured payloads, but nobody has pointed its
@@ -180,9 +183,9 @@ home location before concluding anything is broken, and
 
 ## Gemini CLI
 
-Mapping written against the official hooks reference at **v0.62.0** on
-2026-10-05, and **half checked**: `SessionStart` and `SessionEnd` are in the
-corpus as real captured payloads; `AfterTool`, the one that matters, is not.
+Verified against 0.62.0 on 2026-10-06. The mapping started as a reading of
+the official hooks reference at that tag, and the captured payloads
+contradicted it in the usual place.
 
 Hooks live in `settings.json` under `hooks`, one array per event, each entry
 carrying an optional `matcher` — a **regex** for tool events — and a list of
@@ -197,31 +200,62 @@ A shell command arrives as `AfterTool` with `tool_name: "run_shell_command"`
 and the command in `tool_input.command`. The result is in `tool_response`,
 which holds `llmContent`, `returnDisplay` and an **optional** `error`.
 
-There is no dedicated failure event and no exit code anywhere in the
-payload, which is the Claude Code situation again. So the mapping tests for
-failure twice: `field_present: tool_response.error` for when the documented
-field appears, and `output_has_diagnostic` for when it does not
-([ADR-0022](adr/0022-a-failure-test-that-is-not-data.md)). Whether `error`
-is ever set for a command that merely exits non-zero is unknown, and is the
-first thing a captured payload should settle.
+**The documented `error` field does not fire for a failing command.** A
+`go build` that exits 1 arrives with `tool_response` holding only
+`llmContent` and `returnDisplay`. A mapping that tested `error` alone would
+have treated every failing build as a success.
+
+What the payload does carry is the exit code, as a line inside `llmContent`:
+
+```
+<untrusted_context>
+Output: # example.com/broken/cmd/app
+cmd/app/main.go:4:2: undefined: greet
+Exit Code: 1
+Process Group PGID: 72958
+</untrusted_context>
+```
+
+A command that succeeds has no `Exit Code` line at all. So failure is
+decided by `output_matches` on `Exit Code: [1-9]`, the same shape Copilot
+CLI needed, with `field_present: tool_response.error` kept beside it for
+whatever does set that field.
+
+`llmContent` is used for the output rather than the cleaner
+`returnDisplay`, because it is the one that carries the exit code. The
+wrapper, the `Output:` prefix and the per-run process group id do not reach
+the fingerprint — the same error reported by Gemini and by Claude Code
+hashes to the same value, and a test holds that.
+
+One thing is unresolved: a command the user interrupts exits 130, which
+matches `[1-9]`, and nothing in the payload distinguishes it. Claude Code
+marks those with `is_interrupt`; Gemini documents no equivalent. A
+cancelled command may be remembered as a failure.
 
 Context goes back as `hookSpecificOutput.additionalContext`, appended to the
 tool result. Exit code 2 blocks; this project never uses it.
 
-### Why the tool payload is missing
+### Getting a capture to run at all
 
-The capture ran, the session hooks fired, and then the session stopped
-before any tool could run:
+Two obstacles, neither of them about hooks, both solved inside
+`scripts/capture-agent-events.sh` without touching the user's own
+configuration.
+
+**Signing in with Google is not enough.** The session dies before any tool
+runs:
 
 ```
 IneligibleTierError: This client is no longer supported for Gemini Code
 Assist for individuals.
 ```
 
-Signing in with a Google account no longer reaches a model from this client.
-Capturing `AfterTool` needs `GEMINI_API_KEY` or Vertex AI credentials, and
-until someone runs `./scripts/capture-agent-events.sh gemini-cli` with one,
-`verified_against` stays empty and `doctor` says so.
+A capture needs `GEMINI_API_KEY` (from Google AI Studio) or Vertex AI. And
+setting the variable is not enough either, because the CLI reads the chosen
+method from `security.auth.selectedType` in its **merged** settings: a
+machine that once signed in with Google keeps using that. The capture
+writes `"selectedType": "gemini-api-key"` into the throwaway workspace's
+own `settings.json` when `GEMINI_API_KEY` is set, which overrides it for
+that session only.
 
 ### Two things the documentation gets wrong
 
