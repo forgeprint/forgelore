@@ -1548,3 +1548,28 @@ v0.1.2'nin `session` argümanı da burada: MCP üzerinden yapılan arama ancak
 Ayrıca "Keeping this table true" bölümü eklendi — iki drift betiği ve
 `doctor`, tabloyu dürüst tutmanın yolu olarak. "Adding an agent" listesine
 de "kontrol **etmediğin** sütunları da güncelle" maddesi kondu.
+
+---
+
+## 2026-10-05 — v0.1.3 çıkarılmadı, v0.1.2'nin notları güncellendi
+
+`v0.1.3` istendi. `git diff --stat v0.1.2..HEAD` yalnızca iki doküman
+gösterdi, tek satır Go kodu yok. Yeni bir etiket, işlevsel olarak aynı
+ikilileri farklı bir sürüm dizesiyle yayımlamak olurdu — patch sürüm
+yazılımdaki bir düzeltme için, ve burada yazılımda düzeltilen bir şey yoktu.
+Dokümanlar zaten `main`'den canlı.
+
+Bunun yerine **`v0.1.2`'nin notlarına** düzeltilmiş uyumluluk bilgisi
+eklendi: hangi ajanın neye karşı sınandığı, Copilot'un A değil B olduğu ve
+neden, ve Codex'in iki spesifik tahmininin neden güvenilmemesi gerektiği.
+Notun kendisi "bu yayımlandıktan sonra eklendi, hiçbir ikili değişmedi"
+diye başlıyor.
+
+Varlıklar ve checksum'lar değişmedi (7 dosya yerinde); yalnızca metin
+düzenlendi.
+
+### Kural olarak
+
+Doküman düzeltmesi sürüm çıkarmaz. Okuyucunun release sayfasında görmesi
+gereken bir şeyse, o sürümün notu güncellenir. Bir sonraki kod
+değişikliğinde doküman değişiklikleri zaten onunla gider.
