@@ -93,6 +93,12 @@ func run(e env) error {
 		return cmdReview(e, rest)
 	case "mcp":
 		return cmdMCP(e, rest)
+	case "promote":
+		return cmdPromote(e, rest)
+	case "check":
+		return cmdCheck(e, rest)
+	case "dedupe":
+		return cmdDedupe(e, rest)
 	default:
 		return fmt.Errorf("unknown command %q (try: forgelore help)", name)
 	}
@@ -144,6 +150,9 @@ Commands:
   usage           Record what a session has spent, read from the agent
   report          What was injected, and whether it paid for itself
   review          Accept or discard the fixes a session proposed
+  promote         Move a local record into the team scope
+  check           Refuse to let a team record carry a secret
+  dedupe          Find records answering one error, and retire the old one
   hook            Agent-facing entry point; reads a hook payload on stdin
   mcp             Serve the Model Context Protocol on stdin and stdout
   version         Print the version and build platform

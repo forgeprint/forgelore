@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 
@@ -111,6 +112,13 @@ func cmdDoctor(e env, args []string) error {
 
 	settings := cfg.Effective()
 
+	// The secret scan is only as good as what is installed, so doctor says
+	// which half of it will run.
+	gitleaks := "not installed; forgelore check will run its own patterns only"
+	if path, err := exec.LookPath("gitleaks"); err == nil {
+		gitleaks = path
+	}
+
 	if *asJSON {
 		type setting struct {
 			Key    string `json:"key"`
@@ -129,14 +137,16 @@ func cmdDoctor(e env, args []string) error {
 			Skipped        int       `json:"skipped"`
 			Problems       []string  `json:"problems,omitempty"`
 			ConfigProblems []string  `json:"config_problems,omitempty"`
+			Gitleaks       string    `json:"gitleaks"`
 			Config         []setting `json:"config"`
 		}{s.Root(), len(records), indexed, skipped,
-			problemStrings(problems), configProblemStrings(configProblems), rows})
+			problemStrings(problems), configProblemStrings(configProblems), gitleaks, rows})
 	}
 
 	fmt.Fprintf(e.stdout, "store    %s\n", relativeTo(e.wd, s.Root()))
 	fmt.Fprintf(e.stdout, "records  %d readable, %d skipped\n", len(records), skipped)
 	fmt.Fprintf(e.stdout, "index    %d records\n", indexed)
+	fmt.Fprintf(e.stdout, "gitleaks %s\n", gitleaks)
 
 	// ADR-0018: five sources means no file shows the effective value, so
 	// this has to say where each one actually came from.

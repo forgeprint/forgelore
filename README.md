@@ -81,6 +81,29 @@ id that `search` or `recall_error` returned, so no single call can hand over
 the whole store, and `propose` writes a candidate for `forgelore review`
 rather than a memory.
 
+## Sharing with a team
+
+A memory starts local. Moving one into the team scope is a step somebody
+takes on purpose:
+
+```sh
+forgelore promote <id>     # local record becomes a team record
+forgelore check            # refuses to let a secret be committed
+forgelore dedupe           # two records for one error; retire the old one
+```
+
+`forgelore init --with-git-hook` installs a pre-commit hook that runs the
+check, and refuses to overwrite a hook you already have. A record derived
+from content outside the project is marked tainted and needs
+`--force-tainted` to be shared.
+
+Records are one file each, named by a ULID, so two people adding memories at
+the same time produce two files and no conflict. The index, the ledger and
+your local scope are never committed.
+
+[`docs/team-trial.md`](docs/team-trial.md) is a protocol for trying this with
+two people for a week.
+
 ## Measuring whether it helps
 
 Every lookup is written to a local ledger, and `forgelore report` shows what

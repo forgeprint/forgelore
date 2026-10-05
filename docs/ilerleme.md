@@ -871,3 +871,77 @@ tespiti, ve `[SEN]` iki kişilik bir hafta denemesi.
 - MRTR (`InputRequiredResult`), abonelikler ve `notifications/tools/list_changed`
   uygulanmadı. Araç seti derleme zamanında sabit, hiçbirine ihtiyaç yok.
 - Yalnızca stdio. Streamable HTTP ve yetkilendirme kapsam dışı (ADR-0004).
+
+---
+
+## Faz 6 — Ekip akışı
+
+**Durum:** Adım 1–5 ve 7 tamam. Adım 6 (bir haftalık deneme) `[SEN]`.
+
+### 2026-10-05 — koda bakınca plan kısaldı
+
+| Adım | Durum |
+|---|---|
+| 1 `review` | **Zaten yazılmıştı**, Faz 4'te adaylar için gerekmişti |
+| 2 `promote` | `store.Promote` Faz 1'den beri vardı; eksik olan CLI ve `tainted` kapısıydı |
+| 3 `check` | Redaksiyon `Put`'ta zaten çalışıyordu; açık olan elle düzenlenmiş/merge'den gelmiş dosyaydı |
+| 4 tekrar tespiti | **Bir boşluk açığa çıktı** (aşağıda) |
+
+#### `superseded_by` hiç yazılmıyormuş
+
+Kayıt formatı schema 1'den beri tanımlıyor, ADR-0016 davranışını belirliyor,
+indeks saklıyor, `stats` sayıyor, `recall` superseded kayıtları enjekte
+etmiyor — ama **hiçbir kod onu set etmiyordu.** Formatın yazılmamış yarısıydı.
+`forgelore dedupe --supersede <eski> --by <yeni>` bunu kapatıyor.
+
+### Alınan kararlar
+
+| # | Karar | Gerekçe |
+|---|---|---|
+| 1 | `check` komutu + `init`'in bastığı hook satırı; `init --with-git-hook` isteğe bağlı kurar, mevcut hook'u **ezmez** | AGENTS.md'de aldığımız tavırla aynı: projenin dosyası projenindir |
+| 2 | gitleaks zorunlu değil — kendi desenlerimiz her zaman, gitleaks varsa ek olarak; `doctor` hangisinin koştuğunu söyler | Kullanıcının duymadığı bir araç olmadan koşmayan kontrol, atlanan kontroldür |
+| 3 | Tekrar tespiti yeni `dedupe` komutunda | |
+| 4 | `tainted` için `--force-tainted` | Promote etmek, kimsenin yazmadığı bir şeyi paylaşmak demek (ADR-0013) |
+| 5 | `check` yalnızca ekip kapsamını tarar | Local zaten makineden çıkmıyor; birinin kendi notlarını ona rapor etmek bu komutun işi değil |
+| 6 | Deneme protokolü `docs/team-trial.md` | |
+
+### Kabul kriteri — ikisi de ölçüldü
+
+**Eşzamanlı kayıtta merge çakışması yok.** İddia edilmedi, koşuldu: bare bir
+origin, iki klon, her birinde bir kayıt, sonra merge. Çakışma yok, iki hafıza
+da sağ, ve `git ls-files` `ledger/`, `cache/`, `local/` içermiyor. Sebebi
+tasarımda: her kayıt ULID adlı ayrı dosya, paylaşılan değişken dosya yok.
+
+**Sır içeren kayıt commit edilemiyor.** Gerçek binary, gerçek git hook:
+temiz kayıt commit oldu; dosyaya elle `DEPLOY_TOKEN=...` eklenince hook
+commit'i engelledi ve `git log` 1'de kaldı.
+
+Burada iki tarayıcının **birbirini tamamladığı** görüldü: gitleaks bu değere
+"no leaks found" dedi (düşük entropi), yakalayan bizim `assigned-secret`
+desenimiz oldu. Tersi de doğru — Faz 2'de gitleaks benim yüksek entropili
+test fixture'ımı yakalamıştı, bizim desenlerimiz yakalamazdı.
+
+### Düzeltme: Node zaten kuruluymuş
+
+Faz 5'te ikinci MCP istemcisi için Node LTS v24.21.0'ı `~/.local/node` altına
+kurmuştum. Makinede **zaten Node v22.23.3 vardı**, `~/.local/opt/node`
+altında, sadece PATH'te değil — `~/.local/bin`'deki `pnpm`/`yarn` sembolik
+bağları oraya işaret ediyormuş. `command -v node` boş dönünce kurulu değil
+diye sonuçlandırmıştım, yeterince bakmamışım. Inspector mevcut Node ile de
+çalışıyor; kurduğum kopya kaldırıldı.
+
+Aynı şekilde gitleaks de `~/.local/bin/gitleaks`'te zaten varmış — `check`'in
+gitleaks yarısı bu makinede gerçekten koşuyor.
+
+### Sırada
+
+Faz 7 — diğer ajanlar. Faz 6'dan devreden tek şey `[SEN]` bir haftalık deneme.
+
+### Faz 6 — açık maddeler
+
+- `[SEN]` İki kişi, bir hafta. Protokol `docs/team-trial.md`'de.
+- `dedupe` yalnızca parmak izine bakıyor. Aynı şeyi söyleyen ama farklı
+  parmak izine sahip iki kayıt görünmüyor; metin benzerliği aramıyoruz.
+- `check` ekip kayıtlarını tarıyor, commit edilecek **diff'i** değil. Bir sır
+  kayda girip aynı commit'te silinirse yakalanmaz; bu hâliyle depoda duran
+  hâli kontrol ediyor, ki asıl mesele de o.
