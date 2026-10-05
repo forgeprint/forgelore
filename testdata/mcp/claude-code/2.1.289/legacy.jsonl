@@ -1,0 +1,3 @@
+{"id": 0, "jsonrpc": "2.0", "method": "initialize", "params": {"capabilities": {"elicitation": {"form": {}, "url": {}}, "roots": {"listChanged": true}}, "clientInfo": {"description": "Anthropic's agentic coding tool", "name": "claude-code", "title": "Claude Code", "version": "2.1.289", "websiteUrl": "https://claude.com/claude-code"}, "protocolVersion": "2025-11-25"}}
+{"jsonrpc": "2.0", "method": "notifications/initialized"}
+{"id": 1, "jsonrpc": "2.0", "method": "tools/list"}

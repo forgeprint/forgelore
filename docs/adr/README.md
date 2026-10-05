@@ -31,6 +31,7 @@ keeps its number and its text; the ADR that replaces it says so.
 | [0018](0018-configuration-and-precedence.md) | Phase 1 | Configuration files and their precedence |
 | [0019](0019-cost-in-dollars-is-the-comparison.md) | Phase 3 | Cost in dollars is what the two arms are compared on |
 | [0020](0020-canonical-events-and-json-mappings.md) | Phase 4 | Four canonical events, and mappings in JSON |
+| [0021](0021-mcp-target-versions.md) | Phase 5 | Two MCP revisions, because one client needs both |
 
 ## Writing a new one
 

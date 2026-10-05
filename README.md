@@ -67,6 +67,20 @@ Every hook exits successfully whatever happens. A broken store, a corrupt
 index or a missing directory makes Forgelore silent, never your session
 slower or louder.
 
+## With any MCP client
+
+`forgelore mcp` serves the Model Context Protocol on stdin and stdout, so a
+client that is not Claude Code can search the same memory:
+
+```sh
+claude mcp add --transport stdio forgelore -- forgelore mcp --dir .
+```
+
+Four tools: `search`, `get`, `recall_error` and `propose`. `get` only takes an
+id that `search` or `recall_error` returned, so no single call can hand over
+the whole store, and `propose` writes a candidate for `forgelore review`
+rather than a memory.
+
 ## Measuring whether it helps
 
 Every lookup is written to a local ledger, and `forgelore report` shows what

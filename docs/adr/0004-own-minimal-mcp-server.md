@@ -32,3 +32,13 @@ than from memory.
 - Conformance is tested against the example messages in the specification, so
   drift surfaces as a failing test rather than as a client that silently
   refuses to connect.
+
+## Update, 2026-10-05
+
+The scope above — "stdio transport, initialize with version negotiation,
+tools/list, tools/call" — describes the protocol as it stood when this was
+written. Revision `2026-07-28` removed the initialize handshake and made the
+protocol stateless. The decision to write the server rather than take an SDK
+is unchanged, and the surface is still small; what it consists of is recorded
+in [ADR-0021](0021-mcp-target-versions.md), which also explains why both eras
+are implemented.

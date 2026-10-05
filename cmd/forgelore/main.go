@@ -91,6 +91,8 @@ func run(e env) error {
 		return cmdHook(e, rest)
 	case "review":
 		return cmdReview(e, rest)
+	case "mcp":
+		return cmdMCP(e, rest)
 	default:
 		return fmt.Errorf("unknown command %q (try: forgelore help)", name)
 	}
@@ -143,6 +145,7 @@ Commands:
   report          What was injected, and whether it paid for itself
   review          Accept or discard the fixes a session proposed
   hook            Agent-facing entry point; reads a hook payload on stdin
+  mcp             Serve the Model Context Protocol on stdin and stdout
   version         Print the version and build platform
   help            Print this message
 

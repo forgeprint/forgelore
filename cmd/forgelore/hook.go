@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/forgeprint/forgelore/internal/agent"
+	"github.com/forgeprint/forgelore/internal/candidate"
 	"github.com/forgeprint/forgelore/internal/config"
 	"github.com/forgeprint/forgelore/internal/fingerprint"
 	"github.com/forgeprint/forgelore/internal/measure"
@@ -261,7 +262,7 @@ func onCommandSucceeded(s *store.Store, e agent.Event) error {
 	sort.Strings(proposed)
 
 	for _, sum := range proposed {
-		if err := appendCandidate(s, candidate{
+		if err := candidate.Append(s.Root(), candidate.Candidate{
 			Time:        e.Time,
 			Session:     e.Session,
 			Fingerprint: sum,
@@ -279,84 +280,12 @@ func onCommandSucceeded(s *store.Store, e agent.Event) error {
 // every SessionEnd hook a 1.5 second budget between them, so this reads one
 // small file and prints one line.
 func onSessionEnded(s *store.Store, e agent.Event) (string, error) {
-	pending, err := readCandidates(s)
+	pending, err := candidate.Read(s.Root())
 	if err != nil || len(pending) == 0 {
 		return "", err
 	}
 	return contextResponse("SessionEnd",
 		fmt.Sprintf("forgelore: %d fix candidate(s) from this session are waiting. Review with: forgelore review", len(pending)))
-}
-
-// candidate is a fix Forgelore noticed but did not record.
-type candidate struct {
-	Time        time.Time `json:"time"`
-	Session     string    `json:"session"`
-	Fingerprint string    `json:"fingerprint"`
-	Command     string    `json:"command"`
-	Tainted     bool      `json:"tainted"`
-}
-
-func candidatesPath(s *store.Store) string {
-	return filepath.Join(s.Root(), "local", "candidates.jsonl")
-}
-
-func appendCandidate(s *store.Store, c candidate) error {
-	path := candidatesPath(s)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	line, err := json.Marshal(c)
-	if err != nil {
-		return err
-	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = f.Write(append(line, '\n'))
-	return err
-}
-
-func readCandidates(s *store.Store) ([]candidate, error) {
-	data, err := os.ReadFile(candidatesPath(s))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var out []candidate
-	for _, line := range strings.Split(string(data), "\n") {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		var c candidate
-		if json.Unmarshal([]byte(line), &c) == nil {
-			out = append(out, c)
-		}
-	}
-	return out, nil
-}
-
-func writeCandidates(s *store.Store, cs []candidate) error {
-	path := candidatesPath(s)
-	if len(cs) == 0 {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		return nil
-	}
-	var b strings.Builder
-	for _, c := range cs {
-		line, err := json.Marshal(c)
-		if err != nil {
-			return err
-		}
-		b.Write(line)
-		b.WriteByte('\n')
-	}
-	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
 
 // cmdReview is where a candidate becomes a memory, or stops being one.
@@ -378,7 +307,7 @@ func cmdReview(e env, args []string) error {
 	if err != nil {
 		return err
 	}
-	pending, err := readCandidates(s)
+	pending, err := candidate.Read(s.Root())
 	if err != nil {
 		return err
 	}
@@ -387,21 +316,18 @@ func cmdReview(e env, args []string) error {
 	case *accept != "" && *drop != "":
 		return fmt.Errorf("--accept and --drop ask for opposite things")
 	case *accept != "":
-		if strings.TrimSpace(*title) == "" {
-			return fmt.Errorf("--accept needs --title: Forgelore saw the error stop, not why")
-		}
 		return acceptCandidate(e, s, pending, *accept, *title)
 	case *drop != "":
-		kept, found := without(pending, *drop)
-		if !found {
-			return fmt.Errorf("no candidate with fingerprint %s", *drop)
+		_, kept, err := candidate.Take(pending, *drop)
+		if err != nil {
+			return err
 		}
-		return writeCandidates(s, kept)
+		return candidate.Write(s.Root(), kept)
 	}
 
 	if *asJSON {
 		return writeJSON(e.stdout, struct {
-			Candidates []candidate `json:"candidates"`
+			Candidates []candidate.Candidate `json:"candidates"`
 		}{pending})
 	}
 	if len(pending) == 0 {
@@ -409,22 +335,35 @@ func cmdReview(e env, args []string) error {
 		return nil
 	}
 	for _, c := range pending {
-		fmt.Fprintf(e.stdout, "%s  %s\n", c.Fingerprint, c.Command)
+		what := c.Title
+		if what == "" {
+			what = c.Command
+		}
+		fmt.Fprintf(e.stdout, "%s  %s\n", c.Fingerprint, what)
 	}
 	fmt.Fprintf(e.stdout, "\n%d waiting. Record one with:\n  forgelore review --accept <fingerprint> --title \"what fixed it\"\n", len(pending))
 	return nil
 }
 
-func acceptCandidate(e env, s *store.Store, pending []candidate, sum, title string) error {
-	var chosen *candidate
-	for i := range pending {
-		if pending[i].Fingerprint == sum {
-			chosen = &pending[i]
-			break
-		}
+func acceptCandidate(e env, s *store.Store, pending []candidate.Candidate, sum, title string) error {
+	chosen, kept, err := candidate.Take(pending, sum)
+	if err != nil {
+		return err
 	}
-	if chosen == nil {
-		return fmt.Errorf("no candidate with fingerprint %s", sum)
+
+	// A hook's candidate has no title, because a hook saw an error stop and
+	// not a reason. One proposed through MCP usually does. Either way the
+	// person reviewing can override it.
+	if strings.TrimSpace(title) == "" {
+		title = chosen.Title
+	}
+	if strings.TrimSpace(title) == "" {
+		return fmt.Errorf("--accept needs --title: nothing proposed one, and Forgelore saw the error stop, not why")
+	}
+
+	body := chosen.Body
+	if body == "" && chosen.Command != "" {
+		body = "Noticed when `" + chosen.Command + "` started working again."
 	}
 
 	id, err := record.NewULID()
@@ -441,7 +380,7 @@ func acceptCandidate(e env, s *store.Store, pending []candidate, sum, title stri
 		Source:      record.SourceHook,
 		Tainted:     chosen.Tainted,
 		Fingerprint: chosen.Fingerprint,
-		Body:        "Noticed when `" + chosen.Command + "` started working again.",
+		Body:        body,
 	}
 	if _, err := s.Put(r); err != nil {
 		return err
@@ -450,23 +389,9 @@ func acceptCandidate(e env, s *store.Store, pending []candidate, sum, title stri
 		idx.Close()
 	}
 
-	kept, _ := without(pending, sum)
-	if err := writeCandidates(s, kept); err != nil {
+	if err := candidate.Write(s.Root(), kept); err != nil {
 		return err
 	}
 	fmt.Fprintf(e.stdout, "%s  recorded in the local scope\n", r.ID)
 	return nil
-}
-
-func without(cs []candidate, sum string) ([]candidate, bool) {
-	var out []candidate
-	found := false
-	for _, c := range cs {
-		if c.Fingerprint == sum {
-			found = true
-			continue
-		}
-		out = append(out, c)
-	}
-	return out, found
 }

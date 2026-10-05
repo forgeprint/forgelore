@@ -785,3 +785,89 @@ Faz 5 — kendi MCP sunucumuz (K4). Faz 4'ten devreden açık karar kalmadı.
 - Eklenti elle kurulup gerçek bir oturumda denenmedi. `plugin/` hazır ve
   hook'lar gerçek yüklerle test edildi, ama uçtan uca "eklentiyi kur, hatayı
   tekrarla, ipucunu gör" adımı yapılmadı.
+
+---
+
+## Faz 5 — MCP sunucusu
+
+**Durum:** Tamam. Adım 1–6 bitti, kabul kriteri iki istemciyle karşılandı.
+
+### 2026-10-05 — spesifikasyon planı çürüttü, ölçüm kararı verdi
+
+Güncel revizyon **2026-07-28** ve `initialize` el sıkışmasını **kaldırmış**.
+Protokol durumsuz: her istek kendi sürümünü ve istemci yeteneklerini
+`_meta.io.modelcontextprotocol/*` içinde taşıyor, sunucu `server/discover`
+uygulamak zorunda, bilinmeyen sürüm `-32022` ile reddediliyor. ADR-0004'ün
+"initialize ile sürüm müzakeresi" kapsamı artık önceki dönemi tarif ediyor.
+
+Çift dönem gerekip gerekmediğini **ölçtüm**, akıl yürütmedim. Kaydedici bir
+sunucuya karşı Claude Code 2.1.289:
+
+| Çalışma zamanı | Ne gönderiyor |
+|---|---|
+| varsayılan (v2) | `server/discover`, `_meta` ile `2026-07-28`; `initialize` hiç yok |
+| `MCP_SDK_GENERATION=v1` | `initialize` → `2025-11-25`, `notifications/initialized`, sonra `_meta`'sız `tools/list` |
+
+Hangisinin seçildiği feature flag'e bağlı, bizim elimizde değil. Spesifikasyonun
+uyumluluk matrisi net: legacy istemci + modern-only sunucu = başarısız. Yani
+**oturumların yarısında Forgelore görünmez olurdu.** ADR-0021 yazıldı,
+ADR-0004'e tarihli güncelleme düşüldü.
+
+### Yazılanlar
+
+- `internal/mcp/` — satır ayraçlı JSON-RPC, çift dönemli yönlendirme, dört araç.
+- `internal/candidate/` — adaylar `cmd`'den çıkarıldı; hem hook hem `propose`
+  yazıyor. Aday artık `title` taşıyabiliyor, `review --accept` onu kullanıyor.
+- `forgelore mcp` komutu.
+- `testdata/mcp/claude-code/2.1.289/{modern,legacy}.jsonl` — gerçek istemci
+  istekleri, testte yeniden oynatılıyor.
+
+Sunucu tek bir bağlantı durumu tutuyor: "bu süreç `initialize` ile açıldı"
+bayrağı. Modern yol onu hiç okumuyor — durumsuzluk şartını dürüst tutan şey bu.
+
+### Gerçek istemcinin yakaladığı uyum hatası
+
+Elle sürdüğüm testlerin hepsi geçiyordu; `claude mcp list` ise bağlanmayı
+reddetti:
+
+```
+Invalid result for tools/list: expected number, received undefined, path: ttlMs
+```
+
+**`cacheScope` gönderip `ttlMs` göndermemiştim.** İstemci kendi şemasına göre
+doğruluyor ve araç listesini tümden atıyor. Yakalanan trafiği yeniden oynatmak
+bunu göremezdi, çünkü külliyat isteği tutuyor, istemcinin cevap şemasını değil.
+Kabul kriterinin "gerçek istemci bağlanabiliyor" demesinin sebebi tam olarak bu.
+
+### İkinci bulgu: `command` atlanırsa hafıza kaçıyor
+
+`recall_error`'ı `command` olmadan çağırınca parmak izi farklı çıkıyor, çünkü
+araç adı parmak izinin parçası (Faz 2, karar 7). Aynı çıktı, `command` ile
+`cd023fb609411574` ve eşleşiyor; onsuz `8bd855593ebb1628` ve eşleşmiyor. Araç
+açıklaması artık bunu açıkça söylüyor ve bir test doğru kalmasını sağlıyor.
+
+### Kabul kriteri — iki istemci
+
+| İstemci | Sonuç |
+|---|---|
+| **Claude Code 2.1.289** | `claude mcp add` ile bağlandı (`✔ Connected`), model `recall_error`'ı çağırıp kaydedilmiş düzeltmeyi döndürdü |
+| **@modelcontextprotocol/inspector** (resmî, CLI) | `tools/list`, `search`, `recall_error` çalıştı |
+
+İkinci istemci için Node LTS v24.21.0 `~/.local/node` altına kuruldu
+(nodejs.org tarball'ı, `SHASUMS256.txt` ile doğrulandı). Projenin kendi
+bağımlılık kuralını etkilemiyor — Forgelore'un derlenmesi ya da test edilmesi
+için gerekmiyor, yalnızca ikinci istemciyi koşturmak için.
+
+### Sırada
+
+Faz 6 — ekip akışı. **Adım 1 (`review`) zaten yazıldı**, Faz 4'te adaylar için
+gerekmişti. Kalanı: `promote`, commit öncesi maskeleme kontrolü, tekrar
+tespiti, ve `[SEN]` iki kişilik bir hafta denemesi.
+
+### Faz 5 — açık maddeler
+
+- `tools/list` sayfalama desteklemiyor (`cursor` yok sayılıyor). Dört araçla
+  gereksiz; araç sayısı artarsa gerekir.
+- MRTR (`InputRequiredResult`), abonelikler ve `notifications/tools/list_changed`
+  uygulanmadı. Araç seti derleme zamanında sabit, hiçbirine ihtiyaç yok.
+- Yalnızca stdio. Streamable HTTP ve yetkilendirme kapsam dışı (ADR-0004).
