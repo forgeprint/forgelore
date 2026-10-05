@@ -1363,3 +1363,48 @@ Sonuç beklenmedik biçimde daha iyi: paylaşan iki aile artık farklı
 işletim sistemlerinde yakalanmış durumda, yani
 `TestOneErrorThroughTwoCommands` parmak izinin işletim sistemi, yol biçimi,
 satır numarası ve alt komuttan **aynı anda** bağımsız olduğunu kanıtlıyor.
+
+---
+
+## 2026-10-05 — README demosu: transcript evet, GIF hayır
+
+Soru "kurulum rozetinin altına kısa bir demo GIF ekleyelim mi" idi. İki
+alternatif önerildi ve sırayla denendi.
+
+### 1. Gerçek transcript — yapıldı
+
+README'ye `## What it looks like` bölümü eklendi: `go build` patlıyor,
+`recall` bilmiyor, kayıt yapılıyor, `go vet` aynı hatayı **farklı biçimde**
+raporluyor, `recall` buluyor. Parmak izi ikisinde de `cd023fb609411574`.
+
+Her bayt gerçek bir koşudan, yayımlanmış `v0.1.1` ikilisiyle üretildi.
+Bağımlılık yok, `cat README.md` ile okunuyor, ekran okuyucuda çalışıyor,
+kopyalanabiliyor, diff'leniyor.
+
+### 2. VHS ile GIF — yapılmadı
+
+Varsayım "VHS kurulur, `.tape` commit edilir, yeniden üretilebilir olur"
+idi. Maliyet ölçülünce başka çıktı:
+
+| Engel | Bulgu |
+|---|---|
+| `ttyd` (VHS'in zorunlu bağımlılığı) | macOS ikilisi **yayımlamıyor** — son sürümün 12 varlığının hepsi Linux. Kaynaktan derleme CMake + libwebsockets + json-c + openssl ister, brew de yok |
+| Docker yolu | Resmî VHS imajı 10 dakikada **sıfır bayt** indirdi, imaj gelmedi |
+| İmaj gelseydi | İçinde Go yok. Demonun can alıcı kısmı `go build`'in gerçekten patlaması; ya committed bir Dockerfile ile Go eklenecek ya da derleyici hiç gösterilmeyecekti |
+
+Karar: **yapılmadı.** Üçünün toplamı bir README GIF'i için fazla, ve asıl
+mesele şu: o GIF bu depodaki **yeniden üretilemeyen tek artefakt** olurdu.
+Hata külliyatının betiği var, ajan yüklerinin betiği var, release'in betiği
+var; Dockerfile'lı kurguda bile bu makinede regenerate edilemediği sürece
+çizgi bozulurdu.
+
+İstenirse iki makul yol var, ikisi de bu makinenin dışında: Linux'ta
+üretmek (VHS'in bağımlılıkları paket yöneticisinde var), ya da ttyd'nin
+macOS ikilisi yayımlamasını beklemek. `.tape` dosyası her hâlükârda commit
+edilmeli.
+
+### Rozetler
+
+İki rozet eklendi: CI (**GitHub'ın kendi uç noktası**, üçüncü taraf yok) ve
+release sürümü (shields.io — bunun için pratik tek seçenek, ama README'yi
+açan herkesin tarayıcısı üçüncü tarafa istek yapıyor; bilerek kabul edildi).
