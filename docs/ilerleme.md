@@ -2573,6 +2573,60 @@ Yedi paketten altısı hemen göründü, `forgelore-windows-x64` birkaç dakika
 beklemeli; workflow'un "+ paket@sürüm" demesi registry'de görünür olması
 demek değil.
 
+---
+
+## 2026-10-06 — Forgelore bu oturumda çalışıyor, ve ölçüm iyi değil
+
+Kullanıcı "şu an bu konuşmada forgelore kullanılıyor mu" diye sordu.
+Cevap evet, ve kanıtı ledger'da: bu oturumun kimliğiyle (`80fc4b61-…`)
+**13 satır**. Hook'lar benim Bash komutlarımda ateşleniyor.
+
+Ama rakamlar şöyle:
+
+| kaynak | satır | sonuç |
+|---|---|---|
+| hook (bu oturum) | 13 | **13 ıskalama, 0 enjeksiyon** |
+| elle `recall` (benim testlerim) | 15 | 11 ıskalama, 4 enjeksiyon |
+
+**13 aramanın hiçbiri gerçek bir başarısızlık değildi.** Oturum durum
+dosyasına bakınca ne olduğu görülüyor: hepsi benim kendi script'lerimin
+*çıktısı*. Eşleştirici sınırlarını ölçerken ekrana şunu basmıştım —
+
+```
+IneligibleTierError: ... (satır başı) 16e2c18620229d77 IneligibleTierError: …
+```
+
+Satır başında bir exception şekli var, dolayısıyla Forgelore kendi test
+çıktısını hata saydı. Aynı şekilde `error: pathspec …` içeren fixture'ları
+*yazarken* de.
+
+### Bu tam olarak bugün bedel diye yazdığımız şey
+
+ADR-0022 "başarılı ama hata biçimli çıktı veren komut başarısız sayılır"
+diyor, ADR-0025 "satır başındaki `error:` artık hata" diyor. İkisi de
+doğruydu. Artık tahmin değil, **ölçüm**: `output_has_diagnostic` bu
+oturumda 13 arama üretti ve hiçbiri gerçek değildi.
+
+Bugünkü zarar sınırlı — hepsi ıskalama, enjeksiyon yok, sadece ledger
+gürültüsü. Ama bir gün o parmak izlerinden biri bir kayda denk gelirse,
+hiçbir şeyin başarısız olmadığı bir yere ipucu girer. Ve `nothing known`
+sayacı şişerek raporu yanıltır: 28 aramanın 24'ü "bilinmiyor" diyor, oysa
+24'ünün çoğu zaten hata bile değildi.
+
+### İkinci ayrıntı: durum dosyası komutu olduğu gibi saklıyor
+
+Bir oturum durum dosyası **17 KB**, en uzun komut girişi **4254 karakter** —
+benim heredoc'larım. Diğer 17 dosya 48–155 bayt arasında, yani sorun
+komutun uzunluğuyla orantılı ve normalde görünmüyor. Yine de parmak izi
+zaten normalleştirilmiş komutu kullanıyor; ham metni saklamanın tek
+sebebi "düzeldi" önerisinde komutu geri gösterebilmek.
+
+### Sıradaki
+
+Daraltma konuşulacak. Gerilimin iki ucu da bugün bizim eserimiz:
+`output_has_diagnostic` olmazsa borulanmış build yine görünmez olur,
+olursa hata hakkında *konuşan* çıktı da hata sayılır. Karar verilmedi.
+
 ### Kalanlar — hepsi `[SEN]`
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
