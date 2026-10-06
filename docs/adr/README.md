@@ -35,6 +35,7 @@ keeps its number and its text; the ADR that replaces it says so.
 | [0022](0022-a-failure-test-that-is-not-data.md) | post-release | A failure test the mapping cannot answer alone |
 | [0023](0023-build-provenance-instead-of-a-detached-signature.md) | post-release | Build provenance, not a detached signature |
 | [0024](0024-npm-one-package-per-platform.md) | post-release | npm, with one package per platform |
+| [0025](0025-the-extractor-learns-cli-errors.md) | post-release | The extractor learns what a CLI error looks like |
 
 ## Writing a new one
 

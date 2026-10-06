@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -95,22 +96,46 @@ func TestObjectToolResponseStillYieldsText(t *testing.T) {
 	}
 }
 
-// TestSuccessIsNotMistakenForFailure: with the shape of a failed Bash result
-// unverified, the built-in mapping treats only the dedicated failure event as
-// a failure. The cost is a missed injection; the alternative is a hint after
-// a command that worked.
+// TestSuccessIsNotMistakenForFailure: a PostToolUse whose output the
+// fingerprinter finds nothing in stays a success, however the word error is
+// scattered through it.
+//
+// The guarantee moved on 2026-10-06 and is worth stating exactly. A line
+// that *begins* with "error:" or "fatal:" is now a diagnostic, because that
+// is how git, cargo, rustc and clang report one, and claude-code's
+// PostToolUse decides failure with output_has_diagnostic (ADR-0022). So the
+// claim is no longer "the word error proves nothing" but "the word error in
+// the middle of a sentence proves nothing" — which is what the matchers'
+// line anchoring buys, and what the second case below holds them to.
 func TestSuccessIsNotMistakenForFailure(t *testing.T) {
-	payload := `{
-	  "hook_event_name":"PostToolUse","session_id":"s1",
-	  "tool_name":"Bash","tool_input":{"command":"go build ./..."},
-	  "tool_response":"error: nothing is wrong, this word just appears"
-	}`
-	e, ok, err := mustBuilt(t).Translate([]byte(payload), "", now)
-	if err != nil || !ok {
-		t.Fatalf("ok=%v err=%v", ok, err)
-	}
-	if e.Kind != CommandSucceeded {
-		t.Errorf("kind = %q, want %q", e.Kind, CommandSucceeded)
+	for _, tc := range []struct {
+		why    string
+		output string
+		want   Kind
+	}{
+		{
+			"the word in passing",
+			"the build mentioned an error: but only in passing",
+			CommandSucceeded,
+		},
+		{
+			"a line that starts with it, the way git reports one",
+			"error: pathspec 'nope' did not match any file(s) known to git",
+			CommandFailed,
+		},
+	} {
+		payload := `{
+		  "hook_event_name":"PostToolUse","session_id":"s1",
+		  "tool_name":"Bash","tool_input":{"command":"go build ./..."},
+		  "tool_response":` + strconv.Quote(tc.output) + `
+		}`
+		e, ok, err := mustBuilt(t).Translate([]byte(payload), "", now)
+		if err != nil || !ok {
+			t.Fatalf("%s: ok=%v err=%v", tc.why, ok, err)
+		}
+		if e.Kind != tc.want {
+			t.Errorf("%s: kind = %q, want %q", tc.why, e.Kind, tc.want)
+		}
 	}
 }
 

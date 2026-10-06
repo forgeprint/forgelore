@@ -140,6 +140,16 @@ func TestNoDiagnostic(t *testing.T) {
 		"progress only":   "  Determining projects to restore...\n  All projects are up-to-date for restore.\n",
 		"a build summary": "FAIL\nFAIL\talpha\t0.671s\nFAIL\n",
 		"a banner":        "Node.js v22.12.0\n",
+
+		// npm prefixes every line of a failure with its own name, and only
+		// the code line is kept. These are the lines that must not be: the
+		// log path carries a timestamp and would hash differently on every
+		// run, and the others say nothing at all.
+		"npm's log path":     "npm error A complete log of this run can be found in: /x/_logs/2026-10-06T03_23_50_645Z-debug-0.log\n",
+		"npm's blank line":   "npm error\n",
+		"npm's continuation": "npm error   npm run\n",
+		"a warning":          "warning: this package is deprecated\n",
+		"Error inside prose": "The build had an Error somewhere in it\n",
 	}
 	for why, output := range cases {
 		if got := Scan("go build ./...", output); len(got) != 0 {
@@ -157,6 +167,80 @@ func TestTruncatedTracebackIsNotADiagnostic(t *testing.T) {
 		"    print(value.appendx(1))\n"
 	if got := Scan("python app.py", output); len(got) != 0 {
 		t.Errorf("got %d events, want none: %+v", len(got), got)
+	}
+}
+
+// TestCLIErrorsAreRecognised covers the shapes that have no file and no
+// line, and that the extractor was blind to until 2026-10-06.
+//
+// Every string here was copied from a real failure met while building this
+// project, which is also how the gap was found: Forgelore could not record
+// the errors of its own build day. Two are in the corpus as captured
+// families; the rest cannot be provoked on demand — an expired OAuth
+// session, an account a provider has stopped serving — so they are held
+// here rather than invented into testdata.
+func TestCLIErrorsAreRecognised(t *testing.T) {
+	cases := []struct {
+		why     string
+		output  string
+		message string
+	}{
+		{
+			"a package manager's code, with the prose around it dropped",
+			"npm error code E403\n" +
+				"npm error 403 403 Forbidden - PUT https://registry.npmjs.org/x - spam detection\n" +
+				"npm error A complete log of this run can be found in: /x/_logs/2026-10-06T03_23_50_645Z-debug-0.log\n",
+			"code E403",
+		},
+		{
+			"a one-time password demand",
+			"npm error code EOTP\nnpm error This operation requires a one-time password.\n",
+			"code EOTP",
+		},
+		{
+			"git, which says fatal rather than error",
+			"fatal: not a git repository (or any of the parent directories): .git\n",
+			"not a git repository (or any of the parent directories): .git",
+		},
+		{
+			"git's other half",
+			"error: pathspec 'nope' did not match any file(s) known to git\n",
+			"pathspec 'nope' did not match any file(s) known to git",
+		},
+		{
+			"an exception behind a label, with the label dropped",
+			"Error authenticating: IneligibleTierError: This client is no longer supported.\n",
+			"IneligibleTierError: This client is no longer supported.",
+		},
+		{
+			"a sentence, which is all some tools give",
+			"Failed to authenticate: OAuth session expired and could not be refreshed\n",
+			"Failed to authenticate: OAuth session expired and could not be refreshed",
+		},
+	}
+	for _, c := range cases {
+		got := Scan("x", c.output)
+		if len(got) != 1 {
+			t.Errorf("%s: got %d events, want 1: %+v", c.why, len(got), got)
+			continue
+		}
+		if got[0].Message != c.message {
+			t.Errorf("%s:\n  got  %q\n  want %q", c.why, got[0].Message, c.message)
+		}
+	}
+}
+
+// TestALabelDoesNotChangeTheFingerprint: the same exception reported bare
+// and reported behind a caller's label is one error. Keeping the label
+// would split it by whoever happened to print it.
+func TestALabelDoesNotChangeTheFingerprint(t *testing.T) {
+	bare := Scan("gemini", "IneligibleTierError: This client is no longer supported.\n")
+	labelled := Scan("gemini", "Error authenticating: IneligibleTierError: This client is no longer supported.\n")
+	if len(bare) != 1 || len(labelled) != 1 {
+		t.Fatalf("got %d and %d events", len(bare), len(labelled))
+	}
+	if bare[0].Sum != labelled[0].Sum {
+		t.Errorf("%s with a label, %s without", labelled[0].Sum, bare[0].Sum)
 	}
 }
 

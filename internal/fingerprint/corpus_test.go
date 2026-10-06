@@ -23,6 +23,13 @@ const corpusDir = "../../testdata/errors"
 // Recapturing it needs the Windows machine the corpus was made on.
 var variantsIdentical = map[string]bool{
 	"go/unknown-import": true,
+
+	// git says the same sentence wherever it is not a repository: the
+	// directory it was run in appears nowhere in the message. There is no
+	// way to vary the capture that does not also change the error, so the
+	// two files are the same and the comparison is skipped rather than
+	// counted as evidence.
+	"git/not-a-repository": true,
 }
 
 // sameError groups families that are one error reached through different

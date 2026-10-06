@@ -2485,6 +2485,64 @@ Riski de büyük: `Error:` ile başlayan her satırı yakalamak yanlış pozitif
 üretir ve `onCommandFailed`'ın ucuz olmasının sebebi tam da bu darlık.
 Yapılırsa korpusa yeni aileler ve bir ADR gerekir. Karar verilmedi.
 
+---
+
+## 2026-10-06 — eşleştiriciler CLI hatalarını öğrendi (ADR-0025)
+
+Dogfooding'in bulduğu boşluk kapatıldı. Dört değişiklik, hepsi **gerçek
+araç çıktısından** tasarlandı — önce `npm run nope`, `npm install <yok>`,
+`git status`, `git checkout nope` çalıştırılıp çıktıları okundu, sonra
+desen yazıldı.
+
+- **`toolErrorCode`** — `npm error code E403`. Yalnızca kod satırı
+  alınıyor; npm'in düzyazı satırlarında zaman damgalı log yolu var, onu
+  yakalamak her çalıştırmada farklı hash üretirdi.
+- **`cliErrorLine`** — satır başında `error:` ya da `fatal:`, rustc'nin
+  `error[E0433]:` biçimi dahil. git, cargo, rustc, clang böyle yazıyor.
+- **`failedToLine`** — `Failed to …`. Buradaki en gevşek desen, ve tek
+  cümleden başka bir şey vermeyen araçları gören tek desen.
+- **Öndeki etiket düşürülüyor.** `exceptionLine` artık bir `Şey: ` önekini
+  kabul ediyor ve yalnızca tanımlayıcıdan sonrasını saklıyor. Gemini'nin
+  `Error authenticating: IneligibleTierError: …` çıktısı, çıplak
+  `IneligibleTierError: …` ile **aynı** parmak izini veriyor; test bunu
+  tutuyor. Etiket hatayı bildirenin, hatanın değil.
+
+Korpusa iki gerçek aile eklendi: `npm/registry-404` (varyantlar farklı
+paket adıyla, parmak izi `code E404`'te buluşuyor) ve
+`git/not-a-repository` (varyantlar birebir aynı, `variantsIdentical`'a
+yazıldı — test yapmadığı bir karşılaştırmayı yapmış gibi görünmesin).
+
+### Değişen bir güvence, gizlenmeden
+
+`internal/agent`'ta bir test düştü: `TestSuccessIsNotMistakenForFailure`.
+Fixture'ı tam olarak `error: nothing is wrong, this word just appears` idi.
+Artık satır başındaki `error:` gerçekten hata sayılıyor, ve `claude-code`
+eşlemesi `output_has_diagnostic` kullandığı için bu ajan davranışını da
+değiştiriyor.
+
+Test silinmedi, **daraltılmış güvenceyi** söyleyecek şekilde yeniden
+yazıldı: "error kelimesi hiçbir şey kanıtlamaz" değil, "**cümle ortasındaki**
+error kelimesi hiçbir şey kanıtlamaz". İki vakayı birden tutuyor. Satır
+başına çapalama, yanlış pozitife karşı tek savunma, o yüzden teste yazıldı.
+
+### Ölçülen yanlış pozitif kontrolü
+
+Dokuz gürültü örneği denendi ve hiçbiri teşhis üretmedi: npm'in log yolu
+satırı, boş `npm error`, girintili devam satırı, `exit status 1`, ilerleme
+çıktısı, banner, `warning:` satırı, go test özeti, ve cümle içinde geçen
+"Error" kelimesi.
+
+### Sonuç: bugünün hataları artık kayıtlı
+
+Dört `fix` kaydı parmak iziyle girdi — npm 403 (win32 adı), npm EOTP,
+claude OAuth, Gemini IneligibleTierError. Tekrar denendi: npm 403 **başka
+bir paket adıyla** geldiğinde bile eşleşiyor, çünkü parmak izi `code E403`'e
+bağlı. Depoda artık 9 kayıt var (4 fix, 5 decision).
+
+`the working tree is not clean` hâlâ tanınmıyor ve bu doğru — diagnostik
+bir şekli yok, onu yakalamak her cümleyi yakalamak olurdu. ADR-0025 bunu da
+yazıyor.
+
 ### Kalanlar — hepsi `[SEN]`
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:

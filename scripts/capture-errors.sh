@@ -376,9 +376,51 @@ capture_dotnet() {
 	done
 }
 
+# ---------------------------------------------------------------- CLI tools
+
+# The errors a developer meets between the compiler errors: a registry that
+# does not have the package, a git command in the wrong directory. They have
+# no file and no line, and until 2026-10-06 the extractor recognised none of
+# them — which it discovered by being unable to record the failures of its
+# own build day.
+#
+# This one needs the network, for the registry lookup.
+capture_cli() {
+	echo "== cli =="
+	local tool
+	tool="npm $(npm --version), git $(git --version | sed 's/^git version //')"
+
+	# The two variants ask for different missing packages. Everything else
+	# in the output differs with the name; the code line does not, which is
+	# the line the extractor keeps.
+	local variant dir pkg
+	for variant in a b; do
+		dir="$WS/cli-$variant"
+		mkdir -p "$dir"
+		printf '{"name":"probe-%s","version":"1.0.0"}\n' "$variant" >"$dir/package.json"
+		if [ "$variant" = a ]; then
+			pkg="@forgeprint/no-such-package-aaa"
+		else
+			pkg="@forgeprint/no-such-package-bbb"
+		fi
+		capture npm/registry-404 "$variant" "$dir" "$tool" npm install --no-audit --no-fund "$pkg"
+	done
+
+	# Both variants are byte for byte the same: git says the same sentence
+	# wherever it is not a repository. It is listed in variantsIdentical
+	# for that reason rather than pretending the comparison proves
+	# anything.
+	for variant in a b; do
+		dir="$WS/git-$variant"
+		mkdir -p "$dir"
+		capture git/not-a-repository "$variant" "$dir" "$tool" git status
+	done
+}
+
 target="${1:-all}"
 case "$target" in
 go) capture_go ;;
+cli) capture_cli ;;
 python) capture_python ;;
 ts) capture_ts ;;
 dotnet) capture_dotnet ;;
@@ -387,9 +429,10 @@ all)
 	capture_python
 	capture_ts
 	capture_dotnet
+	capture_cli
 	;;
 *)
-	echo "usage: $0 [go|python|ts|dotnet|all]" >&2
+	echo "usage: $0 [go|python|ts|dotnet|cli|all]" >&2
 	exit 2
 	;;
 esac

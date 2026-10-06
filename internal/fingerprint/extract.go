@@ -58,7 +58,34 @@ var (
 	// ending in Error or Exception. The optional prefix is what lets a bare
 	// "Error: ..." match alongside "TypeError: ..." and
 	// "System.NullReferenceException: ...".
-	exceptionLine = regexp.MustCompile(`^(?:[A-Za-z_$][\w$.]*?)?(?:Error|Exception): .+$`)
+	//
+	// One label may sit in front of it, and only the text from the
+	// identifier onwards is kept. The Gemini CLI writes
+	//
+	//	Error authenticating: IneligibleTierError: This client is no longer…
+	//
+	// and the label is the caller's, not the error's: keeping it would make
+	// the same failure hash differently depending on who reported it.
+	exceptionLine = regexp.MustCompile(`^(?:[A-Za-z][^:]{0,40}: )?((?:[A-Za-z_$][\w$.]*?)?(?:Error|Exception): .+)$`)
+
+	// A package manager's error code. npm, yarn and pnpm prefix every line
+	// of a failure with their own name, and only one of those lines is
+	// worth keeping: the code. The prose lines carry a log path with a
+	// timestamp in it, which would hash differently on every run — this
+	// matcher is narrow on purpose, and the cost is that an npm failure
+	// with no code line is not recognised at all.
+	toolErrorCode = regexp.MustCompile(`^\s*[a-z][a-z0-9_.-]* (?:error|ERR!) code ([A-Za-z][A-Za-z0-9_]+)\s*$`)
+
+	// The shape git, cargo, rustc and clang use. The bracketed code is
+	// rustc's: "error[E0433]: failed to resolve".
+	cliErrorLine = regexp.MustCompile(`^\s*(?:error|fatal)(\[[A-Za-z0-9_-]+\])?: (.+)$`)
+
+	// A sentence a CLI writes when an operation did not happen. It is the
+	// loosest matcher here, and it earns its place: "Failed to
+	// authenticate: OAuth session expired and could not be refreshed" is
+	// the shape of half the operational failures this project met while
+	// being built, and none of the older matchers saw any of them.
+	failedToLine = regexp.MustCompile(`^\s*((?:Failed|Unable|Cannot) to .+)$`)
 
 	// Python's unittest failure header.
 	unittestFail = regexp.MustCompile(`^(?:FAIL|ERROR): .+$`)
@@ -122,8 +149,28 @@ func extract(output string) []diag {
 			continue
 		}
 
-		if goPanic.MatchString(line) || exceptionLine.MatchString(line) || unittestFail.MatchString(line) {
+		if m := toolErrorCode.FindStringSubmatch(line); m != nil {
+			out = append(out, diag{message: "code " + m[1]})
+			continue
+		}
+
+		if m := cliErrorLine.FindStringSubmatch(line); m != nil {
+			out = append(out, diag{code: strings.Trim(m[1], "[]"), message: normaliseMessage(m[2])})
+			continue
+		}
+
+		if m := exceptionLine.FindStringSubmatch(line); m != nil {
+			out = append(out, diag{message: normaliseMessage(m[1])})
+			continue
+		}
+
+		if goPanic.MatchString(line) || unittestFail.MatchString(line) {
 			out = append(out, diag{message: normaliseMessage(line)})
+			continue
+		}
+
+		if m := failedToLine.FindStringSubmatch(line); m != nil {
+			out = append(out, diag{message: normaliseMessage(m[1])})
 			continue
 		}
 	}

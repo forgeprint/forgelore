@@ -62,10 +62,13 @@ When a command here fails, look before fixing. When something turns out to
 be worth knowing next time, record it — a title states the answer, not the
 question.
 
-One limit worth knowing: the fingerprinter recognises compiler and runtime
-diagnostics, not the prose errors CLI tools write. `npm error code E403` and
-`Failed to authenticate: …` produce no fingerprint, so they cannot be `fix`
-records and are kept as `decision` instead.
+The fingerprinter recognises compiler and runtime diagnostics and, since
+ADR-0025, the shapes CLI tools use: `npm error code E403`, a line beginning
+`error:` or `fatal:`, and `Failed to …`. What it still cannot key on is a
+plain sentence — `the working tree is not clean` has nothing diagnostic
+about it, and matching it would mean matching any sentence. Those stay
+`decision` records, which are listed by title at session start rather than
+injected on a match.
 
 ## Commands
 
