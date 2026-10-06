@@ -1,0 +1,7 @@
+# Team trial 1, started 2026-10-06. See docs/team-trial.md.
+#
+# One session in five gets no injections. Twenty rather than fifty because a
+# week cannot be powered to measure anything either way, and a bigger control
+# arm would cost usefulness and buy no significance.
+measure.ab.control_percent: 20
+measure.ab.salt: "trial-1"

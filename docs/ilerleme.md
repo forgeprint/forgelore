@@ -22,8 +22,8 @@ Yayım zinciri elle müdahale istemiyor: etiket → `release.yml` derler, attest
 eder, **taslak** çıkarır; taslağı bir insan yayımlayınca `npm.yml` paketleri
 release'ten indirip trusted publishing ile yayımlar.
 
-**Açık iş — tek ve `[SEN]`:** iki kişilik bir haftalık ekip denemesi
-(`docs/team-trial.md`).
+**Açık iş:** deneme haftası sürüyor (2026-10-06 başladı, **tek kişilik**,
+bu depoda). Günlük akış ve sonundaki ölçüm için en alttaki bölüme bak.
 
 Codex CLI bilerek `unverified` bırakıldı: engel erişim değil,
 `hooks.json`'ın yeri ve biçimi. Nerede kalındığı en alttaki Codex
@@ -2980,9 +2980,72 @@ Release notu Cursor'ın **yapamadığını** da ayrı bir başlıkta söylüyor:
 borulanmış build görünmez, çünkü sonuç JSON dizgesi olarak geliyor ve
 metin kaçışlanmış tek satıra düşüyor.
 
-### Kalanlar — hepsi `[SEN]`
+---
 
-- İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
+## 2026-10-06 — deneme haftası başladı (tek kişilik, bu depoda)
+
+Kullanıcı iki kararı da bedelini duyduktan sonra verdi, ve ikisi de
+sonucun ne anlama geleceğini daraltıyor. Açıkça yazıyorum ki hafta
+sonunda rakamlara fazla anlam yüklenmesin:
+
+- **Depo Forgelore'un kendisi.** Burada hatalar bize kazara gelmiyor,
+  üretiyoruz; üstelik benim komutlarım da ledger'a yazıyor. Yani ölçtüğümüz
+  şey "bir ekip" değil, "bir kişi + bir ajan".
+- **İkinci kişi yok.** Protokolün asıl sınadığı şeyler — `.forgelore`'da
+  birleşme çatışması, başkasının kaydının işe yaraması, promote akışının
+  paylaşılması — bu hafta hiç sınanmayacak.
+
+Ölçülebilecek olan yine de değerli: ipucu gerçekten çıkıyor mu, yanlış
+çıkıyor mu, akış yoruyor mu.
+
+### Kurulum
+
+- `.forgelore/config.yaml` commit'lendi: `control_percent: 20`,
+  `salt: "trial-1"`. `doctor` değerlerin kaynağını da gösteriyor.
+- **Ledger sıfırlanmadı, arşivlendi.** Bugünkü 46 satır test gürültüsüydü
+  ve `--days 7` penceresini kirletirdi. `CLAUDE.md` ledger'ın ölçülenin tek
+  kopyası olduğunu söylediği için silmedim: okuyucu `ledger/` içindeki her
+  `.jsonl`'i aldığından, dosyayı `.pre-trial.jsonl.bak` yapmak pencereden
+  çıkarmaya yetti. Hiçbir ölçüm kaybolmadı.
+
+### Gün sıfır geçti — ikinci denemede
+
+İlk deneme `go build ./internal/notapackage` idi. Komut gerçekten
+başarısız oldu ama çıktısı `stat …: directory not found` — **hiçbir
+diagnostik şekli olmayan bir cümle**. Forgelore doğru davranıp hiçbir şey
+kaydetmedi, ve rapor `0` gösterdi. Protokole göre bu "kablolama bozuk"
+demek; oysa bozuk olan seçtiğim hataydı.
+
+İkinci deneme gerçek bir derleyici teşhisi üretti
+(`internal/dayzero/probe.go:3:16: undefined: greet`, geçici paket hemen
+silindi) ve ledger'a bu oturumun kimliğiyle bir satır düştü:
+`errors looked up 1`. Kablolama çalışıyor.
+
+`docs/team-trial.md`'deki gün-sıfır adımı buna göre sıkılaştırıldı: "bir
+şeyi boz" yeterince açık değilmiş, "derleyicinin dosya ve satır bildirdiği
+bir hata üret" olmalı. Ayrıca rapor 0 gösterirse kablolamayı suçlamadan
+önce aynı çıktıyı `forgelore recall`'a vermeyi öneriyor.
+
+### Haftanın ilk kaydı bir ıskalama, ve bir sürüm kayması
+
+İlk olay `cd023fb609411574` parmak iziyle **miss** — bu deponun hafızası
+`undefined: greet` hakkında bir şey bilmiyor (dokuz kaydın hepsi npm ve
+ajan kimlik doğrulaması üzerine). Doğru ve beklenen bir başlangıç.
+
+`doctor` ayrıca şunu söyledi: **"verified against 2.1.290, you have
+2.1.291"**. Claude Code bu sabahki yakalamadan sonra bir yama sürümü
+ilerlemiş. Hafta başında not ediliyor, sonunda tekrar bakılacak.
+
+### Haftalık akış
+
+Olağan çalış, hata aramaya çıkma. Bir düzeltme saklamaya değerse:
+`forgelore review`, `review --accept <parmak izi> --title "…"`,
+`promote <id>`, sonra `git add .forgelore/records && git commit`.
+Başlık cevabı söyler, soruyu değil. Rahatsız eden her şeyi depo **dışında**
+bir yere not et.
+
+Hafta sonunda: `forgelore report --days 7`, `forgelore dedupe`,
+`forgelore doctor`.
 - **Codex CLI: burada bırakıldı, `unverified` kalıyor.** Engel erişim
   değil — giriş çalışıyor, oturum açılıyor, model komutları koşuyor. Engel
   `hooks.json`'ın yeri ve biçimi. Tekrar denenirse bugünkü çıkmazlara

@@ -70,16 +70,30 @@ end of the week is indistinguishable from "the hooks never fired", and the
 trial would have measured nothing while looking like a finding.
 
 ```sh
-# 1. Break something on purpose and let the agent run the build.
+# 1. Break something so the compiler emits a diagnostic — a call to a
+#    function that does not exist is enough — and let the agent build it.
 # 2. Check the hook saw it:
 forgelore report --days 1        # errors looked up should be at least 1
 forgelore doctor                 # agents: your agent should say "verified"
 ```
 
-If `report` says nothing was looked up, stop and fix the wiring. If `doctor`
-says your agent is not verified against a captured payload, the hooks may
-run and still match nothing; say so in the write-up rather than treating the
-week as evidence about Forgelore.
+**Break it in a way that produces a diagnostic.** The first attempt at this
+on 2026-10-06 used `go build ./internal/notapackage`, which fails with
+`stat …: directory not found` — a sentence with no diagnostic shape, so
+Forgelore correctly found nothing and the smoke test looked like a wiring
+failure. A missing function, a type error, a syntax error: anything the
+compiler reports with a file and a line.
+
+If `report` says nothing was looked up, check that before suspecting the
+wiring: run the same command yourself and pipe its output into
+`forgelore recall --command "<the command>" --error-file -`. If that finds
+no error either, the problem is the error you chose, not the hooks.
+
+If `doctor` says your agent is not verified against a captured payload, the
+hooks may run and still match nothing; say so in the write-up rather than
+treating the week as evidence about Forgelore. It also reports a version
+drift — "verified against 2.1.290, you have 2.1.291" — which is worth
+writing down at the start of the week and checking again at the end.
 
 ## During the week
 
