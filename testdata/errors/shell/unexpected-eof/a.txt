@@ -1,0 +1,9 @@
+---
+command: "sh unclosed.sh"
+exit: 2
+family: shell/unexpected-eof
+tool: "GNU bash, version 3.2.57(1)-release (arm64-apple-darwin26)"
+platform: darwin/arm64
+captured: 2026-10-06
+---
+unclosed.sh: line 3: syntax error: unexpected end of file

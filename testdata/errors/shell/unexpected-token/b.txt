@@ -1,0 +1,11 @@
+---
+command: "sh probe.sh"
+exit: 2
+family: shell/unexpected-token
+tool: "GNU bash, version 3.2.57(1)-release (arm64-apple-darwin26)"
+platform: darwin/arm64
+captured: 2026-10-06
+---
+starting
+probe.sh: line 8: syntax error near unexpected token `('
+probe.sh: line 8: `tee >(cat) | cat'

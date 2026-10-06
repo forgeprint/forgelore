@@ -87,3 +87,64 @@ scripts.
 wherever it is not a repository, so the two captures are byte for byte the
 same and the family is listed in `variantsIdentical` rather than letting a
 test claim a comparison it did not make.
+
+## Addendum, 2026-10-06: the shell that will not parse the command
+
+The same gap, found the same way, later the same day. Wiring a status line
+for the trial week turned up that this project's own
+`forgelore usage --help-wiring` printed a command `/bin/sh` cannot parse —
+and that the error it printed was invisible to the extractor:
+
+```
+/bin/sh: -c: line 0: syntax error near unexpected token `('
+```
+
+This is the failure an agent causes most easily, because the agent writes
+the command. Nothing above recognised it: there is no file with a line and
+a column, no `error:` prefix, no exception, and `syntax error near …` is
+not a sentence beginning `Failed to`.
+
+**`shellSyntaxError`** takes the text from `syntax error` or `parse error`
+onwards, and only when the phrase is continued by ` near `, `: ` or `:`.
+What sits in front of it — the shell's own name, the script, a line
+number — is position and is dropped, exactly as a file and a line are
+dropped everywhere else. The token the shell names is kept, because it is
+the only thing that separates one of these from another.
+
+The phrase must be preceded by the start of the line or by a colon and a
+space. That is the whole defence against prose: *that was a syntax error
+near the top of the file* has a space in front of it, and is held out by a
+case in `TestNoDiagnostic`.
+
+Two families join the corpus, captured: `shell/unexpected-token` and
+`shell/unexpected-eof`.
+
+### Consequences
+
+**Which shell `/bin/sh` is decides the wording, so the fingerprint is
+per-shell.** bash writes `syntax error near unexpected token`, zsh writes
+`parse error near`, and a shell that capitalises `Syntax error:` puts the
+token at the end. The same mistake under two shells is two fingerprints.
+Normalising them into one would mean deciding that these sentences mean the
+same thing, which is a claim about shells and not about text; two memories
+is the honest outcome, and each is still found by the shell that produces
+it.
+
+**It feeds `output_has_diagnostic` too.** A command that succeeds while
+quoting a shell syntax error in its output — a log being echoed, a test
+printing one — is now inferred to have failed under `claude-code`'s
+`PostToolUse` (ADR-0022). The cost is the same bounded one as before: a
+lookup that misses, which since 2026-10-06 leaves no trace in the ledger
+when the failure was inferred rather than stated.
+
+**zsh never reaches this matcher.** It writes `probe.sh:3: parse error
+near …` with no space before the line number, so `fileLineDiag` matches
+first and lands on the same message. Both roads are covered by a test,
+because either one changing would be a change.
+
+**The capitalised form is accepted but was not captured.** `/bin/sh` on the
+machine that made the corpus is bash. The matcher takes the shape and a
+test holds it to that; neither claims which shell writes it. If that corpus
+is ever captured on a machine whose `/bin/sh` is something else, the two
+families will come back with different text — which is the capture doing
+its job, not a regression.

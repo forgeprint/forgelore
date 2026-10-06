@@ -14,9 +14,9 @@ ve nasıl bulunduğu tarihli bölümlerde, en yenisi en sonda.
 | Kayıt şeması | 1 |
 | Eşleme formatı | 2 (`claude-code` 2 kullanıyor; diğerleri 1) |
 | Ajanlar | Claude Code 2.1.291 **A** · Copilot CLI 1.0.91 **B** · Gemini CLI 0.62.0 **B** · Cursor 2026.10.01 **B** · Codex CLI doğrulanmamış |
-| Hata korpusu | 31 aile |
+| Hata korpusu | 33 aile |
 | Ajan payload'ları | 26, altı ajan sürümünden; biri (2.1.291) filtrelenmiş bir dökümle |
-| Bu deponun kendi hafızası | `.forgelore/records/`'ta 10 kayıt (4 fix, 6 decision) |
+| Bu deponun kendi hafızası | `.forgelore/records/`'ta 11 kayıt (5 fix, 6 decision) |
 | Site | **https://forgeprint.github.io/forgelore/** — İngilizce ve Türkçe, ajanlar için ayrı sayfa ve `llms.txt` |
 
 Yayım zinciri elle müdahale istemiyor: etiket → `release.yml` derler, attest
@@ -3622,3 +3622,47 @@ Tanı için elle çalıştırılan `recall` deftere **oturumsuz** bir satır dü
 harcamaya sayılıyor, oturum karşılaştırmalarından düşüyor. Beklenen davranış,
 ama hafta boyunca günün sayısını şişirecek. Status line'ı denerken deftere
 giren iki sentetik `usage` satırı da silindi; dosyada başka bir şey yoktu.
+
+### Kabuk sözdizimi hatası artık parmak izi alıyor
+
+Bir önceki bölümde `[SEN]` olarak bırakılan soru karara bağlandı: dar bir
+kalıp eklendi. ADR-0025'e ek bölüm olarak yazıldı, yeni bir ADR açılmadı —
+aynı karar, aynı gün, aynı yoldan bulundu.
+
+`shellSyntaxError`, metni `syntax error` ya da `parse error`'dan itibaren
+alıyor ve yalnızca bu ifadeyi ` near `, `: ` ya da `:` izliyorsa. Önündeki
+her şey — kabuğun adı, script, satır numarası — **konum**, ve her yerde
+olduğu gibi düşüyor. Kabuğun adını verdiği token kalıyor: bu hataları
+birbirinden ayıran tek şey o.
+
+Düzyazıya karşı tek savunma şu: ifadenin önünde ya satır başı ya da iki
+nokta + boşluk olmalı. "that was a syntax error near the top of the file"
+cümlesinin önünde boşluk var, `TestNoDiagnostic`'te bir vaka olarak tutuluyor.
+
+Korpusa iki aile girdi, yakalanarak: `shell/unexpected-token` ve
+`shell/unexpected-eof` (31 → 33 aile). `capture-errors.sh shell` ile
+üretiliyor; ağ ya da ek araç istemiyor, yalnızca `/bin/sh`.
+
+Üç şey ölçüldü, üçü de kayda değer:
+
+- **zsh bu matcher'a hiç uğramıyor.** `probe.sh:3: parse error near …`
+  yazıyor, satır numarasından önce boşluk yok, yani `fileLineDiag` önce
+  yakalıyor ve aynı metne iniyor. İki yol da teste bağlandı.
+- **Kelimeleri kabuk belirliyor, dolayısıyla parmak izi kabuk başına.**
+  Aynı hata bash'te ve zsh'de iki ayrı hafıza. Tek'e indirmek "bu cümleler
+  aynı şeyi söyler" demek olurdu; bu, metin hakkında değil kabuklar
+  hakkında bir iddia.
+- **Komut da parmak izinin parçası olduğu için ayrıca ayrışıyor:**
+  `sh deploy.sh` ile `bash -lc …` aynı mesajda bile farklı iz veriyor.
+  Tasarım böyle (`TestDifferentToolsStaySeparate`), ama kabuk hatalarında
+  bunun pratik sonucu ilk kez görüldü.
+
+Büyük harfli biçim (`Syntax error: "(" unexpected`) kalıba giriyor ama
+**yakalanmadı**: bu makinenin `/bin/sh`'ı bash. Test şekli tutuyor, hangi
+kabuğun böyle yazdığına dair bir iddiada bulunmuyor. Korpus bir gün başka
+bir makinede üretilirse iki aile farklı metinle döner — bu yakalamanın
+işini yapması, gerileme değil.
+
+Ve ürün kendi bulgusunu hatırlıyor artık: `01M48CMK7VV256D812YC89KJB1`
+(fix, team, iz `a9007ed6c31f8983`). Başka bir script, başka bir satır,
+başka bir bayrakla denendi — `recall` buldu.

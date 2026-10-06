@@ -10,7 +10,7 @@
 # the failing line in a different place. The two variants are the same error and
 # must produce the same fingerprint; different families must not.
 #
-# Usage: scripts/capture-errors.sh [go|python|ts|dotnet|all]
+# Usage: scripts/capture-errors.sh [go|python|ts|dotnet|cli|shell|all]
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
@@ -417,10 +417,51 @@ capture_cli() {
 	done
 }
 
+# ------------------------------------------------------------------- shell
+
+# A shell refusing to parse the script it was handed. This is the failure an
+# agent causes most easily — it writes the command — and until 2026-10-06 the
+# extractor recognised none of it.
+#
+# Which shell /bin/sh is varies by machine, and so does the wording: the
+# capture records what it got rather than what it expected. The two families
+# are the two phrasings one shell produces, not two shells.
+capture_shell() {
+	echo "== shell =="
+	local tool
+	tool="$(/bin/sh --version 2>/dev/null | head -1)"
+	[ -n "$tool" ] || tool="/bin/sh"
+
+	local variant dir pad_lines
+	for variant in a b; do
+		dir="$WS/shell-$variant"
+		mkdir -p "$dir"
+		if [ "$variant" = a ]; then pad_lines=0; else pad_lines=6; fi
+
+		# An unbalanced token. Process substitution is the one an agent
+		# reaches for by habit and a POSIX shell does not have.
+		{
+			pad "$pad_lines"
+			echo "echo starting"
+			echo "tee >(cat) | cat"
+		} >"$dir/probe.sh"
+		capture shell/unexpected-token "$variant" "$dir" "$tool" sh probe.sh
+
+		# A block nobody closed.
+		{
+			pad "$pad_lines"
+			echo "if true; then"
+			echo "  echo starting"
+		} >"$dir/unclosed.sh"
+		capture shell/unexpected-eof "$variant" "$dir" "$tool" sh unclosed.sh
+	done
+}
+
 target="${1:-all}"
 case "$target" in
 go) capture_go ;;
 cli) capture_cli ;;
+shell) capture_shell ;;
 python) capture_python ;;
 ts) capture_ts ;;
 dotnet) capture_dotnet ;;
@@ -430,9 +471,10 @@ all)
 	capture_ts
 	capture_dotnet
 	capture_cli
+	capture_shell
 	;;
 *)
-	echo "usage: $0 [go|python|ts|dotnet|cli|all]" >&2
+	echo "usage: $0 [go|python|ts|dotnet|cli|shell|all]" >&2
 	exit 2
 	;;
 esac

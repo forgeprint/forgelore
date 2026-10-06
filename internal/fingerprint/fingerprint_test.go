@@ -150,6 +150,11 @@ func TestNoDiagnostic(t *testing.T) {
 		"npm's continuation": "npm error   npm run\n",
 		"a warning":          "warning: this package is deprecated\n",
 		"Error inside prose": "The build had an Error somewhere in it\n",
+
+		// The shell matcher asks for the start of the line or a colon in
+		// front of the phrase. A sentence has neither, and a sentence
+		// about a syntax error is not one.
+		"a syntax error inside prose": "that was a syntax error near the top of the file\n",
 	}
 	for why, output := range cases {
 		if got := Scan("go build ./...", output); len(got) != 0 {
@@ -220,6 +225,64 @@ func TestCLIErrorsAreRecognised(t *testing.T) {
 	}
 	for _, c := range cases {
 		got := Scan("x", c.output)
+		if len(got) != 1 {
+			t.Errorf("%s: got %d events, want 1: %+v", c.why, len(got), got)
+			continue
+		}
+		if got[0].Message != c.message {
+			t.Errorf("%s:\n  got  %q\n  want %q", c.why, got[0].Message, c.message)
+		}
+	}
+}
+
+// TestShellSyntaxErrorsAreRecognised: a shell refusing to parse the command
+// it was handed. This is the failure an agent causes most easily, since the
+// agent writes the command, and the extractor was blind to all of it until
+// 2026-10-06 — found while wiring a status line, where the command this
+// project's own help recommended was a bashism and /bin/sh answered with the
+// first of these.
+//
+// What sits in front of the phrase is position — the shell's name, the
+// script, a line number — and none of it reaches the message. The token the
+// shell names does reach it, because it is the only thing separating one of
+// these from another.
+func TestShellSyntaxErrorsAreRecognised(t *testing.T) {
+	cases := []struct {
+		why     string
+		output  string
+		message string
+	}{
+		{
+			"the token it could not place",
+			"starting\nprobe.sh: line 2: syntax error near unexpected token `('\n" +
+				"probe.sh: line 2: `tee >(cat) | cat'\n",
+			"syntax error near unexpected token `('",
+		},
+		{
+			"a block nobody closed",
+			"unclosed.sh: line 3: syntax error: unexpected end of file\n",
+			"syntax error: unexpected end of file",
+		},
+		{
+			// zsh writes no space before the line number, so fileLineDiag
+			// reaches this one first and lands on the same text. Both
+			// roads are tested because either changing would be a change.
+			"zsh, which arrives through the file-and-line matcher",
+			"probe.sh:3: parse error near `\\n'\n",
+			"parse error near `\\n'",
+		},
+		{
+			// Not captured: /bin/sh on the machine that made the corpus is
+			// bash, and the shells that write it this way were not
+			// installed there. The matcher accepts the shape and this case
+			// holds it to that; it claims nothing about which shell.
+			"capitalised, with the token last",
+			"sh: 1: Syntax error: \"(\" unexpected\n",
+			"Syntax error: \"(\" unexpected",
+		},
+	}
+	for _, c := range cases {
+		got := Scan("sh probe.sh", c.output)
 		if len(got) != 1 {
 			t.Errorf("%s: got %d events, want 1: %+v", c.why, len(got), got)
 			continue

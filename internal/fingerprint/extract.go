@@ -68,6 +68,25 @@ var (
 	// the same failure hash differently depending on who reported it.
 	exceptionLine = regexp.MustCompile(`^(?:[A-Za-z][^:]{0,40}: )?((?:[A-Za-z_$][\w$.]*?)?(?:Error|Exception): .+)$`)
 
+	// A shell refusing to parse the command it was given. Everything
+	// before the phrase is position — the shell's own name, the script,
+	// a line number — and everything after it is the error, so the
+	// message starts at the phrase and the token it names is what
+	// separates one of these from another.
+	//
+	// The phrase has to be preceded by the start of the line or by a
+	// colon and a space, which is what keeps it from firing on prose:
+	// "that was a syntax error near the top" has a space in front of it
+	// and is a sentence, not a diagnostic. Capitals are allowed because
+	// not every shell lower-cases the word; the two forms captured in the
+	// corpus are the ones /bin/sh produced on the machine that captured
+	// them.
+	//
+	// zsh reaches the same message through fileLineDiag instead, because
+	// it writes "probe.sh:3: parse error near …" with no space before the
+	// line number. Both roads arrive at the same text.
+	shellSyntaxError = regexp.MustCompile(`(?:^|: )((?:[Ss]yntax|[Pp]arse) error(?: near | ?: )\S.*)$`)
+
 	// A package manager's error code. npm, yarn and pnpm prefix every line
 	// of a failure with their own name, and only one of those lines is
 	// worth keeping: the code. The prose lines carry a log path with a
@@ -140,6 +159,11 @@ func extract(output string) []diag {
 		}
 
 		if m := fileLineDiag.FindStringSubmatch(line); m != nil {
+			out = append(out, diag{message: normaliseMessage(m[1])})
+			continue
+		}
+
+		if m := shellSyntaxError.FindStringSubmatch(line); m != nil {
 			out = append(out, diag{message: normaliseMessage(m[1])})
 			continue
 		}
