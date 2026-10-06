@@ -28,33 +28,57 @@ machine — it hands your coding agent the one line that fixed it last time.</p>
 <h2>What it looks like</h2>
 
 <figure class="demo">
-  <object data="demo.svg" type="image/svg+xml" aria-label="A terminal replay: go build fails with &#39;undefined: greet&#39;; forgelore recall knows nothing; the fix is recorded; later go vet reports the same error in a different file and forgelore recall finds the recorded fix.">
-    <pre class="fallback">$ go build ./...
-# example.com/app/cmd/app
-cmd/app/main.go:4:2: undefined: greet
-
-$ forgelore recall --command "go build ./..." --error-file err.txt
-1 error(s), 0 with something recorded
-
-cd023fb609411574  undefined: greet
-  nothing recorded
-
-$ forgelore record --type fix \
-      --title "greet lives in internal/greeter; import it" \
-      --command "go build ./..." --error-file err.txt
-01M45XT2HS8G3PXDBRTWWV3449  .forgelore/records/01M45XT2HS8G3PXDBRTWWV3449.md
-fingerprint cd023fb609411574
-
-$ go vet ./...
-# example.com/app/internal/svc
-vet: internal/svc/svc.go:4:2: undefined: greet
-
-$ forgelore recall --command "go vet ./..." --error-file err2.txt
-1 error(s), 1 with something recorded
-
-cd023fb609411574  undefined: greet
-  fix       01M45XT2HS8G3PXDBRTWWV3449  greet lives in internal/greeter; import it</pre>
-  </object>
+  <!-- demo:start -->
+  <svg xmlns="http://www.w3.org/2000/svg" id="demo-term" viewBox="0 0 860 595"
+       width="860" height="595" role="img"
+       aria-label="A terminal: a build fails, the fix is recorded, and a different command finds it again.">
+    <title>Forgelore: one error, recorded once, found again</title>
+    <desc>The same transcript is in site/demo.txt as plain text.</desc>
+    <style>
+      #demo-term .bg{fill:#13151a}
+      #demo-term .bar{fill:#1d2026}
+      #demo-term text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+            font-size:14px;white-space:pre}
+      #demo-term .cmd{fill:#e8eaed} #demo-term .out{fill:#9aa2ad}
+      #demo-term .sign{fill:#5ab77f} #demo-term .dot{opacity:.6}
+      @media (prefers-reduced-motion:reduce){
+        #demo-term text{animation:none!important;opacity:1!important}
+      }
+      #demo-term .l0{animation:r0 15.61s linear infinite}@keyframes r0{0%,0.000%{opacity:0}0.010%,100%{opacity:1}}#demo-term .l1{animation:r1 15.61s linear infinite}@keyframes r1{0%,3.523%{opacity:0}3.533%,100%{opacity:1}}#demo-term .l2{animation:r2 15.61s linear infinite}@keyframes r2{0%,4.933%{opacity:0}4.943%,100%{opacity:1}}#demo-term .l3{animation:r3 15.61s linear infinite}@keyframes r3{0%,14.029%{opacity:0}14.039%,100%{opacity:1}}#demo-term .l4{animation:r4 15.61s linear infinite}@keyframes r4{0%,14.798%{opacity:0}14.808%,100%{opacity:1}}#demo-term .l5{animation:r5 15.61s linear infinite}@keyframes r5{0%,18.322%{opacity:0}18.332%,100%{opacity:1}}#demo-term .l6{animation:r6 15.61s linear infinite}@keyframes r6{0%,19.731%{opacity:0}19.741%,100%{opacity:1}}#demo-term .l7{animation:r7 15.61s linear infinite}@keyframes r7{0%,20.500%{opacity:0}20.510%,100%{opacity:1}}#demo-term .l8{animation:r8 15.61s linear infinite}@keyframes r8{0%,21.909%{opacity:0}21.919%,100%{opacity:1}}#demo-term .l9{animation:r9 15.61s linear infinite}@keyframes r9{0%,32.287%{opacity:0}32.297%,100%{opacity:1}}#demo-term .l10{animation:r10 15.61s linear infinite}@keyframes r10{0%,33.056%{opacity:0}33.066%,100%{opacity:1}}#demo-term .l11{animation:r11 15.61s linear infinite}@keyframes r11{0%,36.579%{opacity:0}36.589%,100%{opacity:1}}#demo-term .l12{animation:r12 15.61s linear infinite}@keyframes r12{0%,39.462%{opacity:0}39.472%,100%{opacity:1}}#demo-term .l13{animation:r13 15.61s linear infinite}@keyframes r13{0%,42.345%{opacity:0}42.355%,100%{opacity:1}}#demo-term .l14{animation:r14 15.61s linear infinite}@keyframes r14{0%,43.754%{opacity:0}43.764%,100%{opacity:1}}#demo-term .l15{animation:r15 15.61s linear infinite}@keyframes r15{0%,56.694%{opacity:0}56.704%,100%{opacity:1}}#demo-term .l16{animation:r16 15.61s linear infinite}@keyframes r16{0%,57.463%{opacity:0}57.473%,100%{opacity:1}}#demo-term .l17{animation:r17 15.61s linear infinite}@keyframes r17{0%,60.987%{opacity:0}60.997%,100%{opacity:1}}#demo-term .l18{animation:r18 15.61s linear infinite}@keyframes r18{0%,62.396%{opacity:0}62.406%,100%{opacity:1}}#demo-term .l19{animation:r19 15.61s linear infinite}@keyframes r19{0%,71.493%{opacity:0}71.503%,100%{opacity:1}}#demo-term .l20{animation:r20 15.61s linear infinite}@keyframes r20{0%,72.261%{opacity:0}72.271%,100%{opacity:1}}#demo-term .l21{animation:r21 15.61s linear infinite}@keyframes r21{0%,75.785%{opacity:0}75.795%,100%{opacity:1}}#demo-term .l22{animation:r22 15.61s linear infinite}@keyframes r22{0%,77.194%{opacity:0}77.204%,100%{opacity:1}}#demo-term .l23{animation:r23 15.61s linear infinite}@keyframes r23{0%,77.963%{opacity:0}77.973%,100%{opacity:1}}#demo-term .l24{animation:r24 15.61s linear infinite}@keyframes r24{0%,79.372%{opacity:0}79.382%,100%{opacity:1}}
+    </style>
+    <rect class="bg" width="860" height="595" rx="10"/>
+    <rect class="bar" width="860" height="30" rx="10"/>
+    <rect class="bar" y="20" width="860" height="10"/>
+    <circle class="dot" cx="20" cy="15" r="5" fill="#e06c75"/>
+    <circle class="dot" cx="38" cy="15" r="5" fill="#e5c07b"/>
+    <circle class="dot" cx="56" cy="15" r="5" fill="#98c379"/>
+      <text class="l0 cmd" x="22" y="65"><tspan class="sign">$</tspan> go build ./...</text>
+    <text class="l1 out" x="22" y="86"># example.com/app/cmd/app</text>
+    <text class="l2 out" x="22" y="107">cmd/app/main.go:4:2: undefined: greet</text>
+    <text class="l3 out" x="22" y="128"></text>
+    <text class="l4 cmd" x="22" y="149"><tspan class="sign">$</tspan> forgelore recall --command &quot;go build ./...&quot; --error-file err.txt</text>
+    <text class="l5 out" x="22" y="170">1 error(s), 0 with something recorded</text>
+    <text class="l6 out" x="22" y="191"></text>
+    <text class="l7 out" x="22" y="212">cd023fb609411574  undefined: greet</text>
+    <text class="l8 out" x="22" y="233">  nothing recorded</text>
+    <text class="l9 out" x="22" y="254"></text>
+    <text class="l10 cmd" x="22" y="275"><tspan class="sign">$</tspan> forgelore record --type fix \</text>
+    <text class="l11 cmd" x="22" y="296">    --title &quot;greet lives in internal/greeter; import it&quot; \</text>
+    <text class="l12 cmd" x="22" y="317">    --command &quot;go build ./...&quot; --error-file err.txt</text>
+    <text class="l13 out" x="22" y="338">01M45XT2HS8G3PXDBRTWWV3449  .forgelore/records/01M45XT2HS8G3PXDBRTWWV3449.md</text>
+    <text class="l14 out" x="22" y="359">fingerprint cd023fb609411574</text>
+    <text class="l15 out" x="22" y="380"></text>
+    <text class="l16 cmd" x="22" y="401"><tspan class="sign">$</tspan> go vet ./...</text>
+    <text class="l17 out" x="22" y="422"># example.com/app/internal/svc</text>
+    <text class="l18 out" x="22" y="443">vet: internal/svc/svc.go:4:2: undefined: greet</text>
+    <text class="l19 out" x="22" y="464"></text>
+    <text class="l20 cmd" x="22" y="485"><tspan class="sign">$</tspan> forgelore recall --command &quot;go vet ./...&quot; --error-file err2.txt</text>
+    <text class="l21 out" x="22" y="506">1 error(s), 1 with something recorded</text>
+    <text class="l22 out" x="22" y="527"></text>
+    <text class="l23 out" x="22" y="548">cd023fb609411574  undefined: greet</text>
+    <text class="l24 out" x="22" y="569">  fix       01M45XT2HS8G3PXDBRTWWV3449  greet lives in internal/greeter; import it</text>
+  </svg>
+  <!-- demo:end -->
   <figcaption>Real output from <code>v0.1.1</code>. The fingerprint is the
   same in both halves because the file, the line and the subcommand are not
   part of it — the error is. The same transcript is readable as text in

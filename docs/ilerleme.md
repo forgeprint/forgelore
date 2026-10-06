@@ -3138,6 +3138,36 @@ Bir de kendi okuma hatam: daha önce "yerelde `<img>` çalışıyordu" diye
 not etmiştim. Çalışan şey SVG'yi doğrudan açtığım sekmeymiş, sayfa değil.
 Ekran görüntüsüne bakıp yanlış şeyi doğruladım.
 
+### `<object>` de yetmedi, ve iki ayar hatası daha
+
+`<object>` yerelde oynadı, **yayında donmuş kaldı**. Content-Type her iki
+yerde de `image/svg+xml`, yani fark orada değil. Sebebini kovalamak yerine
+belirsizliği kaldırdım: SVG artık sayfaya **satır içi gömülüyor**. Gömme
+kipi diye bir şey kalmıyor, animasyon belgenin parçası olduğu için her
+yerde çalışıyor.
+
+`make-demo.sh` hem `site/demo.svg`'yi yazıyor hem de iki sayfaya
+`<!-- demo:start -->` işaretleri arasına gömüyor; workflow'un kontrolü
+`site/demo.svg` yerine `site/` oldu, yani sayfalar da kaynağından
+ayrışamıyor. Üretecin kararlı (idempotent) olduğu ayrıca ölçüldü.
+
+Satır içi `<style>` HTML'de **tüm sayfaya** uygulandığı için SVG'nin bütün
+seçicileri `#demo-term` altına alındı — yoksa `text{…}` gibi bir kural
+sayfaya sızardı.
+
+Yayına çıkarken iki ayar hatası daha çıktı ve ikisi de benim varsayımım
+değil ölçümle bulundu:
+
+1. **Pages açılmamıştı.** `configure-pages` "Not Found" dedi. Bu
+   beklenen `[SEN]` adımıydı.
+2. **Açıldı ama yanlış kaynakla.** `gh api .../pages` → `build_type:
+   "legacy"`, `source: {branch: main}`. Bu modda GitHub `README.md`'yi
+   Jekyll ile render edip siteye koyuyordu: `/` README'nin kendisiydi,
+   `/agents.html`, `/tr/`, `/llms.txt` **404**. İlk kontrolümde yedi yolun
+   da 200 dönmesi yanıltıcıydı — Actions dağıtımı o an yayındaydı,
+   sonraki `main` push'u legacy derlemeyi tetikleyip üzerine yazdı.
+   Kullanıcı `build_type=workflow`'a çevirince düzeldi.
+
 ### Kalanlar — hepsi `[SEN]`
 
 - Deneme haftası sürüyor (2026-10-06 başladı, tek kişilik, bu depoda).
