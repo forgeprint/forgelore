@@ -2884,7 +2884,24 @@ bahseden çıktı mı" ayrımını yapacak sinyal yok. Bedeli sıfırlandı (eş
 tahmin iz bırakmıyor) ama kapatılmadı: eşleşen bir tahmin hâlâ hiçbir şeyin
 bozulmadığı bir yere tek satır sokabilir. ADR-0022 bunu ölçümle birlikte
 yazıyor.
-- Codex CLI doğrulaması, erişim olduğunda:
-  `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,
-  `verified_against`'i doldur, `docs/compatibility.md`'yi güncelle.
+
+### Kalanlar — hepsi `[SEN]`
+
+- İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
+- **Codex CLI: burada bırakıldı, `unverified` kalıyor.** Engel erişim
+  değil — giriş çalışıyor, oturum açılıyor, model komutları koşuyor. Engel
+  `hooks.json`'ın yeri ve biçimi. Tekrar denenirse bugünkü çıkmazlara
+  girmeden başlasın:
+  - `$CODEX_HOME/hooks.json`, üst düzey olay anahtarlarıyla → hiçbir şey
+    tetiklemiyor;
+  - aynı dosya `{"hooks": {...}}` sarmalıyla → oturum askıda kalıyor
+    (yani dosya **okunuyor**, bir şey bloke ediyor; muhtemelen hook trust);
+  - denenmemiş adaylar: `$CODEX_HOME/hooks/hooks.json`, ve `config.toml`
+    içinde `[hooks]` tablosu;
+  - ucuz yol: etkileşimli TUI'nin hook ekranı ("No hooks installed for
+    this event", "Trust"), model çağrısı yakmadan hangi dosyanın
+    görüldüğünü söyler;
+  - geçici `CODEX_HOME` + gerçek `auth.json`'a sembolik bağ oturumu açık
+    tutuyor (elle doğrulandı), yani yakalama kullanıcının yapılandırmasına
+    dokunmadan yapılabilir.
 - Cursor: araştırıldı, başlanmadı.
