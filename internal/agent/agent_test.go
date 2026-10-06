@@ -339,14 +339,21 @@ func TestContextShapeComesFromTheMapping(t *testing.T) {
 	}
 }
 
-// TestDocumentedPayloadsTranslate pins what the documentation says Codex
-// CLI sends, the one mapping no captured payload backs yet.
+// TestSchemaShapedPayloadsTranslate pins what Codex CLI's own JSON schema
+// says it sends, for the one mapping no captured payload backs yet.
 //
 // Passing here is not verification. It is a record of what was believed on
 // the day the mapping was written, so that the first real payload shows up
 // as a difference rather than as a mystery. Copilot CLI used to be in this
 // list, and every documentation-derived guess about it turned out wrong.
-func TestDocumentedPayloadsTranslate(t *testing.T) {
+//
+// These payloads were rebuilt on 2026-10-06 from the schemas embedded in
+// the 0.160.0 binary — `post-tool-use.command.input` and its output twin —
+// because openai/codex publishes no hooks documentation at all. The
+// schemas contradicted three things the old guesses asserted: there is no
+// top-level `error`, no `tool_output`, and no `interrupted` field. The
+// result goes in `tool_response`, and `Interrupt` is an event of its own.
+func TestSchemaShapedPayloadsTranslate(t *testing.T) {
 	cases := []struct {
 		payload string
 		want    Kind
@@ -354,15 +361,19 @@ func TestDocumentedPayloadsTranslate(t *testing.T) {
 	}{
 		{
 			payload: `{"hook_event_name":"PostToolUse","session_id":"s1","cwd":"/w",
-			           "tool_name":"shell","tool_input":{"command":"go build ./..."},
-			           "error":"./main.go:5:14: undefined: greet"}`,
+			           "model":"m","permission_mode":"default","tool_use_id":"c1",
+			           "transcript_path":"/t","tool_name":"shell",
+			           "tool_input":{"command":"go build ./..."},
+			           "tool_response":{"output":"./main.go:5:14: undefined: greet"}}`,
 			want:   CommandFailed,
 			output: "undefined: greet",
 		},
 		{
 			payload: `{"hook_event_name":"PostToolUse","session_id":"s1","cwd":"/w",
-			           "tool_name":"shell","tool_input":{"command":"go version"},
-			           "tool_output":"go1.27.1"}`,
+			           "model":"m","permission_mode":"default","tool_use_id":"c2",
+			           "transcript_path":"/t","tool_name":"shell",
+			           "tool_input":{"command":"go version"},
+			           "tool_response":{"output":"go1.27.1"}}`,
 			want:   CommandSucceeded,
 			output: "go1.27.1",
 		},
@@ -440,17 +451,36 @@ func TestCopilotPayloadsDoNotNameTheirEvent(t *testing.T) {
 	}
 }
 
-// TestCodexInterruptIsIgnored: the mapping decides a Codex failure from an
-// error field, so a stopped command must be excluded some other way.
-func TestCodexInterruptIsIgnored(t *testing.T) {
+// TestCodexContextGoesWhereCodexLooksForIt is the mistake this mapping was
+// carrying, caught before anybody ran it.
+//
+// It replied at a top-level `additionalContext`. The binary's output
+// schemas put it inside `hookSpecificOutput`, beside `hookEventName`, the
+// same place Claude Code reads it — so every injected hint would have been
+// written somewhere Codex never looks, and the feature would have done
+// nothing at all without ever erroring.
+func TestCodexContextGoesWhereCodexLooksForIt(t *testing.T) {
 	m, err := Built("codex-cli")
 	if err != nil {
 		t.Fatal(err)
 	}
-	payload := `{"hook_event_name":"PostToolUse","session_id":"s1","cwd":"/w",
-	             "tool_name":"shell","tool_input":{"command":"go test ./..."},
-	             "error":"interrupted","interrupted":true}`
-	if _, ok, _ := m.Translate([]byte(payload), "", now); ok {
-		t.Error("an interrupted command produced an event")
+	reply, err := m.Context("PostToolUse", "a hint")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		HookSpecificOutput struct {
+			AdditionalContext string `json:"additionalContext"`
+			HookEventName     string `json:"hookEventName"`
+		} `json:"hookSpecificOutput"`
+	}
+	if err := json.Unmarshal(reply, &got); err != nil {
+		t.Fatalf("%v\n%s", err, reply)
+	}
+	if got.HookSpecificOutput.AdditionalContext != "a hint" {
+		t.Errorf("the context is not where Codex reads it:\n%s", reply)
+	}
+	if got.HookSpecificOutput.HookEventName != "PostToolUse" {
+		t.Errorf("the event name is not echoed back:\n%s", reply)
 	}
 }

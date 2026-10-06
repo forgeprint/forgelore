@@ -159,10 +159,30 @@ documentation — `openai/codex` has no hooks page in its `docs/`:
   `tool_input`, `stop_hook_active`, replying through `hookSpecificOutput`;
 - the `hooks` feature flag is on by default, so forcing it is unnecessary.
 
+The mapping was rewritten against those schemas, and they contradicted
+three things it had been asserting from documentation:
+
+- **there is no top-level `error`**, so the failure test it used could
+  never have fired. Failure is now decided with `output_has_diagnostic`
+  ([ADR-0022](adr/0022-a-failure-test-that-is-not-data.md)), because
+  nothing in the schema constrains the inside of `tool_response`;
+- **there is no `tool_output`**; the result is `tool_response`;
+- **there is no `interrupted` field**, and `Interrupt` is an event of its
+  own, so the skip the mapping carried would never have fired either. A
+  cancelled command whose output holds no diagnostic produces nothing
+  anyway.
+
+And one mistake that would have been silent: the mapping replied at a
+top-level `additionalContext`. Codex reads it at
+`hookSpecificOutput.additionalContext`, beside `hookSpecificOutput.hookEventName`,
+exactly where Claude Code does. Every injected hint would have gone
+somewhere Codex never looks, and nothing would have errored.
+
 What is still unknown is where the configuration goes and in what shape.
 `$CODEX_HOME/hooks.json` with top-level event keys fires nothing, and a
 `{"hooks": {…}}` wrapper made the session hang until it was killed — which
-suggests the file is read and something in it blocks.
+suggests the file is read and something in it blocks. Until that is
+settled, nothing here has met a real payload.
 
 ## Copilot CLI
 

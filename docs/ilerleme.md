@@ -2852,6 +2852,31 @@ hook ekranı: ikilide "No hooks installed for this event", "New hook — review
 required", "Trust" dizgeleri var, yani etkileşimli arayüz dosyanın okunup
 okunmadığını model çağırmadan gösteriyor.
 
+### Eşleme şemaya göre yeniden yazıldı — üç yanlış, biri sessiz olurdu
+
+Yakalama başarısız olsa da ikilideki JSON şemaları (`post-tool-use.command.input`
+ve çıktı ikizi) eşlemenin dayandığı üç varsayımı çürüttü:
+
+1. **Üst düzey `error` yok.** Başarısızlık testimiz `field_present: error`
+   idi; hiç ateşlenmezdi. Artık `output_has_diagnostic` kullanılıyor, çünkü
+   şema `tool_response`'un içini kısıtlamıyor.
+2. **`tool_output` yok**, sonuç `tool_response`'ta.
+3. **`interrupted` alanı yok**, `Interrupt` ayrı bir olay. Taşıdığımız
+   `skip_when` de hiç ateşlenmezdi.
+
+Ve sessiz olacak olanı: eşleme bağlamı **düz `additionalContext`**'e
+yazıyordu. Codex onu `hookSpecificOutput.additionalContext` içinde okuyor —
+Claude Code'un yeriyle aynı. Yani enjekte edilen her ipucu Codex'in hiç
+bakmadığı bir yere gidecek, ve **hiçbir hata vermeyecekti.** Beşinci kez
+aynı aile; bu sefer yayımlanmadan önce yakalandı.
+
+İki test de buna göre yeniden yazıldı. `TestDocumentedPayloadsTranslate`
+artık `TestSchemaShapedPayloadsTranslate`, ve `interrupted` testinin yerini
+bağlamın doğru yere yazıldığını kontrol eden bir test aldı.
+
+`verified_against` hâlâ boş: şema bir sözleşme, yakalanmış payload değil.
+Ama eşleme artık dokümandan değil, ajanın kendi şemasından türetilmiş.
+
 ### Kapanmayan bir risk
 
 `output_has_diagnostic` bir tahmindir. Payload'da "bu hata mı, hatadan

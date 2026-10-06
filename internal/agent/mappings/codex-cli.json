@@ -1,12 +1,11 @@
 {
-  "mapping_version": 1,
+  "mapping_version": 2,
   "agent": "codex-cli",
   "verified_against": "",
   "common": {
-    "event_name": ["hook_event_name", "hookEventName", "event"],
-    "session": ["session_id", "sessionId"],
-    "cwd": "cwd",
-    "scratchpad": ""
+    "event_name": "hook_event_name",
+    "session": "session_id",
+    "cwd": "cwd"
   },
   "events": [
     {
@@ -16,12 +15,21 @@
     {
       "agent_event": "PostToolUse",
       "kind": "command_succeeded",
-      "tools": ["shell", "bash", "Bash"],
-      "tool": ["tool_name", "toolName"],
-      "command": ["tool_input.command", "tool_args.command", "toolArgs.command"],
-      "output": ["error", "tool_output", "tool_response.stdout", "tool_response"],
-      "skip_when": ["interrupted", "is_interrupt"],
-      "failure": { "field_present": "error" }
+      "tools": [
+        "shell",
+        "bash",
+        "Bash"
+      ],
+      "tool": "tool_name",
+      "command": "tool_input.command",
+      "output": [
+        "tool_response.output",
+        "tool_response.stdout",
+        "tool_response"
+      ],
+      "failure": {
+        "output_has_diagnostic": true
+      }
     },
     {
       "agent_event": "SessionEnd",
@@ -29,6 +37,7 @@
     }
   ],
   "response": {
-    "context_path": "additionalContext"
+    "context_path": "hookSpecificOutput.additionalContext",
+    "event_name_path": "hookSpecificOutput.hookEventName"
   }
 }
