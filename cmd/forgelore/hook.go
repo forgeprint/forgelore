@@ -178,8 +178,19 @@ func onCommandFailed(s *store.Store, cfg *config.Config, e agent.Event, deadline
 	defer idx.Close()
 
 	var lines []string
-	for _, ev := range events {
-		if time.Now().After(deadline) {
+	for i, ev := range events {
+		// The budget limits how many lookups are made, not whether any
+		// is. Opening the index is the expensive part and it has already
+		// happened by the time this loop starts; breaking here would
+		// throw away work already paid for and, on a machine slow enough
+		// to blow the budget before the first iteration, record nothing
+		// at all — so `report` would show fewer errors than really
+		// happened and say nothing about the difference.
+		//
+		// Found by a CI runner slower than any laptop here: the test for
+		// this wrote no ledger line, and a one-millisecond deadline
+		// reproduces it exactly.
+		if i > 0 && time.Now().After(deadline) {
 			break
 		}
 

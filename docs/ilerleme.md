@@ -2668,6 +2668,33 @@ Eşleşen bir tahmin hâlâ hiçbir şeyin bozulmadığı bir yere tek satır
 sokabilir. Bu kapanmadı, kapanamaz — ADR-0022'ye bu haliyle yazıldı,
 ölçümle birlikte.
 
+---
+
+## 2026-10-06 — CI kırmızı oldu ve altından gerçek bir hata çıktı
+
+v0.1.9 için etiket atmadan önce CI'a baktım: `TestHookRecordsLatency`
+düşmüş, "got 0 entries". Yerelde 20/20 geçiyordu.
+
+Sebep zamanlama ama test kusuru değil. `hook.deadline_ms` (varsayılan 500)
+bütçesi, `onCommandFailed`'ın döngüsünün **başında** kontrol ediliyordu.
+Pahalı iş ise indeksi açmak ve o döngüden **önce** oluyor. Yani bütçeyi
+indeksi açarken tüketen bir makinede döngü hiç dönmüyor:
+
+- enjeksiyon yok,
+- ledger satırı yok,
+- ve `report` gerçekte olandan daha az arama gösteriyor, **farkı hiçbir
+  yerde söylemeden.**
+
+1 ms deadline ile birebir üretildi: ledger dosyası hiç oluşmuyor.
+
+Bu, bedelini ödeyip malı çöpe atmak: indeks zaten açılmış, aramanın kendisi
+milisaniyeler. Düzeltme — bütçe artık **kaç arama yapılacağını** sınırlıyor,
+**hiç yapılıp yapılmayacağını** değil. İlk olay her zaman aranıyor,
+deadline ikinciden itibaren işliyor.
+
+Yavaş bir CI runner'ının bulduğu, hiçbir dizüstünün bulamadığı bir hata.
+Test artık 1 ms bütçeyle hem enjeksiyonu hem ledger satırını istiyor.
+
 ### Kalanlar — hepsi `[SEN]`
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:

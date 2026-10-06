@@ -161,6 +161,31 @@ func TestAnInferredHitIsRecorded(t *testing.T) {
 	}
 }
 
+// TestTheBudgetLimitsLookupsNotWhetherAnyHappens: a machine slow enough to
+// spend the whole budget opening the index used to record nothing at all,
+// so `report` showed fewer errors than really happened and said nothing
+// about the difference. A CI runner found it; one millisecond reproduces
+// it.
+func TestTheBudgetLimitsLookupsNotWhetherAnyHappens(t *testing.T) {
+	dir := newProject(t)
+	mustCLI(t, dir, "./main.go:5:14: undefined: greet\n",
+		"record", "--type", "fix", "--title", "A known fix",
+		"--command", "go build ./...", "--error-file", "-")
+	if err := os.WriteFile(filepath.Join(dir, ".forgelore", "config.yaml"),
+		[]byte("hook.deadline_ms: 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	payload := hookPayload("PostToolUseFailure", "s1", "go build ./...",
+		"./main.go:5:14: undefined: greet")
+	if got := hookContext(t, dir, payload); !strings.Contains(got, "A known fix") {
+		t.Errorf("an exhausted budget swallowed the injection: %q", got)
+	}
+	if l := readLedger(t, dir); len(l.Entries) != 1 {
+		t.Errorf("an exhausted budget swallowed the measurement: %+v", l.Entries)
+	}
+}
+
 func TestHookRecordsLatency(t *testing.T) {
 	dir := newProject(t)
 	payload := hookPayload("PostToolUseFailure", "s1", "go build ./...", "./main.go:5:14: undefined: greet")
