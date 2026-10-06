@@ -3666,3 +3666,69 @@ işini yapması, gerileme değil.
 Ve ürün kendi bulgusunu hatırlıyor artık: `01M48CMK7VV256D812YC89KJB1`
 (fix, team, iz `a9007ed6c31f8983`). Başka bir script, başka bir satır,
 başka bir bayrakla denendi — `recall` buldu.
+
+## 2026-10-06 — Faz 10 adım 3: çıkarıcı ve `recap` komutu
+
+İlk kod. Yazdıkları: `internal/worklog/` (ayrıştırıcı, dosya seçimi, işaret) ve
+`cmd/forgelore/recap.go`. K6 gereği önce CLI; hook kablolaması yok.
+
+### Ne okuyor, ne okumuyor
+
+Yalnızca API biçimli katman: `type: user|assistant` girdileri ve
+`message.content[]` içindeki `tool_use` / `tool_result` blokları. Edit ve
+Write'ın `file_path`'i, Bash'in `command`'ı, sonucun `is_error`'ı. Dökümün
+geri kalanı — `attachment`, `cost-state`, `atis-latch`, `file-history-snapshot`
+— hiç açılmıyor, ve bunu doğrulayan ayrı bir test var.
+
+Tek çıkarım `Fixed()`: önce başarısız olup sonra aynı metinle geçen komutlar.
+Bir düzeltmenin izi, ne olduğuna dair iddia olmadan.
+
+### Kararlar ve sayılar
+
+- **`recall` değil `recap`**, ve adım 10'un model çağıran komutu `distill`
+  kalıyor.
+- **Bitmiş sayma eşiği 60 saniye** (`worklog.Settled`, `--settled` ile
+  değiştirilebilir). Altında paralel bir oturumun yarısı okunur, çok üstünde
+  arka arkaya açılan oturumlarda birincinin işi atlanır.
+- **Bayt tavanı 8 MB** (`--max-bytes`). Üstündeki dosya **kuyruktan** okunuyor
+  ve `truncated` işaretlenerek söyleniyor, çünkü eksik okunmuş bir dökümde
+  "düzenleme yok" bir kanıt değil.
+- **Satır tavanı 4 MB**: sistem prompt'unu taşıyan bir satır oturum hakkında
+  olgu değil, ve bir satırın uzunluğu bu işin ne kadar bellek yediğine karar
+  vermesin. Atlanan satır `unreadable` olarak sayılıyor.
+- Dosya seçimi, verilen dökümün **üst dizinindeki** kardeş `.jsonl`'ler. Yol
+  kodlaması bilinmiyor ve bilinmesi gerekmiyor: yolu ajan veriyor.
+- **İşaret** (`cache/worklog.json`) yolları hash'lemeden, düz tutuyor; burada
+  yol bir dosya adı kurmuyor, dolayısıyla `session.go`'daki hash'leme gerekçesi
+  geçerli değil. 30 günden eski işaretler kaydetmede budanıyor.
+
+### Yazmıyor
+
+`recap` varsayılan olarak hiçbir şey yazmıyor; bunu `.forgelore`'un dosya
+listesini önce ve sonra karşılaştıran bir test tutuyor. Tek yazan yol
+`--mark`, ve o da yalnızca "bu döküm okundu" diyor.
+
+### Gerçek dökümlerle denendi
+
+- 346 KB, 2.1.289: dört komut, hepsi "passed".
+- 19,5 MB, 2.1.286: varsayılan tavanla kuyruktan okundu, **43 ms**, 14 dosya.
+  Tavanı 20 MB'a çıkarınca 24 dosya ve 1068 komut, okunamayan satır sıfır.
+  Yani tavan gerçekten erken düzenlemeleri kaybediyor — `truncated` tam bu
+  yüzden var.
+
+### Bildiği ve bilmediği: boruların kör noktası
+
+346 KB'lık dökümdeki dört komutun biri `go build ./... | tail -20`'ydi ve
+`recap` onu "passed" diye okudu. `is_error` aracın sonucunu yansıtıyor, borunun
+çıkış kodu da `tail`'in. Bu zaten bilinen bir şey (kayıt
+`01M47KN8KW33QGPP4R25D8MZDA`: zincir ve boru bir başarısızlığı saklıyordu), ama
+artık iş hafızasının da aynı kör noktası var: **borulanmış bir derleme
+başarısızlığı olgu olarak görünmüyor.** `Fixed()` de bu yüzden borulanmış bir
+döngüyü fark etmez.
+
+### Açık kalanlar
+
+- Adım 4 (aday üretimi, `last_assistant_message`) ve adım 6'nın (prompt anında
+  çağırma) iki açık sorusu: keşif aracı sayımı hangi araçları kapsar, `work`
+  bütçesi ne olur.
+- Dökümün kayma kontrolü hâlâ yok (`drift-payloads.sh` yalnızca `*.json`).
