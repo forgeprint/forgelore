@@ -3516,3 +3516,19 @@ ediliyor, ve `daktilo`/`mcp__`/hesap adı/yol probları sıfır eşleşme veriyo
 
 Eldeki yakalama yeniden koşulmadan aynı dönüşümden geçirildi (script zaten
 yakalamadan sonra bunu yapıyor), yani model harcanmadı.
+
+### Korpus 2.1.291, ve eşleme o sürüme çekildi
+
+Hafta başında `doctor` "verified against 2.1.290, you have 2.1.291" diyordu;
+bu kayma kapandı. Dört payload ve filtrelenmiş döküm `2.1.291` altında,
+`verified_against` 2.1.291.
+
+`TestTheScratchpadCameAndWent` tablosuna üçüncü satır eklendi: 2.1.289'da
+`scratchpad_dir` dört olayda da vardı, 2.1.290 hepsinden düşürdü, **2.1.291
+geri getirmedi**. Testin yorumu bunu da söylüyor artık; alanın gerçekten
+isteğe bağlı olduğu ve geri dönüş yolunun taşıyıcı olduğu üçüncü kez
+doğrulandı.
+
+Korpusa ilk kez bir döküm girdi (19,8 KB). Buradan sonra `drift-payloads.sh`'ın
+onu da karşılaştırması gerekir — şu an yalnızca `*.json` okuyor, yani dökümün
+şekli değişse kimse görmez. Faz 10 adım 3'ün ya da Faz 9'un işi.

@@ -259,7 +259,7 @@ var emailish = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,
 // the conclusion — that the fallback was the ordinary path — was wrong,
 // because that run never reached a model. Second reading: 2.1.289 carried
 // it on all four events, so it was called the rule. Then 2.1.290 dropped it
-// from every event again.
+// from every event again, and 2.1.291 did not bring it back.
 //
 // So the field is optional in practice and not only on paper, and the
 // fallback is load-bearing rather than a corner. Nothing breaks either way:
@@ -277,6 +277,7 @@ func TestTheScratchpadCameAndWent(t *testing.T) {
 	}{
 		{"2.1.289", true},
 		{"2.1.290", false},
+		{"2.1.291", false},
 	} {
 		for _, name := range events {
 			payload, err := os.ReadFile(filepath.Join(corpusRoot, tc.version, name))

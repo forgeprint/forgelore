@@ -1,7 +1,7 @@
 {
   "mapping_version": 2,
   "agent": "claude-code",
-  "verified_against": "2.1.290",
+  "verified_against": "2.1.291",
   "common": {
     "event_name": "hook_event_name",
     "session": "session_id",
