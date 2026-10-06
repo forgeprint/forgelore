@@ -179,7 +179,6 @@ func onCommandFailed(s *store.Store, cfg *config.Config, e agent.Event, deadline
 
 	var lines []string
 	for _, ev := range events {
-		state.Failed[ev.Sum] = e.Command
 		if time.Now().After(deadline) {
 			break
 		}
@@ -188,6 +187,21 @@ func onCommandFailed(s *store.Store, cfg *config.Config, e agent.Event, deadline
 		if err != nil {
 			continue
 		}
+
+		// An inferred failure that matches nothing leaves no trace. The
+		// agent never said this command failed; the mapping guessed it
+		// from the shape of the output, and output that merely prints an
+		// error looks the same as output that is one. Recording the guess
+		// would inflate "nothing known" with commands that never failed
+		// and fill the session state with them — measured over one
+		// session, every inferred failure was of exactly that kind.
+		//
+		// A match is different: something was known about it, and that is
+		// worth both the injection and the line in the ledger.
+		if e.Inferred && len(hits) == 0 {
+			continue
+		}
+		state.Failed[ev.Sum] = e.Command
 
 		entry := measure.Entry{
 			Time: e.Time, Session: e.Session, Group: group,

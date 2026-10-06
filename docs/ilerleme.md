@@ -2627,6 +2627,47 @@ Daraltma konuşulacak. Gerilimin iki ucu da bugün bizim eserimiz:
 `output_has_diagnostic` olmazsa borulanmış build yine görünmez olur,
 olursa hata hakkında *konuşan* çıktı da hata sayılır. Karar verilmedi.
 
+---
+
+## 2026-10-06 — çıkarsanmış başarısızlık artık iz bırakmıyor
+
+Daraltma kararı: yetenek kalsın, yanlış pozitifin bedeli sıfırlansın.
+
+### Önce bir öneriyi ölçüp çöpe attım
+
+İlk aklıma gelen daraltma şuydu: `output_has_diagnostic`'e yalnızca komut
+çıkış kodunu maskeliyorsa (boru ya da zincir varsa) başvur. Oturum durum
+dosyasına bakınca bu oturumdaki **12 aramanın 12'si de** zaten boru veya
+zincir içeren komutlardandı. Yani kural hiçbir şey kazandırmazdı. Öneri
+geri çekildi — tahmin edilmiş bir iyileştirme, ölçülünce sıfır çıktı.
+
+Daha derin sorun: yanlış pozitifler **zayıf** desenlerden değil, güçlü
+desenlerden geldi. `IneligibleTierError: …` gerçek bir exception şekli,
+sadece veri olarak basılmıştı. Payload'da "bu hata mı, hatadan bahseden
+çıktı mı" ayrımını yapacak sinyal yok; desen sıkılaştırmak çözmez.
+
+### Yapılan
+
+`Event.Inferred` eklendi: başarısızlığa ajanın söylediği için değil,
+çıktının şekline bakılarak karar verildiyse işaretli. Yalnızca
+`output_has_diagnostic` çıkarsıyor; `always`, `field_present` ve
+`output_matches` ajanın payload'a koyduğu bir şeyi okuyor.
+
+`onCommandFailed` artık **çıkarsanmış ve eşleşmeyen** bir olayda hiçbir şey
+yazmıyor: ne ledger satırı, ne oturum durumu. Arama yine yapılıyor;
+eşleşme varsa enjeksiyon da ledger kaydı da duruyor, çünkü o zaman
+gerçekten bir şey biliniyordu.
+
+Yan etki, bilinçli: çıkarsanmış bir başarısızlık oturum durumuna
+yazılmadığı için o olaydan "düzeldi" önerisi çıkmaz. Başarısız olduğundan
+emin değilsek, düzeldiğinden de emin olamayız.
+
+### Kalan risk, saklanmadan
+
+Eşleşen bir tahmin hâlâ hiçbir şeyin bozulmadığı bir yere tek satır
+sokabilir. Bu kapanmadı, kapanamaz — ADR-0022'ye bu haliyle yazıldı,
+ölçümle birlikte.
+
 ### Kalanlar — hepsi `[SEN]`
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:

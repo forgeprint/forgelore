@@ -105,6 +105,62 @@ func TestHookInjectsAKnownFix(t *testing.T) {
 	}
 }
 
+// TestAnInferredMissLeavesNoTrace is the answer to something measured
+// rather than feared.
+//
+// A PostToolUse is a command that worked. The mapping calls it a failure
+// when the output looks like one, because a build piped through head exits
+// zero and that is the only way to see it (ADR-0022). But output that
+// prints an error — a log being catted, a test fixture being written —
+// looks exactly the same, and over one real session every inferred failure
+// was of that kind: thirteen lookups, none of them a failure.
+//
+// So an inferred failure that matches nothing is not recorded at all. It
+// would otherwise inflate "nothing known" with commands that never failed,
+// and the report would mislead about the one thing it exists to measure.
+func TestAnInferredMissLeavesNoTrace(t *testing.T) {
+	dir := newProject(t)
+
+	// A command that succeeded while printing something error-shaped.
+	payload := hookPayload("PostToolUse", "s1", "cat build.log",
+		"./main.go:5:14: undefined: greet")
+	if got := mustCLI(t, dir, payload, "hook"); got != "" {
+		t.Errorf("hook spoke: %q", got)
+	}
+	if l := readLedger(t, dir); len(l.Entries) != 0 {
+		t.Errorf("an inferred miss was written to the ledger: %+v", l.Entries)
+	}
+
+	// A failure the agent itself reported still records its miss: nothing
+	// was known, and that is a real measurement.
+	reported := hookPayload("PostToolUseFailure", "s1", "go build ./...",
+		"./main.go:5:14: undefined: greet")
+	mustCLI(t, dir, reported, "hook")
+	if l := readLedger(t, dir); len(l.Entries) != 1 {
+		t.Fatalf("a reported miss was not recorded: %+v", l.Entries)
+	}
+}
+
+// TestAnInferredHitIsRecorded: the saving is only on the guesses that come
+// to nothing. When something is known about the error, the injection and
+// the ledger line are both worth having.
+func TestAnInferredHitIsRecorded(t *testing.T) {
+	dir := newProject(t)
+	const title = "Import the package that defines greet"
+	mustCLI(t, dir, "./main.go:5:14: undefined: greet\n",
+		"record", "--type", "fix", "--title", title, "--command", "go build ./...", "--error-file", "-")
+
+	payload := hookPayload("PostToolUse", "s1", "go build ./... 2>&1 | head -40",
+		"./main.go:5:14: undefined: greet")
+	if got := hookContext(t, dir, payload); !strings.Contains(got, title) {
+		t.Errorf("an inferred failure that matched was not injected:\n%s", got)
+	}
+	l := readLedger(t, dir)
+	if len(l.Entries) != 1 || l.Entries[0].Event != "inject" {
+		t.Errorf("got %+v", l.Entries)
+	}
+}
+
 func TestHookRecordsLatency(t *testing.T) {
 	dir := newProject(t)
 	payload := hookPayload("PostToolUseFailure", "s1", "go build ./...", "./main.go:5:14: undefined: greet")

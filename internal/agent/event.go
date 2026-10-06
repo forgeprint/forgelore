@@ -48,6 +48,18 @@ type Event struct {
 	Command string
 	Output  string
 
+	// Inferred marks a CommandFailed the agent did not report as one: the
+	// mapping decided it from the shape of the output, because the agent
+	// sends no exit status and its success event is all a masked failure
+	// produces (ADR-0022).
+	//
+	// It is a statement about confidence, and the caller spends less on a
+	// lookup that rests on it. Output that merely talks about an error —
+	// a log being printed, a test fixture being written — looks exactly
+	// like output that is one, and in one measured session every single
+	// inferred failure was of that kind.
+	Inferred bool
+
 	// Untrusted marks an event whose output came from outside the project,
 	// such as a web fetch. Anything derived from it is written tainted
 	// (ADR-0013).

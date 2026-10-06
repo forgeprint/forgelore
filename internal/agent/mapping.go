@@ -238,8 +238,9 @@ func (m *Mapping) Translate(payload []byte, callerEvent string, now time.Time) (
 		// A match that maps to one outcome says so; one that has to read
 		// the payload decides here.
 		if match.Kind == CommandFailed || match.Kind == CommandSucceeded {
-			if match.failed(raw, e.Output) {
+			if failed, inferred := match.failed(raw, e.Output); failed {
 				e.Kind = CommandFailed
+				e.Inferred = inferred
 			} else {
 				e.Kind = CommandSucceeded
 			}
@@ -249,25 +250,29 @@ func (m *Mapping) Translate(payload []byte, callerEvent string, now time.Time) (
 	return Event{}, false, nil
 }
 
-func (match Match) failed(raw map[string]any, output string) bool {
+// failed reports whether this event is a failure, and whether that was
+// inferred from the output rather than stated by the agent. Only
+// output_has_diagnostic infers: every other test reads something the agent
+// itself put in the payload.
+func (match Match) failed(raw map[string]any, output string) (failed, inferred bool) {
 	if match.Failure.Always {
-		return true
+		return true, false
 	}
 	if len(match.Failure.FieldPresent) > 0 {
 		if v, ok := lookup(raw, match.Failure.FieldPresent); ok && v != "" {
-			return true
+			return true, false
 		}
 	}
 	if match.Failure.OutputMatches != "" {
 		// Already compiled once in ParseMapping.
 		if re, err := regexp.Compile(match.Failure.OutputMatches); err == nil && re.MatchString(output) {
-			return true
+			return true, false
 		}
 	}
 	if match.Failure.OutputHasDiagnostic && len(fingerprint.Scan("", output)) > 0 {
-		return true
+		return true, true
 	}
-	return false
+	return false, false
 }
 
 // lookup walks dotted keys and returns the first path that resolves.

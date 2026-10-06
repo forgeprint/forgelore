@@ -70,12 +70,26 @@ the most carefully tested package in the project, which is the only reason
 this is tolerable.
 
 **A successful command that prints error-shaped text is read as a failure.**
-`cat build.log`, `rg "undefined"`, an agent echoing an earlier error. The
-damage is bounded: `onCommandFailed` does nothing at all when `Scan` finds
-nothing, so the worst case is a lookup that probably misses, a hint that may
-be irrelevant, and no "it works now" proposal from that one event. All three
-are visible — in `forgelore report`, in the injected text, and in
-`forgelore review`. None of them writes a record.
+`cat build.log`, `rg "undefined"`, an agent echoing an earlier error.
+
+This was measured on 2026-10-06, by leaving Forgelore running in its own
+repository for a session: **thirteen inferred failures, not one of them a
+real one.** They were the output of scripts printing error examples while
+the matchers were being worked on. No hint was injected, because nothing
+matched, but the ledger filled with misses for commands that never failed
+and the report's "nothing known" count stopped meaning anything.
+
+So an inferred failure now **leaves no trace when it matches nothing**: no
+ledger line, no session state. The lookup still happens, and a match is
+still injected and still recorded, because then something really was known.
+The residual risk is unchanged and real: a guess that does match injects a
+line into a session where nothing broke.
+
+Narrowing by command shape was tried first and discarded by the same
+measurement — all thirteen came from commands containing a pipe or a chain,
+so "only infer when the exit status could have been masked" would have
+caught every one of them. There is no signal in the payload that separates
+output which is an error from output which is about one.
 
 **The gap closes only for agents that opt in.** Copilot CLI keeps
 `output_matches`, because reading a reported exit code is narrower and
