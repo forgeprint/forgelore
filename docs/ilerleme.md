@@ -13,10 +13,10 @@ ve nasıl bulunduğu tarihli bölümlerde, en yenisi en sonda.
 | Son sürüm | **v0.1.10**, GitHub release attested, npm'de yedi paket, `latest` 0.1.10 |
 | Kayıt şeması | 1 |
 | Eşleme formatı | 2 (`claude-code` 2 kullanıyor; diğerleri 1) |
-| Ajanlar | Claude Code 2.1.290 **A** · Copilot CLI 1.0.91 **B** · Gemini CLI 0.62.0 **B** · Cursor 2026.10.01 **B** · Codex CLI doğrulanmamış |
+| Ajanlar | Claude Code 2.1.291 **A** · Copilot CLI 1.0.91 **B** · Gemini CLI 0.62.0 **B** · Cursor 2026.10.01 **B** · Codex CLI doğrulanmamış |
 | Hata korpusu | 31 aile |
-| Ajan payload'ları | 22, beş ajan sürümünden |
-| Bu deponun kendi hafızası | `.forgelore/records/`'ta 9 kayıt (4 fix, 5 decision) |
+| Ajan payload'ları | 26, altı ajan sürümünden; biri (2.1.291) filtrelenmiş bir dökümle |
+| Bu deponun kendi hafızası | `.forgelore/records/`'ta 10 kayıt (4 fix, 6 decision) |
 | Site | **https://forgeprint.github.io/forgelore/** — İngilizce ve Türkçe, ajanlar için ayrı sayfa ve `llms.txt` |
 
 Yayım zinciri elle müdahale istemiyor: etiket → `release.yml` derler, attest
@@ -3532,3 +3532,93 @@ doğrulandı.
 Korpusa ilk kez bir döküm girdi (19,8 KB). Buradan sonra `drift-payloads.sh`'ın
 onu da karşılaştırması gerekir — şu an yalnızca `*.json` okuyor, yani dökümün
 şekli değişse kimse görmez. Faz 10 adım 3'ün ya da Faz 9'un işi.
+
+## 2026-10-06 — deneme haftası, 1. günün turu
+
+Günlük akış ilk kez koşturuldu. Protokolün istediği dört satır (promote
+edilen, çıkan ipucu, yanlış ipucu, engel olan) `~/Documents/Projects/
+forgelore-trial.md`'de tutuluyor — `docs/team-trial.md` günlük logun depo
+**dışında** kalmasını istiyor, yoksa diff'in parçası olur.
+
+Günün sayıları: 8 arama, **0 ipucu**, 0 bayt enjekte, hook gecikmesi p50
+8 ms / p95 9 ms, iki oturum ve ikisi de `treatment`. Promote edilen hafıza
+yok.
+
+### Haftayı yanlış ikili ölçüyormuş
+
+PATH'teki `forgelore` **`v0.1.7-2-g7420af2-dirty`** çıktı: sabah 06:22'de
+kirli bir ağaçtan derlenmiş bir geliştirme ikilisi. Yani deneme, yayımladığımız
+şeyi değil elde kalmış bir ara derlemeyi ölçüyordu — içinde ADR-0025
+matcher'ları, inferred-miss düzeltmesi, hook bütçesi düzeltmesi ve Cursor
+eşlemesi yoktu. `doctor`'ın Cursor'ı hiç listelememesinin sebebi de buydu:
+eksik olan eşleme değil, ikiliydi.
+
+`./scripts/install.sh` ile v0.1.10 kuruldu, checksum doğrulandı,
+`gh attestation verify` sessiz geçti. `doctor` artık beş ajanı da görüyor.
+
+Bunun dersi protokole ait: **gün sıfır adımı "hangi ikili koşuyor" diye
+sormuyor.** Hook'ların ateşlendiğini kanıtlıyor ama hangi sürümün ateşlediğini
+sormuyor, ve bir hafta boyunca ölçülen şeyin yayımlanan şey olmaması tam da
+bu boşluktan geçiyor.
+
+### Sürüklenme: şekil aynı
+
+Paralel oturum 2.1.291 korpusunu zaten yakalamıştı, o yüzden ikinci bir
+`claude` yakalaması başlatılmadı; `drift-payloads.sh`'ın karşılaştırma yarısı
+eldeki iki korpusa uygulandı. **Dört olayın dördü de birebir aynı**, kaybolan
+ya da eklenen alan yok.
+
+`doctor` yine de "verified against 2.1.290, you have 2.1.291" diyor ve bu
+doğru: kaynaktaki eşleme 2.1.291'e çekildi, ama kurulu v0.1.10 ikilisi hâlâ
+2.1.290'ı gömülü taşıyor. Bir sonraki sürümde kapanır.
+
+### Bekleyen aday düşürüldü
+
+`9568df536005f3f1` — `--- FAIL: TestSuccessIsNotMistakenForFailure`.
+Matcher'lar genişletilince **bilerek** yeniden yazılan testti. Parmak izi
+testin *adına* anahtarlanıyor: kaydetseydim o test bambaşka bir sebeple
+patladığında "geçen sefer şuydu" diyen bir ipucu çıkardı. Bir test adı neyin
+bozulduğunu söyler, nedenini değil.
+
+### Maliyet/oturum artık ölçülüyor
+
+Status line `.claude/settings.local.json`'a bağlandı (gitignore'lu, depoya
+girmez). Bunu kurarken `usage --help-wiring`'in önerdiği komutun
+**çalışmadığı** görüldü — aşağıda.
+
+### İki kusur, ikisi de kullanmaktan çıktı
+
+1. **`usage --help-wiring` çalışmayan bir komut öneriyordu.**
+   `tee >(forgelore usage >/dev/null) | …` — process substitution bir
+   bash'çilik; `/bin/sh` buna ``syntax error near unexpected token `('``
+   diyor ve status line forgelore'a varmadan ölüyor. Yani yardımı okuyup
+   yapıştıran biri hiçbir şey ölçmez ve nedenini söyleyen bir şey de görmez.
+   Yerine `in=$(cat); printf '%s' "$in" | forgelore usage …` kondu, ve test
+   artık yardımın bastığı komutu ayıklayıp `sh -n`'e veriyor: iddia "bu komut
+   çalışır" olduğuna göre testin de o olması gerekiyordu.
+2. **`review --drop` hiçbir şey yazdırmıyordu**, `--accept` yeni kaydın
+   id'sini basarken. Olup olmadığını anlamanın tek yolu `review`'u tekrar
+   çalıştırmaktı. Artık ne düştüğünü ve kaç tane kaldığını söylüyor.
+
+Yan etki: yardım metnine kabuk `printf '%s'` girince `go vet`, `Fprintln`
+çağrısındaki `%s`'i biçim direktifi sanıyor. `Fprintf(w, "%s\n", help)` ile
+geçildi ve nedeni koda yazıldı, yoksa biri "sadeleştirip" geri kırar.
+
+Kayıt: `01M48C2AKQ4A4AKG5ER61M1BN2` (decision, team) — status line komutu
+`/bin/sh`'de parse olmalı.
+
+### Açık soru: kabuk sözdizimi hatası parmak izi almıyor
+
+``/bin/sh: -c: line 0: syntax error near unexpected token `('`` için
+`recall` "no error recognised" diyor. Ajan işinde en sık patlayan
+şeylerden biri bu.
+`syntax error near` / `parse error near` gibi dar bir kalıp eklenmeli mi,
+yoksa ADR-0025'in çizdiği sınır ("düz cümleyi eşleştirmek her cümleyi
+eşleştirmek olur") burada da mı geçerli? **Karar `[SEN]`**, dokunulmadı.
+
+### Küçük ama tekrar edecek
+
+Tanı için elle çalıştırılan `recall` deftere **oturumsuz** bir satır düşürüyor:
+harcamaya sayılıyor, oturum karşılaştırmalarından düşüyor. Beklenen davranış,
+ama hafta boyunca günün sayısını şişirecek. Status line'ı denerken deftere
+giren iki sentetik `usage` satırı da silindi; dosyada başka bir şey yoktu.
