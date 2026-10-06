@@ -25,6 +25,24 @@ func TestNormalizeCommand(t *testing.T) {
 		},
 		{"npx --yes -p typescript tsc", "tsc", "the wrapper is stepped over, with its flag's value"},
 		{"npx tsc --noEmit", "tsc", "a wrapper with no flags"},
+
+		// A package manager is the tool. "npm run build" names a script,
+		// and whatever that script invokes is nowhere on the command
+		// line, so stepping over npm used to fingerprint under "run" —
+		// splitting one error across every script that can provoke it,
+		// which is the thing this function exists to prevent.
+		{"npm run build", "npm", "a script name is not a tool"},
+		{"npm test", "npm", "neither is a subcommand"},
+		{"npm ci", "npm", "nor one of npm's own operations"},
+		{"yarn build", "yarn", "the same for yarn"},
+		{"pnpm -r build", "pnpm", "flags before the subcommand change nothing"},
+		{"npm", "npm", "on its own"},
+
+		// Except where the subcommand does name a binary.
+		{"pnpm exec tsc --noEmit", "tsc", "exec hands over"},
+		{"yarn dlx tsc", "tsc", "so does dlx"},
+		{"bun x tsc", "tsc", "and bun's x"},
+		{"npm exec -- tsc", "tsc", "the -- separator is dropped as a flag"},
 		{"/usr/local/go/bin/go test ./...", "go", "the install location is not part of the error"},
 		{`C:\Go\bin\go.exe build ./...`, "go", "the same tool on Windows"},
 		{"", "", "nothing to normalise"},
@@ -39,7 +57,7 @@ func TestNormalizeCommand(t *testing.T) {
 		{"ls -a && go build ./... 2>&1 | head -40", "go", "the real miss that found this"},
 		{"npm run build && go build ./...", "go", "the last link, not the first"},
 		{"a || b && c", "c", "whichever separator came last"},
-		{"cd web ; npm test", "test", "a semicolon chains too"},
+		{"cd web ; npm test", "npm", "a semicolon chains too"},
 		{"go build ./... &&", "go", "a trailing separator chains to nothing"},
 		{
 			`find . -name '*.tmp' -exec rm {} \;`,

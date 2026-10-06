@@ -2,23 +2,42 @@ package fingerprint
 
 import "strings"
 
-// runners are wrappers that run some other tool. The diagnostic belongs to the
-// tool, not to the wrapper, so the wrapper is stepped over: "npx --yes -p
-// typescript tsc" is tsc.
-var runners = map[string]bool{
+// executors do nothing but run a binary their own command line names. The
+// diagnostic belongs to that binary, so the executor is stepped over:
+// "npx --yes -p typescript tsc" is tsc.
+var executors = map[string]bool{
 	"npx":  true,
 	"bunx": true,
-	"pnpm": true,
-	"yarn": true,
-	"npm":  true,
 }
 
-// runnerFlagsWithValue are the wrapper flags that consume the token after
+// packageManagers run their own subcommands. "npm run build" names a script,
+// not a tool, and what that script invokes is not on the command line at
+// all — so the package manager is the tool, exactly as "go" is the tool for
+// "go build" and "go test". Treating the subcommand as the tool used to
+// fingerprint a build failure under "run" and a test failure under "test",
+// splitting one error across the ways it can be provoked, which is what this
+// whole function exists to prevent.
+var packageManagers = map[string]bool{
+	"npm":  true,
+	"yarn": true,
+	"pnpm": true,
+	"bun":  true,
+}
+
+// handsOver are the package manager subcommands that do name a binary, and
+// so behave like an executor.
+var handsOver = map[string]bool{
+	"exec": true,
+	"dlx":  true,
+	"x":    true,
+}
+
+// wrapperFlagsWithValue are the wrapper flags that consume the token after
 // them, which would otherwise be mistaken for the tool. The list is short on
 // purpose and covers what the corpus uses; an unlisted flag that takes a value
 // makes NormalizeCommand pick the wrong tool, which splits a fingerprint
 // rather than merging two, so the failure is a miss and not a wrong hint.
-var runnerFlagsWithValue = map[string]bool{
+var wrapperFlagsWithValue = map[string]bool{
 	"-p":        true,
 	"--package": true,
 	"-c":        true,
@@ -42,15 +61,22 @@ func NormalizeCommand(command string) string {
 		words = words[1:]
 	}
 
-	// Step over a wrapper and its own flags.
-	if len(words) > 0 && runners[toolName(words[0])] {
-		words = words[1:]
-		for len(words) > 0 && strings.HasPrefix(words[0], "-") {
-			takesValue := runnerFlagsWithValue[words[0]]
-			words = words[1:]
-			if takesValue && len(words) > 0 {
-				words = words[1:]
-			}
+	if len(words) == 0 {
+		return ""
+	}
+
+	switch head := toolName(words[0]); {
+	case executors[head]:
+		words = skipWrapper(words[1:])
+
+	case packageManagers[head]:
+		// Only a subcommand that hands over to a named binary is stepped
+		// through. Everything else leaves the package manager as the tool.
+		rest := skipWrapper(words[1:])
+		if len(rest) > 0 && handsOver[rest[0]] {
+			words = skipWrapper(rest[1:])
+		} else {
+			return head
 		}
 	}
 
@@ -99,6 +125,19 @@ func lastInChain(command string) string {
 		}
 	}
 	return last
+}
+
+// skipWrapper drops the leading flags of a wrapper, and the values of the
+// flags known to take one.
+func skipWrapper(words []string) []string {
+	for len(words) > 0 && strings.HasPrefix(words[0], "-") {
+		takesValue := wrapperFlagsWithValue[words[0]]
+		words = words[1:]
+		if takesValue && len(words) > 0 {
+			words = words[1:]
+		}
+	}
+	return words
 }
 
 // isAssignment reports whether a word is a VAR=value environment assignment

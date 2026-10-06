@@ -2360,6 +2360,44 @@ hiçbir şeyle eşleşmeyen zincirli komutlarınki değişiyor.
 typescript tsc` için doğru, `npm run build` için değil. Bugünkü işin kapsamı
 dışında; ayrı bir karar.
 
+---
+
+## 2026-10-06 — npm da düzeltildi: paket yöneticisi aracın kendisidir
+
+Önceki notta "dokunulmadı" diye bıraktığım yan bulgu kapatıldı.
+
+`runners` listesi `npx`, `bunx`, `pnpm`, `yarn`, `npm`'i aynı kefeye
+koyuyordu: hepsini atla, sonraki kelimeyi araç say. `npx -p typescript tsc`
+için doğru — npx gerçekten komut satırında adı geçen ikiliyi çalıştırıyor.
+Ama `npm run build` → `run`, `npm test` → `test`, `npm ci` → `ci`.
+
+`run` bir araç değil. Ve script'in ne çağırdığı komut satırında **hiç
+yazmıyor**. Dolayısıyla bir build hatası `run` altında, aynı hatayı veren
+bir test `test` altında parmak izleniyordu — yani tek bir hata, onu
+tetikleyen her yola bölünüyordu. Fonksiyonun var oluş sebebi tam olarak bunu
+engellemek: "fiil düşer, çünkü aynı derleme hatası `go build`, `go test`,
+`go run` ve `go vet` üzerinden gelir."
+
+### Ayrım: çalıştırıcı mı, paket yöneticisi mi
+
+- **`executors`** (`npx`, `bunx`): atlanır, adı geçen ikili araçtır.
+- **`packageManagers`** (`npm`, `yarn`, `pnpm`, `bun`): **kendisi araçtır**.
+  `npm run build` → `npm`, tıpkı `go build` → `go` gibi.
+- **`handsOver`** (`exec`, `dlx`, `x`): paket yöneticisinin ikili adı veren
+  alt komutları; bunlarda çalıştırıcı gibi davranılır. `pnpm exec tsc` →
+  `tsc`, `yarn dlx tsc` → `tsc`, `bun x tsc` → `tsc`.
+
+### Bedeli
+
+`yarn tsc` artık `yarn` veriyor, eskiden `tsc` veriyordu. Yarn 1 doğrudan
+ikili çalıştırmaya izin veriyor, ama `yarn build` (script) ile `yarn tsc`
+(ikili) komut satırından ayırt edilemiyor — `package.json`'a bakmak
+gerekirdi. İkisinden birini seçmek zorundaydık; script biçimi çok daha yaygın.
+Zararı sınırlı: hata mesajı farklı olduğu sürece parmak izleri yine ayrı.
+
+Korpus etkilenmedi — içinde yalnızca `npx --yes -p typescript tsc` var ve o
+hâlâ `tsc`.
+
 ### Kalanlar — hepsi `[SEN]`
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
