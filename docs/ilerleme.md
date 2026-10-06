@@ -3169,6 +3169,23 @@ değil ölçümle bulundu:
    sonraki `main` push'u legacy derlemeyi tetikleyip üzerine yazdı.
    Kullanıcı `build_type=workflow`'a çevirince düzeldi.
 
+### Canlıda doğrulandı, iki dilde
+
+Yedi yolun hepsi 200 (`/`, `/tr/`, `/agents.html`, `/tr/agents.html`,
+`/llms.txt`, `/demo.svg`, `/style.css`), Türkçe sayfadaki sekiz göreli
+bağlantının hepsi çözülüyor, ve animasyon canlıda oynuyor.
+
+### Türkçe sayfada bir erişilebilirlik kusuru
+
+Gömülü SVG'nin `aria-label`, `<title>` ve `<desc>` metinleri İngilizce
+kalmıştı. Yani sayfanın **görsel olan tek parçası**, onu göremeyen birine
+yanlış dilde anlatılıyordu — iki `<title>` yan yana durduğu için fark
+edildi.
+
+Üreteç artık `tr/`'ye gömerken üç metni çeviriyor. Üçü de kaynakta birer
+kez adlandırıldı, böylece çeviri aslından ayrışamaz. Bağımsız `demo.svg`
+dosyası İngilizce kalıyor, çünkü o dosyanın dili yok.
+
 ### Kalanlar — hepsi `[SEN]`
 
 - Deneme haftası sürüyor (2026-10-06 başladı, tek kişilik, bu depoda).
