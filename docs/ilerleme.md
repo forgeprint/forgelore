@@ -3186,6 +3186,36 @@ edildi.
 kez adlandırıldı, böylece çeviri aslından ayrışamaz. Bağımsız `demo.svg`
 dosyası İngilizce kalıyor, çünkü o dosyanın dili yok.
 
+### README ve depo ayarı
+
+README'deki üç site bağlantısı da canlı. Kontrol ederken yanlarındaki iki
+şey düzeltildi:
+
+- **Türkçe sayfaya doğrudan bağlantı yoktu.** Metin "İngilizce ve Türkçe"
+  diyordu ama yalnızca köke bağlıyordu; Türkçe okuyan birinin dil
+  değiştiriciyi bulması gerekiyordu.
+- **Durum bloğu bayattı:** on bir sürüm sonra hâlâ "`v0.1.0` is published"
+  diyor, ve dört ajan doğrulanmışken yalnızca Claude Code hook'larını
+  sayıyordu. Sürümü güncellemek yerine **kaldırdım**: düzyazıdaki bir
+  numara her seferinde bayatlıyor, üstelik hemen üstünde canlı bir release
+  rozeti var. Bayatlamayacak biçimde yazmak, güncel yazmaktan iyi.
+
+Deponun `homepage` alanı da dolduruldu, artık GitHub depo sayfasında site
+bağlantısı görünüyor.
+
+### Yan gözlem: sır taraması kapalı
+
+Depo ayarlarına bakarken görüldü: `secret_scanning` ve
+`secret_scanning_push_protection` **kapalı**.
+
+`SECURITY.md`'nin tehdit modelinde birinci madde "sırların diske ya da bir
+git uzağına ulaşması" ve buna karşı `scripts/gitleaks.sh` ile
+`forgelore check` var — ama ikisi de bizim tarafımızda çalışıyor. GitHub'ın
+push protection'ı sunucu tarafında: biz hiçbir şey çalıştırmasak bile
+yanlışlıkla push edilen bir anahtarı durdurur. Halka açık depoda ücretsiz.
+
+Açılmadı; güvenlik ayarı ve `[SEN]`.
+
 ### Kalanlar — hepsi `[SEN]`
 
 - Deneme haftası sürüyor (2026-10-06 başladı, tek kişilik, bu depoda).
