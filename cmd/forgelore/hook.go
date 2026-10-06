@@ -332,11 +332,18 @@ func cmdReview(e env, args []string) error {
 	case *accept != "":
 		return acceptCandidate(e, s, pending, *accept, *title)
 	case *drop != "":
-		_, kept, err := candidate.Take(pending, *drop)
+		dropped, kept, err := candidate.Take(pending, *drop)
 		if err != nil {
 			return err
 		}
-		return candidate.Write(s.Root(), kept)
+		if err := candidate.Write(s.Root(), kept); err != nil {
+			return err
+		}
+		// Say so. Accepting prints the new record's id, and dropping used
+		// to print nothing at all, which left running review again as the
+		// only way to find out whether it had worked.
+		fmt.Fprintf(e.stdout, "%s  dropped, %d still waiting\n", dropped.Fingerprint, len(kept))
+		return nil
 	}
 
 	if *asJSON {

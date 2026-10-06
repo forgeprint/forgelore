@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -222,11 +225,51 @@ func TestUsageWithoutJSONForOtherAgents(t *testing.T) {
 	}
 }
 
+// TestUsageWiringHelp: the command the help prints has to be a command the
+// shell a status line runs under will accept.
+//
+// It did not used to be. Until 2026-10-06 the example piped through
+// tee >(forgelore usage >/dev/null), and process substitution is a bashism:
+// under /bin/sh it is a syntax error, so the status line died before
+// forgelore was ever reached and nothing was measured. Anyone who copied the
+// help got silence. sh -n parses without running, which is exactly the claim.
 func TestUsageWiringHelp(t *testing.T) {
 	out := mustCLI(t, newProject(t), "", "usage", "--help-wiring")
 	if !strings.Contains(out, "statusLine") {
 		t.Errorf("the wiring help does not mention the status line:\n%s", out)
 	}
+
+	command := wiringCommand(t, out)
+	if runtime.GOOS == "windows" {
+		t.Skip("no /bin/sh to parse it with")
+	}
+	cmd := exec.Command("/bin/sh", "-n")
+	cmd.Stdin = strings.NewReader(command)
+	if combined, err := cmd.CombinedOutput(); err != nil {
+		t.Errorf("/bin/sh will not parse the wiring the help prints:\n%s\n%s\n%v",
+			command, combined, err)
+	}
+}
+
+// wiringCommand pulls the shell command out of the JSON snippet the help
+// prints. The snippet is an example rather than a document, so it is read a
+// line at a time; strconv.Unquote takes the JSON escaping off, which for this
+// string is only the escaped double quotes.
+func wiringCommand(t *testing.T, help string) string {
+	t.Helper()
+	for _, line := range strings.Split(help, "\n") {
+		_, value, ok := strings.Cut(strings.TrimSpace(line), `"command":`)
+		if !ok {
+			continue
+		}
+		command, err := strconv.Unquote(strings.TrimSpace(value))
+		if err != nil {
+			t.Fatalf("the wiring example is not a quoted string: %v\n%s", err, line)
+		}
+		return command
+	}
+	t.Fatalf("the wiring help prints no command:\n%s", help)
+	return ""
 }
 
 // TestReportOnSyntheticData is the acceptance criterion's first half: given a

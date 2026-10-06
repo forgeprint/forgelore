@@ -39,10 +39,16 @@ read the same JSON, in .claude/settings.json:
 
     "statusLine": {
       "type": "command",
-      "command": "tee >(forgelore usage >/dev/null) | your-status-script"
+      "command": "in=$(cat); printf '%s' \"$in\" | forgelore usage >/dev/null 2>&1; printf '%s' \"$in\" | your-status-script"
     }
 
-Nothing is printed on success, so it composes in a pipe.
+Reading stdin into a variable, rather than piping it through tee and a
+process substitution, is deliberate: >(…) is a bashism, and a status line
+run by /bin/sh dies on it with a syntax error before anything is measured.
+
+Nothing is printed on success, so it composes in a pipe. The example still
+silences it and ignores its exit status, so that a store it cannot find
+cannot take your status line down with it.
 
 For an agent that reports usage some other way, pass the figures directly
 with --session and --cost-usd and leave stdin empty.`
@@ -60,7 +66,10 @@ func cmdUsage(e env, args []string) error {
 		return err
 	}
 	if *explain {
-		_, err := fmt.Fprintln(e.stdout, usageHelp)
+		// Fprintf with an explicit verb, not Fprintln: the help contains a
+		// shell printf and go vet reads the %s in it as a formatting
+		// directive in a print call.
+		_, err := fmt.Fprintf(e.stdout, "%s\n", usageHelp)
 		return err
 	}
 

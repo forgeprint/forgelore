@@ -332,7 +332,12 @@ func TestCandidateCanBeDropped(t *testing.T) {
 
 	out := mustCLI(t, dir, "", "review")
 	sum := strings.Fields(out)[0]
-	mustCLI(t, dir, "", "review", "--drop", sum)
+	// Dropping says so. It is the only report a person gets that the
+	// candidate is gone, and it was silent until 2026-10-06.
+	if out := mustCLI(t, dir, "", "review", "--drop", sum); !strings.Contains(out, sum) ||
+		!strings.Contains(out, "dropped") {
+		t.Errorf("dropping said nothing useful:\n%s", out)
+	}
 	if out := mustCLI(t, dir, "", "review"); !strings.Contains(out, "nothing waiting") {
 		t.Errorf("the candidate was not dropped:\n%s", out)
 	}
