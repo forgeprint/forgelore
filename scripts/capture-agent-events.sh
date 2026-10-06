@@ -50,10 +50,17 @@ codex-cli)
 		done
 		printf '{"hooks":{%s}}' "${hooks:1}"
 	}
-	# Hooks are off by default and project config needs trust, so both are
-	# forced here rather than left to whatever the machine is set to.
+	# Three things have to be forced, and only the first two were in the
+	# documentation this profile was written from.
+	#
+	# Hooks are off by default; project configuration needs trust; and
+	# `codex exec` sandboxes model-run commands, so the build the capture
+	# depends on may never execute. The sandbox flag is reasoned from the
+	# CLI's own --help and is **unverified** until a capture runs: if the
+	# session produces no tool event, that is the first thing to look at.
 	run_session() {
 		"$bin" exec --dangerously-bypass-hook-trust \
+			--dangerously-bypass-approvals-and-sandbox \
 			-c features.hooks=true "$1"
 	}
 	;;

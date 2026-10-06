@@ -144,9 +144,25 @@ the user stopped — but Codex documents `Interrupt` as an *event*, not a
 field, so the skip may never fire and a cancelled command may be remembered
 as a failure.
 
-Three attempts to sign the CLI in failed on 2026-10-05 — two browser flows
-and a device code — so nothing here has been checked. Assume it is wrong
+Signing in succeeded on 2026-10-06 and a session ran, but **no hook payload
+was produced**, so nothing here is checked against one. Assume it is wrong
 until a payload says otherwise.
+
+What that attempt did settle, by reading the 0.160.0 binary rather than any
+documentation — `openai/codex` has no hooks page in its `docs/`:
+
+- the event names are right: `PreToolUse`, `PermissionRequest`,
+  `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `SessionEnd`,
+  `UserPromptSubmit`, `SubagentStart`, `SubagentStop`, `Stop`, `Interrupt`;
+- the payload is Claude-shaped: `session_id`, `transcript_path`, `cwd`,
+  `hook_event_name`, `permission_mode`, `turn_id`, `model`, `reason`,
+  `tool_input`, `stop_hook_active`, replying through `hookSpecificOutput`;
+- the `hooks` feature flag is on by default, so forcing it is unnecessary.
+
+What is still unknown is where the configuration goes and in what shape.
+`$CODEX_HOME/hooks.json` with top-level event keys fires nothing, and a
+`{"hooks": {…}}` wrapper made the session hang until it was killed — which
+suggests the file is read and something in it blocks.
 
 ## Copilot CLI
 

@@ -2804,6 +2804,51 @@ Son ikisi aynı dersin iki yüzü: **önce ölç, sonra söyle.** Her ikisinde d
 ölçüm kendi önerimi çürüttü, ve ikisinde de bunu söylemek düzeltmekten daha
 değerliydi.
 
+### Codex CLI denendi: doğrulanamadı, ama varsayımlar ikiliden sınandı
+
+Giriş yapıldı (ChatGPT; ilk 401'ler girişin hemen ardından geçiciydi),
+oturum çalışıyor ve model `go build ./...` ile `go version`'ı gerçekten
+koşuyor — yani yakalama promptu iyi. **Ama tek bir payload düşmedi.**
+
+Doküman yardım etmedi: `openai/codex` deposunun `docs/` dizininde **hooks
+sayfası yok**. Yani bu eşleme en baştan zayıf temelliydi, ve bunu artık
+biliyoruz. Kalan tek güvenilir kaynak ikilinin kendisi oldu.
+
+**İkiliden doğrulananlar** (`strings`, 0.160.0):
+
+- Olay adları: `PreToolUse PermissionRequest PostToolUse PreCompact
+  PostCompact SessionStart SessionEnd UserPromptSubmit SubagentStart
+  SubagentStop Stop Interrupt`. Eşlemedeki üç ad **doğru**.
+- Payload alanları: `session_id`, `transcript_path`, `cwd`,
+  `hook_event_name`, `permission_mode`, `turn_id`, `model`, `reason`,
+  `tool_input`, `stop_hook_active`. Yanıt `hookSpecificOutput` /
+  `additionalContext`. Yani biçim Claude Code ailesinden.
+- `hooks` özellik bayrağı 0.160.0'da **varsayılan açık** — `-c
+  features.hooks=true` gereksizmiş.
+- Yapılandırma `hooks.json`, ve yapı `matcher` + `hooks` gruplarına
+  benziyor (`HookHandlerConfig`, `HookStateToml`, `trusted_hash`).
+
+**Çözülemeyen:** dosyanın yeri ve tam biçimi. `$CODEX_HOME/hooks.json` ile
+üst düzey olay anahtarları hiçbir şey tetiklemedi. Sarmalanmış
+(`{"hooks": {...}}`) biçimi denendiğinde oturum **15 dakika askıda kaldı**
+ve öldürüldü — bu da Codex'in dosyayı okuduğunu ve bir şeyin (muhtemelen
+hook trust, bypass bayrağına rağmen) bloke ettiğini düşündürüyor.
+
+**Yakalama profiline giren iki kalıcı düzeltme:**
+
+- `codex exec` model komutlarını varsayılan olarak kum havuzunda
+  çalıştırıyor, bu yüzden `--dangerously-bypass-approvals-and-sandbox`
+  eklendi.
+- Geçici bir `CODEX_HOME` + gerçek `auth.json`'a **sembolik bağ** oturumu
+  açık tutuyor. Kimlik kopyalanmıyor, kullanıcının yapılandırmasına
+  dokunulmuyor — Copilot'taki `COPILOT_HOME` kalıbının Codex karşılığı.
+
+`verified_against` boş kaldı, tablo "unverified" diyor. Her deneme bir model
+çağrısı yakıyor; şekli tahmin ederek devam etmek pahalı. Ucuz yol TUI'nin
+hook ekranı: ikilide "No hooks installed for this event", "New hook — review
+required", "Trust" dizgeleri var, yani etkileşimli arayüz dosyanın okunup
+okunmadığını model çağırmadan gösteriyor.
+
 ### Kapanmayan bir risk
 
 `output_has_diagnostic` bir tahmindir. Payload'da "bu hata mı, hatadan
