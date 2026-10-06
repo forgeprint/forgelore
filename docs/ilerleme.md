@@ -2398,6 +2398,39 @@ Zararı sınırlı: hata mesajı farklı olduğu sürece parmak izleri yine ayr�
 Korpus etkilenmedi — içinde yalnızca `npx --yes -p typescript tsc` var ve o
 hâlâ `tsc`.
 
+---
+
+## 2026-10-06 — v0.1.7
+
+https://github.com/forgeprint/forgelore/releases/tag/v0.1.7
+
+İki sessiz ıskalama düzeltmesi (zincirli komut, paket yöneticisi), Claude
+Code 2.1.290 doğrulaması ve Gemini CLI desteği.
+
+### Zincir ilk kez uçtan uca kendiliğinden işledi
+
+Etiket itildi → `release.yml` derledi, attest etti, taslak çıkardı. Taslak
+yayımlandı → `npm.yml` tetiklendi, artefaktları release'ten indirdi,
+paketledi, `PUBLISH_ORDER` sırasıyla yedi paketi yayımladı. **Elle tek bir
+komut yok, tek bir token yok.** v0.1.6'da kurulmuştu, burada ikinci kez ve
+sorunsuz çalıştı.
+
+### Yayımlanan paketle doğrulandı
+
+- Yedi paket de `0.1.7`, `latest` 0.1.7.
+- `npm audit signatures` → "2 packages have verified attestations".
+- Registry'den kurulan ikili: `forgelore v0.1.7 darwin/arm64 go1.26.8`.
+- **İki düzeltme yayımlanan ikilide çalışıyor:**
+  `ls -a && go build ./... | head -40` → araç `go`, eşleşme 1 (eskiden
+  `ls`, eşleşme 0); `npm run build` → araç `npm` (eskiden `run`).
+
+### Notlarda açıkça söylenen bir şey
+
+Mevcut kayıtların etkilenip etkilenmediği sorusu release notunda ayrı bir
+başlık: düz komutla kaydedilmiş hiçbir parmak izi değişmiyor, yalnızca
+bugüne kadar hiçbir şeyle eşleşmeyenler değişiyor. Zincirli ya da `npm run`
+ile kaydedilmiş bir fix varsa `forgelore dedupe` çifti bulur.
+
 ### Kalanlar — hepsi `[SEN]`
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
