@@ -3,6 +3,28 @@
 Oturumlar arası not defteri (plan, çalışma kuralı 9). Yeni bir oturuma
 başlarken önce bunu oku, sonra `docs/plan.md`'yi.
 
+Dosya kronolojik ve uzun. **Nerede kaldığımız aşağıdaki özette**; gerekçeler
+ve nasıl bulunduğu tarihli bölümlerde, en yenisi en sonda.
+
+## Nerede kaldık — 2026-10-06
+
+| | |
+|---|---|
+| Son sürüm | **v0.1.9**, GitHub release attested, npm'de yedi paket, `latest` 0.1.9 |
+| Kayıt şeması | 1 |
+| Eşleme formatı | 2 (`claude-code` 2 kullanıyor; diğerleri 1) |
+| Ajanlar | Claude Code 2.1.290 **A** · Copilot CLI 1.0.91 **B** · Gemini CLI 0.62.0 **B** · Codex CLI doğrulanmamış · Cursor başlanmadı |
+| Hata korpusu | 31 aile |
+| Ajan payload'ları | 16, dört ajan sürümünden |
+| Bu deponun kendi hafızası | `.forgelore/records/`'ta 9 kayıt (4 fix, 5 decision) |
+
+Yayım zinciri elle müdahale istemiyor: etiket → `release.yml` derler, attest
+eder, **taslak** çıkarır; taslağı bir insan yayımlayınca `npm.yml` paketleri
+release'ten indirip trusted publishing ile yayımlar.
+
+**Açık işler — hepsi `[SEN]`:** iki kişilik bir haftalık ekip denemesi
+(`docs/team-trial.md`), Codex CLI doğrulaması, Cursor.
+
 ---
 
 ## Faz 0 — Depo ve yönetişim
@@ -2723,6 +2745,72 @@ dizüstünün bulamayacağı bir şeyi buldu.
 
 ### Kalanlar — hepsi `[SEN]`
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
+
+---
+
+## 2026-10-06 — günün özeti
+
+51 commit, **on sürüm** (v0.1.0 → v0.1.9), yedi yeni ADR (0019–0025).
+Korpus 29 → 31 aile, ajan sayısı 3 → 5, ve proje kendi ürününü kullanmaya
+başladı.
+
+### Hataların tek bir ailesi vardı
+
+On sürümün dokuzu bir düzeltme taşıdı ve **hiçbirinde kod yanlış
+çalışmıyordu**. Hepsinde eksik olan, kodun hiç görmediği bir girdiydi:
+
+| sürüm | görmediğimiz girdi |
+|---|---|
+| v0.1.1 | `go vet`'in çıktı biçimi |
+| v0.1.3 | `head`'e borulanmış komutun sıfırla çıkması |
+| v0.1.5 | `dist/`'in araya giren bir `ci.sh` ile yeniden yazılması |
+| v0.1.7 | ajanın komutu `cd x &&` ile zincirlemesi; `npm run build`'in alt komutu |
+| v0.1.8 | CLI'ların düzyazı hataları |
+| v0.1.9 | bütçesi indeksi açarken dolan bir hook |
+
+Ortak nokta: hiçbiri testle bulunmadı. **Testler yazdığımız şeyin
+çalıştığını kanıtlıyor; yazmadığımız şeyin eksik olduğunu başka şeyler
+gösteriyor** — ve bugün dördü de ayrı ayrı iş gördü:
+
+1. **Anlatmak.** README demosunu yazarken `go vet` tanınmadığı görüldü.
+2. **Kullanmak.** Eklentiyi marketplace'ten kurup gerçek bir oturumda
+   çalıştırmak borulanmış komutu ortaya çıkardı.
+3. **Yayımlamak.** npm'e yanlış bayt göndermek `dist/`'in paylaşılan
+   değişken durum olduğunu gösterdi.
+4. **Kendi ürününü kullanmak.** Forgelore kendi deposuna kurulunca o günün
+   hatalarının hiçbirini kaydedemedi.
+
+### Dört kez dokümana güvenip dört kez yanıldık
+
+Bugün beşinci ve altıncı ajan turunda da aynısı oldu: Gemini'nin belgelediği
+`error` alanı başarısız komutta yok (çıkış kodu `llmContent` metninde), ve
+folder trust "varsayılan kapalı" diye yazılmışken kodda açık. Kural —
+**ajanın hook'u hakkında ezberden ya da yalnızca dokümandan yazma** — altı
+ajanda altı kez karşılığını verdi.
+
+### Benim hatalarım
+
+Saklanacak bir şey değil, bir sonraki oturum için uyarı:
+
+- `gofmt -w .` ile `vendor/`'u yeniden biçimlendirmek (CI yakalayamıyor).
+- Marketplace PR'ını dalı base'e sıfırlayarak kapattırmak.
+- npm'e geliştirme damgalı ikili göndermek — araya kendi `ci.sh`
+  çalıştırmam girdiği için. v0.1.5 bunu düzeltmek için çıktı.
+- "`PostToolUseFailure` artık ateşlenmiyor" diye bir regresyon ilan etmek;
+  model komutu borulamıştı.
+- Komut şekline göre daraltma önermek; ölçünce 12/12 işe yaramadığı çıktı.
+
+Son ikisi aynı dersin iki yüzü: **önce ölç, sonra söyle.** Her ikisinde de
+ölçüm kendi önerimi çürüttü, ve ikisinde de bunu söylemek düzeltmekten daha
+değerliydi.
+
+### Kapanmayan bir risk
+
+`output_has_diagnostic` bir tahmindir. Payload'da "bu hata mı, hatadan
+bahseden çıktı mı" ayrımını yapacak sinyal yok. Bedeli sıfırlandı (eşleşmeyen
+tahmin iz bırakmıyor) ama kapatılmadı: eşleşen bir tahmin hâlâ hiçbir şeyin
+bozulmadığı bir yere tek satır sokabilir. ADR-0022 bunu ölçümle birlikte
+yazıyor.
 - Codex CLI doğrulaması, erişim olduğunda:
   `./scripts/capture-agent-events.sh codex-cli`, sonra eşlemeyi düzelt,
   `verified_against`'i doldur, `docs/compatibility.md`'yi güncelle.
