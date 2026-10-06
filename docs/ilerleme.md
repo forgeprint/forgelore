@@ -3488,3 +3488,31 @@ kaçmasın.
 
 Faz 10 adım 10'un "sorulacaklar" listesi bu ikisi kadar kısaldı; kalan iki soru
 keşif aracı sayımı ve `work` bütçesi.
+
+### Döküm yakalaması: filtre, ve ilk filtrenin yanlış kuralı
+
+Yakalama koştu (`2.1.291`): dört payload + 254 KB döküm. Dökümün **%96'sı**
+oturumun işi değil, bu makinenin envanteriydi — `deferred_tools_delta` 83 KB,
+`prompt_snapshot` 64 KB, `skill_listing` 58 KB, `mcp_instructions_delta` 18 KB.
+Hesap adı temizlenmişti, ama hangi MCP sunucularının ve hangi skill'lerin
+kurulu olduğu Apache-2.0 bir depoya girecekti. Çıkarıcı bu satırların hiçbirini
+okumuyor.
+
+**İlk filtre yanlış kuraldı.** 200 karakterden uzun dizeleri kısaltıyordu; 254
+KB yalnızca 87 KB'a indi ve envanter içinden geçti, çünkü 59 skill adı 59 tane
+*kısa* dizedir. `skill_listing.names[]` özel `daktilo` skill'i dahil olduğu
+gibi duruyordu.
+
+Kural değişti: API biçimli olmayan girdilerde **her yaprak gider**. Dizeler
+`"<string>"`, sayılar `0`, listeler ilk elemanına iner; yalnızca okuyanın
+girdinin ne olduğunu anlaması için gereken ayırıcılar kalıyor (`type`,
+`subtype`, `version`). `user` ve `assistant` girdilerine dokunulmuyor — çıkarıcının
+okuduğu ve sözleşme testinin konusu olan katman onlar, ve yakalama oturumunun
+tek prompt'u script'in içinde yazılı olduğu için saklanmaları güvenli.
+
+Ölçülen sonuç: 254 KB → **19,8 KB**; kaybolan ya da eklenen alan yolu yok,
+`user`/`assistant` girdileri bayt bayt aynı, sekiz girdi tipi de hâlâ temsil
+ediliyor, ve `daktilo`/`mcp__`/hesap adı/yol probları sıfır eşleşme veriyor.
+
+Eldeki yakalama yeniden koşulmadan aynı dönüşümden geçirildi (script zaten
+yakalamadan sonra bunu yapıyor), yani model harcanmadı.

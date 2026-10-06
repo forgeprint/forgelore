@@ -235,6 +235,77 @@ for f in "${captured[@]}"; do
 done
 echo "==> wrote ${#captured[@]} payload(s) to $out"
 
+# Most of a transcript is not the session. In one measured capture 96% of the
+# bytes were `attachment` entries holding this machine's own inventory: the
+# tool catalogue, the installed skills, the MCP instructions, the system
+# prompt. None of it is the agent's account of the work, none of it is read by
+# anything (the extractor reads the Messages API shaped entries and nothing
+# else), and all of it would publish the operator's local setup.
+#
+# So those entries keep their shape and lose their content outright. Not by a
+# length threshold: the first attempt trimmed strings over 200 characters and
+# the inventory sailed straight through it, because a list of 59 skill names
+# is 59 short strings. Every leaf goes, lists collapse to one element, and the
+# only values kept are the discriminators a reader needs to know what the
+# entry was — `type`, `subtype`, `version`.
+#
+# `user` and `assistant` entries are left exactly as they arrived. They are
+# what the extractor reads and what a contract test is about, and they are
+# safe to keep only because the session above is scripted: its one prompt is
+# written in this file.
+trim_transcript() {
+	python3 - "$1" <<'TRIM'
+import json, sys
+
+KEEP = {"user", "assistant"}       # the Messages API shaped layer
+DISCRIMINATORS = {"type", "subtype", "version"}
+
+def strip(value, key=None):
+    if key in DISCRIMINATORS and isinstance(value, (str, int, float)):
+        return value
+    if isinstance(value, str):
+        return "<string>"
+    if isinstance(value, bool) or value is None:
+        return value
+    if isinstance(value, (int, float)):
+        return 0
+    if isinstance(value, list):
+        # A list stands for its first element: a field path is what anything
+        # reading this file addresses, never an index.
+        return [strip(value[0])] if value else []
+    if isinstance(value, dict):
+        return {k: strip(v, k) for k, v in value.items()}
+    return value
+
+path = sys.argv[1]
+out, unparsed = [], 0
+with open(path, encoding="utf-8") as f:
+    for line in f:
+        line = line.rstrip("\n")
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            # Kept as it came. Nothing here understands it well enough to
+            # take anything out of it, and dropping it would hide that the
+            # agent wrote something this script cannot read.
+            unparsed += 1
+            out.append(line)
+            continue
+        if isinstance(entry, dict) and entry.get("type") in KEEP:
+            out.append(line)
+            continue
+        out.append(json.dumps(strip(entry), separators=(",", ":"),
+                              ensure_ascii=False))
+
+with open(path, "w", encoding="utf-8") as f:
+    f.write("\n".join(out) + "\n")
+if unparsed:
+    print(f"==> {unparsed} transcript line(s) could not be parsed and were kept whole")
+TRIM
+}
+
 # The session transcript, which is a second surface and a more fragile one.
 # Phase 10's extractor reads it at the next session start (ADR-0026), and no
 # agent documents its format, so the corpus is the only statement of what it
@@ -257,6 +328,7 @@ if [ -n "$transcript" ]; then
 fi
 if [ -n "$transcript" ] && [ -s "$transcript" ]; then
 	scrub "$transcript" > "$out/transcript.jsonl"
+	trim_transcript "$out/transcript.jsonl"
 	echo "==> wrote the transcript ($(du -k "$out/transcript.jsonl" | cut -f1) KB)"
 elif [ -n "$transcript" ]; then
 	echo "==> no transcript at $transcript (it never appeared)"
