@@ -3203,10 +3203,10 @@ README'deki üç site bağlantısı da canlı. Kontrol ederken yanlarındaki iki
 Deponun `homepage` alanı da dolduruldu, artık GitHub depo sayfasında site
 bağlantısı görünüyor.
 
-### Yan gözlem: sır taraması kapalı
+### Sır taraması açıldı
 
-Depo ayarlarına bakarken görüldü: `secret_scanning` ve
-`secret_scanning_push_protection` **kapalı**.
+Depo ayarlarına bakarken kapalı olduğu görülmüştü: `secret_scanning` ve
+`secret_scanning_push_protection`.
 
 `SECURITY.md`'nin tehdit modelinde birinci madde "sırların diske ya da bir
 git uzağına ulaşması" ve buna karşı `scripts/gitleaks.sh` ile
@@ -3214,7 +3214,20 @@ git uzağına ulaşması" ve buna karşı `scripts/gitleaks.sh` ile
 push protection'ı sunucu tarafında: biz hiçbir şey çalıştırmasak bile
 yanlışlıkla push edilen bir anahtarı durdurur. Halka açık depoda ücretsiz.
 
-Açılmadı; güvenlik ayarı ve `[SEN]`.
+İkisi de açıldı. Doğrulandı: `secret_scanning: enabled`,
+`push_protection: enabled`, ve geçmiş taramasında **sıfır uyarı** — depo
+tarihinde kalmış bir anahtar yok.
+
+Artık üç katman var ve üçü ayrı yerde duruyor: commit'ten önce `forgelore
+check` (pre-commit hook), CI'da `scripts/gitleaks.sh`, ve push anında
+GitHub. Sonuncusu bizim hiçbir script'imiz koşmasa bile çalışır — ilk
+ikisini atlamanın yolu var, bunu atlamanın yok.
+
+Bilinmesi gereken yan etkisi: push protection bir sırra **benzeyeni**
+reddeder. `testdata/` altında kasıtlı sahte kimlik bilgileri duruyor, ve
+gitleaks daha önce bir fixture'ı yakalamış, düşük entropili bir yer
+tutucuyla değiştirmiştik. Aynı şey push protection'da olursa doğru hamle
+atlatmak değil, yine düşük entropili bir yer tutucu.
 
 ### Kalanlar — hepsi `[SEN]`
 
