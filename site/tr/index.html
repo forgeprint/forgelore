@@ -28,7 +28,33 @@ makinesinde — onu geçen sefer çözen tek satırı ajanının önüne koyar.<
 <h2>Nasıl görünüyor</h2>
 
 <figure class="demo">
-  <img src="../demo.svg" alt="Terminal kaydı: go build 'undefined: greet' ile patlıyor; forgelore recall bir şey bilmiyor; çözüm kaydediliyor; sonra go vet aynı hatayı başka bir dosyada bildiriyor ve forgelore recall kaydı buluyor.">
+  <object data="../demo.svg" type="image/svg+xml" aria-label="Terminal kaydı: go build &#39;undefined: greet&#39; ile patlıyor; forgelore recall bir şey bilmiyor; çözüm kaydediliyor; sonra go vet aynı hatayı başka bir dosyada bildiriyor ve forgelore recall kaydı buluyor.">
+    <pre class="fallback">$ go build ./...
+# example.com/app/cmd/app
+cmd/app/main.go:4:2: undefined: greet
+
+$ forgelore recall --command "go build ./..." --error-file err.txt
+1 error(s), 0 with something recorded
+
+cd023fb609411574  undefined: greet
+  nothing recorded
+
+$ forgelore record --type fix \
+      --title "greet lives in internal/greeter; import it" \
+      --command "go build ./..." --error-file err.txt
+01M45XT2HS8G3PXDBRTWWV3449  .forgelore/records/01M45XT2HS8G3PXDBRTWWV3449.md
+fingerprint cd023fb609411574
+
+$ go vet ./...
+# example.com/app/internal/svc
+vet: internal/svc/svc.go:4:2: undefined: greet
+
+$ forgelore recall --command "go vet ./..." --error-file err2.txt
+1 error(s), 1 with something recorded
+
+cd023fb609411574  undefined: greet
+  fix       01M45XT2HS8G3PXDBRTWWV3449  greet lives in internal/greeter; import it</pre>
+  </object>
   <figcaption>Gerçek <code>v0.1.1</code> çıktısı. Parmak izi iki yarıda da
   aynı, çünkü dosya, satır ve alt komut parmak izinin parçası değil — hata
   öyle. Aynı dökümün düz metni:

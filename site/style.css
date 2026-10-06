@@ -73,7 +73,15 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rul
 th { color: var(--muted); font-weight: 600; }
 
 .demo { margin: 22px 0 8px; }
-.demo img { width: 100%; height: auto; border-radius: 10px; display: block; }
+/* An <object> rather than an <img>: an SVG referenced from <img> is frozen
+   at frame zero by some engines, and frame zero of this one is an empty
+   terminal — a reader would see a black box and nothing else. Measured in
+   a browser on 2026-10-06, both forms side by side. */
+.demo object { width: 100%; display: block; border-radius: 10px; }
+.demo .fallback {
+  margin: 0; border-radius: 10px; background: #13151a; color: #c8ccd2;
+  padding: 16px 18px;
+}
 .demo figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
 
 .note {

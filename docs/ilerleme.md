@@ -3117,8 +3117,27 @@ sayfa bozuk görünüyor ama değil.)
 Action SHA'larını önce ezberden yazmıştım; üçü de `gh api` ile gerçek
 değerlerine çevrildi — bu depoda tam olarak yapılmaması gereken şeydi.
 
+### Yayına girdi, ve animasyon ilk denemede görünmez çıktı
+
+Pages açıldı, workflow geçti, yedi varlık da 200 dönüyor. Ama siteyi açınca
+**terminal bomboştu.**
+
+SVG'yi doğrudan açınca kusursuz oynuyordu. Fark elemanda: `<img src=…>` ile
+gömülen bir SVG'de bu motor CSS animasyonlarını çalıştırmıyor, ilk karede
+donduruyor — ve bu animasyonun ilk karesi tanım gereği boş terminal. Yani
+ziyaretçi animasyonsuzluktan beterini görüyordu: siyah bir kutu.
+
+Tahmin etmek yerine ölçtüm: aynı SVG'yi `<img>` ve `<object>` ile yan yana
+koyan bir test sayfası. `<img>` boş, `<object>` oynuyor.
+
+Düzeltme `<object>`, ve içine **yedek içerik** olarak dökümün kendisi kondu
+— `<object>` oluşturulamazsa okuyucu boş kutu değil gerçek transcript
+görüyor. Yerelde iki dilde de doğrulandı.
+
+Bir de kendi okuma hatam: daha önce "yerelde `<img>` çalışıyordu" diye
+not etmiştim. Çalışan şey SVG'yi doğrudan açtığım sekmeymiş, sayfa değil.
+Ekran görüntüsüne bakıp yanlış şeyi doğruladım.
+
 ### Kalanlar — hepsi `[SEN]`
 
-- **Pages'i depo ayarlarından "GitHub Actions" kaynağıyla aç.** O
-  yapılmadan workflow çalışır ama yayımlayacak yer bulamaz.
 - Deneme haftası sürüyor (2026-10-06 başladı, tek kişilik, bu depoda).
