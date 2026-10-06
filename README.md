@@ -11,15 +11,17 @@ A single Go binary with no runtime dependencies. It works with any agent that
 can run a shell command.
 
 > **Status: early development.** The record store, fingerprinting, the
-> command line, the measurement ledger, Claude Code hooks and the MCP server
-> all work and are tested. `v0.1.0` is published; the record format and the
-> command line may still change before `1.0`. Follow `docs/plan.md` for the
-> roadmap and `docs/compatibility.md` for which agents are verified.
+> command line, the measurement ledger, hooks for four agents and the MCP
+> server all work and are tested. Releases are published and attested; the
+> record format and the command line may still change before `1.0`. Follow
+> `docs/plan.md` for the roadmap and `docs/compatibility.md` for which
+> agents are verified and which are not.
 
-The walkthrough, in English and Turkish, is at
-**<https://forgeprint.github.io/forgelore/>**. An agent wiring itself up
-wants [the agents page](https://forgeprint.github.io/forgelore/agents.html)
-or [llms.txt](https://forgeprint.github.io/forgelore/llms.txt).
+The walkthrough is at **<https://forgeprint.github.io/forgelore/>**, and
+in Turkish at **<https://forgeprint.github.io/forgelore/tr/>**. An agent
+wiring itself up wants
+[the agents page](https://forgeprint.github.io/forgelore/agents.html) or
+[llms.txt](https://forgeprint.github.io/forgelore/llms.txt).
 
 ## What it looks like
 
