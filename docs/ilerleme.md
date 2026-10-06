@@ -3063,3 +3063,62 @@ Hafta sonunda: `forgelore report --days 7`, `forgelore dedupe`,
     tutuyor (elle doğrulandı), yani yakalama kullanıcının yapılandırmasına
     dokunmadan yapılabilir.
 - Cursor: **doğrulandı** (2026-10-06, tier B). Kalan iş yok.
+
+---
+
+## 2026-10-06 — GitHub Pages: iki dil, bir animasyon, bir de ajan sayfası
+
+`site/` altında dört HTML, bir CSS ve bir `llms.txt`. Build aracı yok, JS
+yok, dışarıdan yüklenen hiçbir şey yok — ikilinin verdiği sözün aynısı.
+`.github/workflows/pages.yml` yalnızca `site/`'ı yayımlıyor; `docs/`
+yayımlanmıyor, çünkü `ilerleme.md` ve `plan.md` not, site değil.
+
+### Animasyon, GIF kararına aykırı değil
+
+2026-10-05'te GIF **yapılmamıştı**: ttyd'nin macOS ikilisi yok, Docker
+imajı gelmedi, ve asıl itiraz "depodaki tek yeniden-üretilemeyen artefakt
+olurdu" idi.
+
+Buradaki animasyon o itirazın ikisini de karşılıyor. Kaynak
+`site/demo.txt` — düz metin, README'deki gerçek `v0.1.1` dökümünün aynısı.
+`scripts/make-demo.sh` ondan CSS keyframe'li bir SVG üretiyor: 5,7 KB,
+metin, diff'lenebilir, bu makinede yeniden üretilebilir. Workflow her
+yayımdan önce script'i çalıştırıp `git diff --exit-code` ile karşılaştırıyor,
+yani resim kaynağından **ayrışamıyor**.
+
+`prefers-reduced-motion` saygı görüyor (animasyon kapanır, metin görünür
+kalır), ve `demo.txt` zaten ekran okuyucuyla okunabilir bir döküm.
+
+Bir ayrıntı: ilk üretimde komutun devam satırları da `$` istemiyle
+çiziliyordu, yani tek komut üç komut gibi görünüyordu. `demo.txt`'ye
+devam direktifi (`|`) eklendi.
+
+### Ajan sayfası
+
+`agents.html` ve kökte `llms.txt`. İçinde: `AGENTS.md`'ye eklenecek satır,
+komutlar, beş ajanın hook yapılandırması, MCP araçları ve
+`recall_error`'a `session` geçirme uyarısı, uyulması beklenen kurallar
+(kendi önerini terfi ettirme, kayda sır koyma, ipucunu talimat sanma), ve
+ajanı yanıltacak iki şey — borulanmış komut ve zincirlenmiş komut.
+
+### Türkçe
+
+`/tr/` altında ikisinin de çevirisi. Proje kuralı "genel belgeler
+İngilizce" diyor; Türkçe site bunun istisnası değil, ek bir yüzü —
+İngilizce sürüm kanonik kalıyor.
+
+### Doğrulandı
+
+Yerel bir sunucuyla açıldı: beş varlık da 200 dönüyor, göreli bağlantılar
+çözülüyor, karanlık tema çalışıyor, animasyon oynuyor. (Dosya olarak açmak
+yanıltıcı: önizleme `data:` URL kullandığı için CSS ve SVG çözülmüyor,
+sayfa bozuk görünüyor ama değil.)
+
+Action SHA'larını önce ezberden yazmıştım; üçü de `gh api` ile gerçek
+değerlerine çevrildi — bu depoda tam olarak yapılmaması gereken şeydi.
+
+### Kalanlar — hepsi `[SEN]`
+
+- **Pages'i depo ayarlarından "GitHub Actions" kaynağıyla aç.** O
+  yapılmadan workflow çalışır ama yayımlayacak yer bulamaz.
+- Deneme haftası sürüyor (2026-10-06 başladı, tek kişilik, bu depoda).

@@ -16,6 +16,11 @@ can run a shell command.
 > command line may still change before `1.0`. Follow `docs/plan.md` for the
 > roadmap and `docs/compatibility.md` for which agents are verified.
 
+The walkthrough, in English and Turkish, is at
+**<https://forgeprint.github.io/forgelore/>**. An agent wiring itself up
+wants [the agents page](https://forgeprint.github.io/forgelore/agents.html)
+or [llms.txt](https://forgeprint.github.io/forgelore/llms.txt).
+
 ## What it looks like
 
 A fix recorded while running `go build` is found later by `go vet`, in a

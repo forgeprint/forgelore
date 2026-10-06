@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forgelore — memory for coding agents</title>
+<meta name="description" content="Local-first, team-shared memory for coding agents. One static Go binary. It remembers the fix for an error and injects it only when the same error comes back.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <p class="lang"><strong>English</strong> · <a href="tr/">Türkçe</a></p>
+  <h1>Forgelore</h1>
+  <p class="tagline">Your agent solved this error last week. It does not
+  remember. Forgelore does.</p>
+</header>
+
+<main>
+
+<p>Forgelore is a single static Go binary with no runtime dependencies. It
+fingerprints a failed command's error, and when the <em>same</em> error comes
+back — in a different file, through a different command, on a colleague's
+machine — it hands your coding agent the one line that fixed it last time.</p>
+
+<p>When it has nothing to say, it says nothing and costs nothing.</p>
+
+<h2>What it looks like</h2>
+
+<figure class="demo">
+  <img src="demo.svg" alt="A terminal replay: go build fails with 'undefined: greet'; forgelore recall knows nothing; the fix is recorded; later go vet reports the same error in a different file and forgelore recall finds the recorded fix.">
+  <figcaption>Real output from <code>v0.1.1</code>. The fingerprint is the
+  same in both halves because the file, the line and the subcommand are not
+  part of it — the error is. The same transcript is readable as text in
+  <a href="https://github.com/forgeprint/forgelore/blob/main/site/demo.txt">demo.txt</a>.</figcaption>
+</figure>
+
+<h2>Install</h2>
+
+<pre><code>curl -fsSL https://raw.githubusercontent.com/forgeprint/forgelore/main/scripts/install.sh | bash</code></pre>
+
+<p>Or, if npm is the idiom you already have:</p>
+
+<pre><code>npm install -g forgelore</code></pre>
+
+<p>Both give you the same binary. No sudo, nothing outside your home
+directory, no runtime to install alongside it.</p>
+
+<h2>Use it in five minutes</h2>
+
+<h3>1. Create the store</h3>
+
+<pre><code>cd your-project
+forgelore init --with-git-hook</code></pre>
+
+<p>That writes <code>.forgelore/records/</code>, which is meant to be
+committed, and a <code>.gitignore</code> that keeps the index, the ledger and
+your personal scope out of git. The git hook refuses a commit that would
+carry a secret into a shared record.</p>
+
+<h3>2. Record the first fix</h3>
+
+<p>When a command fails and you work out why, keep the answer:</p>
+
+<pre><code>go build ./... 2&gt; err.txt
+forgelore record --type fix \
+    --title "greet lives in internal/greeter; import it" \
+    --command "go build ./..." --error-file err.txt</code></pre>
+
+<p>A title states the answer, not the question. <em>"greet lives in
+internal/greeter; import it"</em>, never <em>"greet is undefined"</em>.</p>
+
+<h3>3. Let it answer by itself</h3>
+
+<p>Wire your agent up once and you stop running <code>recall</code> by hand —
+the hint arrives when the error does. The
+<a href="agents.html">agents page</a> has the wiring for each one.</p>
+
+<h3>4. Share it</h3>
+
+<pre><code>forgelore promote &lt;record id&gt;      # move it from your scope to the team's
+git add .forgelore/records &amp;&amp; git commit</code></pre>
+
+<p>Your colleagues get it on their next pull. There is no server.</p>
+
+<h2>It measures whether it helped</h2>
+
+<p>Forgelore assigns sessions to a treatment and a control arm — the control
+gets no injections — and compares them.</p>
+
+<pre><code>forgelore report --days 7</code></pre>
+
+<p>The report says plainly when a difference is not meaningful, which with a
+small sample it usually is not. That is the intended answer rather than a
+disappointing one: a tool that claims a saving it has not measured is worse
+than one that admits it cannot tell yet.</p>
+
+<h2>Which agents it supports</h2>
+
+<table>
+  <tr><th>Agent</th><th>Checked against a running agent</th><th></th></tr>
+  <tr><td>Claude Code 2.1.290</td><td>hooks, both MCP protocol eras, usage reader</td><td class="tier">A</td></tr>
+  <tr><td>Copilot CLI 1.0.91</td><td>hooks only</td><td class="tier">B</td></tr>
+  <tr><td>Gemini CLI 0.62.0</td><td>hooks only</td><td class="tier">B</td></tr>
+  <tr><td>Cursor 2026.10.01</td><td>hooks only</td><td class="tier">B</td></tr>
+  <tr><td>Codex CLI</td><td>nothing yet</td><td class="tier">unverified</td></tr>
+</table>
+
+<p>A tier describes what has been checked against a <em>running</em> agent,
+not what its documentation promises. Every mapping in this project started as
+a reading of official docs, and every one of them was wrong somewhere that
+would have left Forgelore silent — so a capability nobody has exercised is
+listed as not measured.</p>
+
+<p>Any agent that can run a shell command works today without any wiring:
+<code>forgelore init</code> prints the line to add to your
+<code>AGENTS.md</code>.</p>
+
+<h2>What it will not do</h2>
+
+<ul>
+  <li><strong>It will not block your agent.</strong> A hook that fails, times
+  out or cannot read its store returns quietly and the agent carries on.</li>
+  <li><strong>It will not invent a saving.</strong> Cost per session appears
+  only if your agent reports what it spent.</li>
+  <li><strong>It will not send anything anywhere.</strong> No network calls,
+  no telemetry, no background service. Records are files in your repository.</li>
+  <li><strong>It will not promote a memory on its own.</strong> Anything an
+  agent proposes waits in <code>forgelore review</code> for a person.</li>
+</ul>
+
+<h2>Verify what you installed</h2>
+
+<pre><code>gh attestation verify forgelore_linux_amd64 -R forgeprint/forgelore
+npm audit signatures</code></pre>
+
+<p>Release artifacts are built by a tag-triggered workflow and attested
+there; the npm packages are published by that same workflow over OIDC, with
+provenance. Verification prints nothing when it succeeds — the exit status is
+the answer.</p>
+
+</main>
+
+<footer>
+  <p><a href="https://github.com/forgeprint/forgelore">Source</a> ·
+     <a href="https://github.com/forgeprint/forgelore/releases">Releases</a> ·
+     <a href="agents.html">For agents</a> ·
+     <a href="llms.txt">llms.txt</a> ·
+     Apache-2.0</p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,47 @@
+# The demo transcript, and the only source of the animation beside it.
+#
+# Every line here was produced by a real run with the published v0.1.1
+# binary; it is the same transcript README.md carries. Editing this file
+# and running scripts/make-demo.sh regenerates site/demo.svg. Nothing else
+# does, which is the point: the picture cannot drift from the words.
+#
+# Format, one directive per line:
+#   $ <command>     a prompt line, typed
+#   | <text>        a continuation of the command above, typed, no prompt
+#   > <text>        output, printed
+#   ~ <seconds>     pause before the next line
+#   =               blank line
+#
+# Timing is deliberately slow enough to read and short enough to loop.
+
+$ go build ./...
+> # example.com/app/cmd/app
+> cmd/app/main.go:4:2: undefined: greet
+~ 1.2
+=
+$ forgelore recall --command "go build ./..." --error-file err.txt
+> 1 error(s), 0 with something recorded
+=
+> cd023fb609411574  undefined: greet
+>   nothing recorded
+~ 1.4
+=
+$ forgelore record --type fix \
+|     --title "greet lives in internal/greeter; import it" \
+|     --command "go build ./..." --error-file err.txt
+> 01M45XT2HS8G3PXDBRTWWV3449  .forgelore/records/01M45XT2HS8G3PXDBRTWWV3449.md
+> fingerprint cd023fb609411574
+~ 1.8
+=
+# Later. A different command, a different file, a different line.
+$ go vet ./...
+> # example.com/app/internal/svc
+> vet: internal/svc/svc.go:4:2: undefined: greet
+~ 1.2
+=
+$ forgelore recall --command "go vet ./..." --error-file err2.txt
+> 1 error(s), 1 with something recorded
+=
+> cd023fb609411574  undefined: greet
+>   fix       01M45XT2HS8G3PXDBRTWWV3449  greet lives in internal/greeter; import it
+~ 3.0

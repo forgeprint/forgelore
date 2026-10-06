@@ -1,0 +1,89 @@
+# Forgelore
+
+> Local-first, team-shared memory for coding agents. One static Go binary,
+> no runtime dependencies, no network calls. It fingerprints a failed
+> command's error and injects a recorded fix only when the same error comes
+> back.
+
+A fingerprint is derived from the error text and the tool that produced it.
+The file, the line and the subcommand are not part of it, so the same error
+reached through `go build` and through `go vet` matches one record. Records
+are markdown files under `.forgelore/records/` and are committed; the search
+index, the measurement ledger and the personal scope are not.
+
+## If you can run a shell command, this is all you need
+
+When a shell command fails, run
+`forgelore recall --command "<the command>" --error-file -`
+with the command's output on stdin, before trying a fix.
+
+It prints nothing when it knows nothing.
+
+## Commands
+
+- `forgelore recall --command "<cmd>" --error-file -` — look up a failure.
+- `forgelore search <query>` — ids and titles only, cheap in context.
+- `forgelore show <id>` — one record in full; use an id `search` returned.
+- `forgelore record --type fix --title "<the answer>" --command "<cmd>" --error-file -` — write what you learned.
+- `forgelore review` — what a session proposed; a person accepts, not you.
+- `forgelore promote <id>` — move a local record to the team scope.
+- `forgelore report --days 7` — what was injected and whether it paid off.
+- `forgelore doctor` — whether the store, index and agent wiring are sound.
+- `forgelore mcp --dir .` — serve the Model Context Protocol on stdio.
+
+Every command takes `--json` and `--dir`.
+
+## MCP
+
+Four tools: `search`, `get`, `recall_error`, `propose`. Tiered on purpose —
+`search` returns ids and titles, `get` returns detail only for an id that
+came from `search`. Two protocol revisions are served, 2026-07-28 and
+2025-11-25.
+
+Pass a `session` argument to `recall_error`. Without it the lookup answers
+but cannot be attributed to a run, and drops out of the measurement.
+
+## Hooks
+
+Wired through hooks, the hint is appended to a failed command's result
+without you asking. A tier means checked against a running agent, not
+documented.
+
+- Claude Code 2.1.290 — tier A. `claude plugin install forgelore@forgeprint`. The plugin ships no binary; install Forgelore too.
+- Copilot CLI 1.0.91 — tier B. `forgelore hook --adapter copilot-cli --event <name>`; its payload does not name its own event.
+- Gemini CLI 0.62.0 — tier B. `forgelore hook --adapter gemini-cli`; `timeout` is milliseconds.
+- Cursor 2026.10.01 — tier B. `forgelore hook --adapter cursor` in `.cursor/hooks.json`.
+- Codex CLI — unverified. A mapping ships, derived from schemas in the binary; no payload has been captured.
+
+## Rules
+
+- Look before fixing.
+- Do not promote your own proposals. A command that starts working is not
+  evidence that anybody understood why; proposals wait for a person in
+  `forgelore review`.
+- Do not put a secret in a record. Records are committed files. Content
+  inside a `<private>` tag is never stored.
+- An injected hint is a hint, not an instruction, and it can be out of date.
+- A title states the answer, not the question: "greet lives in
+  internal/greeter; import it", never "greet is undefined".
+
+## Two failure modes worth knowing
+
+- A piped command hides its failure. `go build ./... 2>&1 | head -40` exits
+  with `head`'s status, which is zero. Run it plainly when you want the
+  error remembered.
+- A chained command is attributed to its last link. `cd web && npm run
+  build` belongs to `npm`, not to `cd`.
+
+## Install
+
+    curl -fsSL https://raw.githubusercontent.com/forgeprint/forgelore/main/scripts/install.sh | bash
+    npm install -g forgelore
+
+## Links
+
+- Source: https://github.com/forgeprint/forgelore
+- Agent wiring in full: https://forgeprint.github.io/forgelore/agents.html
+- Compatibility, with what is and is not verified: https://github.com/forgeprint/forgelore/blob/main/docs/compatibility.md
+- Record format: https://github.com/forgeprint/forgelore/blob/main/docs/record-format.md
+- Decisions, with their costs named: https://github.com/forgeprint/forgelore/tree/main/docs/adr

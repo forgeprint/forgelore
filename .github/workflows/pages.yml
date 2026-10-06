@@ -1,0 +1,53 @@
+name: Pages
+
+# Only site/ is published. docs/ holds the plan and the working notebook,
+# which are public in the repository because the work is, but they are notes
+# and not a website; publishing the folder wholesale would turn them into
+# one.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and a newer push waits rather than cancelling:
+# a half-published site is worse than a slightly stale one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      # Actions are pinned to commit SHAs, not tags: a tag can be moved, a
+      # SHA cannot. Update the trailing comment whenever the SHA changes.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The demo is generated, so it is rebuilt here and compared. A commit
+      # that edits demo.txt and forgets to run the script would otherwise
+      # publish a picture that no longer matches its own source — the one
+      # failure this whole arrangement exists to prevent.
+      - name: The demo matches its source
+        run: |
+          ./scripts/make-demo.sh
+          git diff --exit-code site/demo.svg
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

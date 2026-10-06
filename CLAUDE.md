@@ -84,6 +84,7 @@ Every check CI runs is a script, and CI runs nothing else:
 ./scripts/capture-agent-events.sh  # regenerate testdata/agents
 ./scripts/release.sh vX.Y.Z  # build every artifact and SHA256SUMS
 ./scripts/npm-pack.sh vX.Y.Z  # assemble the npm packages from dist/
+./scripts/make-demo.sh       # regenerate site/demo.svg from site/demo.txt
 ./scripts/install.sh         # what a user runs; not needed to develop
 ./scripts/drift-versions.sh  # has an agent released a version nobody checked?
 ./scripts/drift-payloads.sh <agent>  # recapture and diff against the corpus

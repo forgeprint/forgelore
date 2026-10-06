@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forgelore — kodlama ajanları için hafıza</title>
+<meta name="description" content="Yerelde çalışan, ekiple paylaşılan hafıza. Tek bir statik Go ikilisi. Bir hatanın çözümünü hatırlar ve aynı hata geri geldiğinde onu ajanın önüne koyar.">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header>
+  <p class="lang"><a href="../">English</a> · <strong>Türkçe</strong></p>
+  <h1>Forgelore</h1>
+  <p class="tagline">Ajanın bu hatayı geçen hafta çözmüştü. Hatırlamıyor.
+  Forgelore hatırlıyor.</p>
+</header>
+
+<main>
+
+<p>Forgelore, çalışma zamanı bağımlılığı olmayan tek bir statik Go ikilisi.
+Başarısız bir komutun hatasının parmak izini çıkarır; <em>aynı</em> hata geri
+geldiğinde — başka bir dosyada, başka bir komutla, bir iş arkadaşının
+makinesinde — onu geçen sefer çözen tek satırı ajanının önüne koyar.</p>
+
+<p>Söyleyecek bir şeyi yoksa hiçbir şey söylemez ve hiçbir şeye mal olmaz.</p>
+
+<h2>Nasıl görünüyor</h2>
+
+<figure class="demo">
+  <img src="../demo.svg" alt="Terminal kaydı: go build 'undefined: greet' ile patlıyor; forgelore recall bir şey bilmiyor; çözüm kaydediliyor; sonra go vet aynı hatayı başka bir dosyada bildiriyor ve forgelore recall kaydı buluyor.">
+  <figcaption>Gerçek <code>v0.1.1</code> çıktısı. Parmak izi iki yarıda da
+  aynı, çünkü dosya, satır ve alt komut parmak izinin parçası değil — hata
+  öyle. Aynı dökümün düz metni:
+  <a href="https://github.com/forgeprint/forgelore/blob/main/site/demo.txt">demo.txt</a>.</figcaption>
+</figure>
+
+<h2>Kurulum</h2>
+
+<pre><code>curl -fsSL https://raw.githubusercontent.com/forgeprint/forgelore/main/scripts/install.sh | bash</code></pre>
+
+<p>Ya da npm senin alışkanlığınsa:</p>
+
+<pre><code>npm install -g forgelore</code></pre>
+
+<p>İkisi de aynı ikiliyi veriyor. Sudo yok, ev dizininin dışına çıkan bir şey
+yok, yanına kurulacak bir çalışma zamanı yok.</p>
+
+<h2>Beş dakikada kullanım</h2>
+
+<h3>1. Depoyu oluştur</h3>
+
+<pre><code>cd projen
+forgelore init --with-git-hook</code></pre>
+
+<p>Bu, commit'lenmesi amaçlanan <code>.forgelore/records/</code> dizinini ve
+indeksi, ölçüm defterini ve kişisel kapsamını git'in dışında tutan bir
+<code>.gitignore</code> yazar. Git hook'u, paylaşılan bir kayda sır taşıyacak
+bir commit'i reddeder.</p>
+
+<h3>2. İlk çözümü kaydet</h3>
+
+<p>Bir komut patlayıp sebebini çözdüğünde, cevabı sakla:</p>
+
+<pre><code>go build ./... 2&gt; err.txt
+forgelore record --type fix \
+    --title "greet internal/greeter içinde; onu import et" \
+    --command "go build ./..." --error-file err.txt</code></pre>
+
+<p>Başlık cevabı söyler, soruyu değil. <em>"greet internal/greeter içinde;
+onu import et"</em>, asla <em>"greet tanımsız"</em> değil.</p>
+
+<h3>3. Kendiliğinden cevap versin</h3>
+
+<p>Ajanını bir kez bağladığında <code>recall</code>'u elle çalıştırmayı
+bırakırsın — ipucu, hata geldiği anda gelir. Her ajan için bağlama
+<a href="agents.html">ajanlar sayfasında</a>.</p>
+
+<h3>4. Paylaş</h3>
+
+<pre><code>forgelore promote &lt;kayıt id&gt;      # kendi kapsamından ekibin kapsamına taşır
+git add .forgelore/records &amp;&amp; git commit</code></pre>
+
+<p>İş arkadaşların bir sonraki pull'da alır. Sunucu yok.</p>
+
+<h2>İşe yarayıp yaramadığını ölçüyor</h2>
+
+<p>Forgelore oturumları bir deney ve bir kontrol koluna ayırıyor — kontrol
+koluna hiç enjeksiyon yapılmıyor — ve ikisini karşılaştırıyor.</p>
+
+<pre><code>forgelore report --days 7</code></pre>
+
+<p>Rapor, bir farkın anlamlı <em>olmadığı</em> durumu açıkça söylüyor; küçük
+örneklemde genellikle öyle. Bu, hayal kırıklığı değil amaçlanan cevap:
+ölçmediği bir tasarrufu iddia eden bir araç, henüz söyleyemediğini kabul
+edenden kötüdür.</p>
+
+<h2>Hangi ajanları destekliyor</h2>
+
+<table>
+  <tr><th>Ajan</th><th>Çalışan ajana karşı denetlenen</th><th></th></tr>
+  <tr><td>Claude Code 2.1.290</td><td>hook'lar, her iki MCP protokol dönemi, kullanım okuyucu</td><td class="tier">A</td></tr>
+  <tr><td>Copilot CLI 1.0.91</td><td>yalnızca hook'lar</td><td class="tier">B</td></tr>
+  <tr><td>Gemini CLI 0.62.0</td><td>yalnızca hook'lar</td><td class="tier">B</td></tr>
+  <tr><td>Cursor 2026.10.01</td><td>yalnızca hook'lar</td><td class="tier">B</td></tr>
+  <tr><td>Codex CLI</td><td>henüz hiçbiri</td><td class="tier">doğrulanmamış</td></tr>
+</table>
+
+<p>Kademe, <em>çalışan</em> bir ajana karşı denetleneni anlatır; dokümanının
+vaat ettiğini değil. Bu projedeki her eşleme resmî dokümanın okunmasıyla
+başladı ve her biri, Forgelore'u sessiz bırakacak bir yerinden yanlış çıktı —
+bu yüzden kimsenin çalıştırmadığı bir yetenek "ölçülmedi" diye yazılır.</p>
+
+<p>Kabuk komutu çalıştırabilen her ajan bugün hiçbir bağlama olmadan
+çalışıyor: <code>forgelore init</code>, <code>AGENTS.md</code>'ye eklenecek
+satırı yazdırıyor.</p>
+
+<h2>Yapmayacağı şeyler</h2>
+
+<ul>
+  <li><strong>Ajanını engellemez.</strong> Patlayan, zaman aşımına uğrayan ya
+  da deposunu okuyamayan bir hook sessizce döner, ajan yoluna devam eder.</li>
+  <li><strong>Olmayan bir tasarrufu uydurmaz.</strong> Oturum başına maliyet,
+  yalnızca ajanın harcadığını bildiriyorsa görünür.</li>
+  <li><strong>Hiçbir yere bir şey göndermez.</strong> Ağ çağrısı yok,
+  telemetri yok, arka plan servisi yok. Kayıtlar deponun içindeki dosyalar.</li>
+  <li><strong>Kendi kendine bir hafızayı terfi ettirmez.</strong> Bir ajanın
+  önerdiği her şey <code>forgelore review</code>'da bir insanı bekler.</li>
+</ul>
+
+<h2>Kurduğun şeyi doğrula</h2>
+
+<pre><code>gh attestation verify forgelore_linux_amd64 -R forgeprint/forgelore
+npm audit signatures</code></pre>
+
+<p>Release varlıkları etiketle tetiklenen bir iş akışında derleniyor ve orada
+attest ediliyor; npm paketleri de aynı iş akışından OIDC ile, provenance ile
+yayımlanıyor. Doğrulama başarılı olduğunda hiçbir şey yazmıyor — cevap çıkış
+kodunda.</p>
+
+</main>
+
+<footer>
+  <p><a href="https://github.com/forgeprint/forgelore">Kaynak</a> ·
+     <a href="https://github.com/forgeprint/forgelore/releases">Sürümler</a> ·
+     <a href="agents.html">Ajanlar için</a> ·
+     <a href="../llms.txt">llms.txt</a> ·
+     Apache-2.0</p>
+</footer>
+
+</body>
+</html>
