@@ -34,7 +34,7 @@ var runnerFlagsWithValue = map[string]bool{
 // fix recorded under one of them has to be found under the others. What the
 // verb would have told the fingerprint apart, the message already does.
 func NormalizeCommand(command string) string {
-	words := strings.Fields(command)
+	words := strings.Fields(lastInChain(command))
 
 	// Leading VAR=value assignments belong to the environment, not the
 	// command.
@@ -59,6 +59,46 @@ func NormalizeCommand(command string) string {
 	}
 
 	return toolName(words[0])
+}
+
+// lastInChain returns the final command of a shell chain.
+//
+// An agent rarely runs a build on its own. It writes `cd web && npm run
+// build` or `ls -a && go build ./...`, and taking the first word makes the
+// compiler's diagnostic belong to `cd` or to `ls` — a fingerprint that
+// matches nothing, silently, because every lookup still succeeds and simply
+// finds no record. This was watched happening in a real session.
+//
+// The last link is a guess, and it is wrong for `go build ./... && echo ok`,
+// where the error comes from the first. It is the better guess: a chain is
+// written to reach its last command, and the earlier links are the setup.
+//
+// Pipes are deliberately not split on. `go build ./... 2>&1 | head -40`
+// produces its diagnostic in the first element and feeds it to the rest, so
+// there the first word is already the right answer.
+func lastInChain(command string) string {
+	last := command
+	for _, sep := range []string{"&&", "||", ";"} {
+		for {
+			i := strings.LastIndex(last, sep)
+			if i < 0 {
+				break
+			}
+			// `find . -exec rm {} \;` ends in an escaped semicolon that
+			// belongs to find's arguments, and splitting there would
+			// leave nothing at all.
+			if i > 0 && last[i-1] == '\\' {
+				break
+			}
+			tail := last[i+len(sep):]
+			if strings.TrimSpace(tail) == "" {
+				break
+			}
+			last = tail
+			break
+		}
+	}
+	return last
 }
 
 // isAssignment reports whether a word is a VAR=value environment assignment

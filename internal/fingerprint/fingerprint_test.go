@@ -29,6 +29,24 @@ func TestNormalizeCommand(t *testing.T) {
 		{`C:\Go\bin\go.exe build ./...`, "go", "the same tool on Windows"},
 		{"", "", "nothing to normalise"},
 		{"   ", "", "whitespace only"},
+
+		// A chain is reduced to its last link. An agent writes
+		// `cd web && npm run build` far more often than it runs a build
+		// on its own, and attributing the compiler's diagnostic to `cd`
+		// produced a fingerprint that matched nothing — watched happening
+		// in a real Claude Code session on 2026-10-06.
+		{"cd /x && go build ./...", "go", "the setup is not the tool"},
+		{"ls -a && go build ./... 2>&1 | head -40", "go", "the real miss that found this"},
+		{"npm run build && go build ./...", "go", "the last link, not the first"},
+		{"a || b && c", "c", "whichever separator came last"},
+		{"cd web ; npm test", "test", "a semicolon chains too"},
+		{"go build ./... &&", "go", "a trailing separator chains to nothing"},
+		{
+			`find . -name '*.tmp' -exec rm {} \;`,
+			"find",
+			"an escaped semicolon is find's argument, not a chain",
+		},
+		{"cd /x && CGO_ENABLED=0 npx -p typescript tsc", "tsc", "the rest still applies to the last link"},
 	}
 	for _, c := range cases {
 		if got := NormalizeCommand(c.command); got != c.want {

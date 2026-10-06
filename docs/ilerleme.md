@@ -2298,6 +2298,68 @@ yakalanan 2.1.290 payload'ları, ne de denediğim beş komut biçimi onu
 bakılamıyor. Uydurmak yerine açık bırakıldı; bir dahaki denemede o projeye
 payload döken geçici bir hook koymak yeterli olur.
 
+---
+
+## 2026-10-06 — zincirli komut: ıskalamanın sebebi bulundu ve düzeltildi
+
+Önceki notta "açıklanamadı" diye bıraktığım `b9bd373fd700b328` çözüldü.
+Projeye payload döken geçici bir hook konup oturum tekrarlandı, ve model
+şunu çalıştırdı:
+
+```
+ls -a && go build ./... 2>&1 | head -40
+```
+
+`NormalizeCommand` zincirin **ilk** programını alıyordu, yani `ls`. Hata
+`go build`'den geliyor ama parmak izi `ls`'e bağlanıyor. Aynı oturumda model
+komutu düz çalıştırınca `go`'ya normalleşti ve enjeksiyon oldu — ledger
+ikisini de arka arkaya gösteriyor, bu yüzden teşhis tahmin değil.
+
+Ölçülen tablo:
+
+| komut | araç | eşleşme |
+|---|---|---|
+| `go build ./...` | `go` | ✅ |
+| `go build ./... 2>&1 \| head -40` | `go` | ✅ |
+| `cd /x && go build ./...` | `cd` | ❌ |
+| `ls -a && go build ./...` | `ls` | ❌ |
+
+Boru zaten doğruydu: `| head` tüketici, ilk program üretici. Kırık olan
+zincirdi.
+
+### Neden bir tasarım kararını değil, bir boşluğu düzelttik
+
+`NormalizeCommand`'ın kendi doc-comment'i "komut satırını **çalışan araca**
+indirger, teşhis sarmalayıcıya değil araca aittir" diyor ve `npx`'i bu
+yüzden atlıyor. `cd x && go build` için aynı mantık `cd`'yi de atlamayı
+gerektiriyordu. Kilitli bir karara dokunulmadı; yazılı niyete uyuldu.
+
+`lastInChain` eklendi: `&&`, `||`, `;` ayırıcılarının sonuncusundan sonrası
+alınıyor, sonra mevcut mantık (env ataması, sarmalayıcı, boru) o segmente
+uygulanıyor. İki kenar durum korundu:
+
+- `find . -exec rm {} \;` — kaçışlı noktalı virgül find'ın argümanı,
+  bölünmüyor; yoksa geriye hiçbir şey kalmıyordu.
+- `go build ./... &&` — boş kuyruk alınmıyor.
+
+**Sezgi olduğu açıkça yazıldı:** `go build ./... && echo ok` zincirinde hata
+ilk halkadan gelir ama normalleştirme `echo` der. Daha iyi tahmin olduğu
+için seçildi — zincir son komutuna varmak için yazılır, öncekiler hazırlık.
+
+### Doğrulama
+
+Iskalayan **gerçek payload** düzeltilmiş ikiliyle tekrar çalıştırıldı:
+enjeksiyon üretti. Testler `fingerprint_test.go`'ya eklendi, gerçek komut
+dizesi dahil. Mevcut parmak izleri etkilenmiyor — yalnızca bugüne kadar
+hiçbir şeyle eşleşmeyen zincirli komutlarınki değişiyor.
+
+### Yan bulgu, dokunulmadı
+
+`npm test` → `test`, `npm run build` → `run`. Sarmalayıcı atlama mantığı
+`npm`'i de runner sayıyor ve ardındaki fiili araç sanıyor. `npx -p
+typescript tsc` için doğru, `npm run build` için değil. Bugünkü işin kapsamı
+dışında; ayrı bir karar.
+
 ### Kalanlar — hepsi `[SEN]`
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
