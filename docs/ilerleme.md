@@ -2695,6 +2695,32 @@ deadline ikinciden itibaren işliyor.
 Yavaş bir CI runner'ının bulduğu, hiçbir dizüstünün bulamadığı bir hata.
 Test artık 1 ms bütçeyle hem enjeksiyonu hem ledger satırını istiyor.
 
+---
+
+## 2026-10-06 — v0.1.9
+
+https://github.com/forgeprint/forgelore/releases/tag/v0.1.9
+
+İki düzeltme, ikisi de Forgelore'u kendi deposunda çalışır bırakıp ne
+kaydettiğine bakmaktan çıktı: çıkarsanmış ıskalamanın iz bırakmaması, ve
+bütçesi dolmuş bir hook'un hiç ölçmemesi.
+
+Yayımlanan paketle doğrulandı:
+
+- Yedi paket de `0.1.9`, `latest` 0.1.9, `npm audit signatures` → verified
+  attestations, ikili `v0.1.9 darwin/arm64 go1.26.8`.
+- **1 ms bütçe** ile enjeksiyon geldi ve ledger'a 1 satır yazıldı — düzeltme
+  öncesi ikisi de sıfırdı.
+- **Çıkarsanmış ıskalama** hiçbir çıktı üretmedi ve ledger dosyası hiç
+  oluşmadı.
+
+### Bugünün son dersi
+
+CI kırmızıya döndü ve altından gerçek bir ürün hatası çıktı. Testi "flaky"
+diye işaretleyip geçmek mümkündü; bütçe kontrolünün yanlış yerde olduğunu
+gösteren şey, 1 ms ile birebir üretebilmek oldu. Yavaş bir runner, hiçbir
+dizüstünün bulamayacağı bir şeyi buldu.
+
 ### Kalanlar — hepsi `[SEN]`
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
