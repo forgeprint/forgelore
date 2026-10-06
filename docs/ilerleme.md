@@ -10,7 +10,7 @@ ve nasıl bulunduğu tarihli bölümlerde, en yenisi en sonda.
 
 | | |
 |---|---|
-| Son sürüm | **v0.1.9**, GitHub release attested, npm'de yedi paket, `latest` 0.1.9 |
+| Son sürüm | **v0.1.10**, GitHub release attested, npm'de yedi paket, `latest` 0.1.10 |
 | Kayıt şeması | 1 |
 | Eşleme formatı | 2 (`claude-code` 2 kullanıyor; diğerleri 1) |
 | Ajanlar | Claude Code 2.1.290 **A** · Copilot CLI 1.0.91 **B** · Gemini CLI 0.62.0 **B** · Cursor 2026.10.01 **B** · Codex CLI doğrulanmamış |
@@ -22,8 +22,12 @@ Yayım zinciri elle müdahale istemiyor: etiket → `release.yml` derler, attest
 eder, **taslak** çıkarır; taslağı bir insan yayımlayınca `npm.yml` paketleri
 release'ten indirip trusted publishing ile yayımlar.
 
-**Açık işler — hepsi `[SEN]`:** iki kişilik bir haftalık ekip denemesi
-(`docs/team-trial.md`), Codex CLI doğrulaması, Cursor.
+**Açık iş — tek ve `[SEN]`:** iki kişilik bir haftalık ekip denemesi
+(`docs/team-trial.md`).
+
+Codex CLI bilerek `unverified` bırakıldı: engel erişim değil,
+`hooks.json`'ın yeri ve biçimi. Nerede kalındığı en alttaki Codex
+bölümünde yazılı.
 
 ---
 
@@ -2750,13 +2754,16 @@ dizüstünün bulamayacağı bir şeyi buldu.
 
 ## 2026-10-06 — günün özeti
 
-51 commit, **on sürüm** (v0.1.0 → v0.1.9), yedi yeni ADR (0019–0025).
+58 commit, **on bir sürüm** (v0.1.0 → v0.1.10), yedi yeni ADR (0019–0025).
 Korpus 29 → 31 aile, ajan sayısı 3 → 5, ve proje kendi ürününü kullanmaya
 başladı.
 
+(Bu bölüm gün içinde yazıldı; sonrasında Cursor ve v0.1.10 eklendi, sayılar
+ona göre güncellendi.)
+
 ### Hataların tek bir ailesi vardı
 
-On sürümün dokuzu bir düzeltme taşıdı ve **hiçbirinde kod yanlış
+Altı sürüm bir düzeltme için çıktı ve **hiçbirinde kod yanlış
 çalışmıyordu**. Hepsinde eksik olan, kodun hiç görmediği bir girdiydi:
 
 | sürüm | görmediğimiz girdi |
