@@ -2543,6 +2543,36 @@ bağlı. Depoda artık 9 kayıt var (4 fix, 5 decision).
 bir şekli yok, onu yakalamak her cümleyi yakalamak olurdu. ADR-0025 bunu da
 yazıyor.
 
+---
+
+## 2026-10-06 — v0.1.8
+
+https://github.com/forgeprint/forgelore/releases/tag/v0.1.8
+
+ADR-0025: eşleştiriciler CLI hatalarını tanıyor. Zincir yine elle hiçbir
+komut olmadan işledi (üçüncü kez).
+
+Yayımlanan paketle doğrulandı:
+
+- Yedi paket de `0.1.8`, `latest` 0.1.8, `npm audit signatures` → verified
+  attestations.
+- Registry'den kurulan ikili `v0.1.8 darwin/arm64 go1.26.8`.
+- **Yeni eşleştiriciler yayımlanan ikilide çalışıyor:** `npm error code
+  E403` → `code E403`, `fatal: not a git repository…` → mesaj, etiketli
+  `Error authenticating: IneligibleTierError: …` → etiket düşmüş hâli.
+- Ve bu depodaki gerçek kayıtla eşleşiyor: `code E403` → "Name the Windows
+  npm packages windows, not win32".
+
+Yani bu release'ten itibaren Forgelore kendi geliştirme gününün hatalarını
+hatırlayabiliyor; bu sabah hatırlayamıyordu.
+
+### Not: registry yayılımı yine gecikti
+
+Yedi paketten altısı hemen göründü, `forgelore-windows-x64` birkaç dakika
+`MISSING` dedi. v0.1.5'te de olmuştu. Yayım sonrası doğrulama bunu
+beklemeli; workflow'un "+ paket@sürüm" demesi registry'de görünür olması
+demek değil.
+
 ### Kalanlar — hepsi `[SEN]`
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
