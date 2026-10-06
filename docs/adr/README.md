@@ -18,7 +18,7 @@ keeps its number and its text; the ADR that replaces it says so.
 | [0005](0005-adapters-as-data.md) | K5 | Agent adapters are data, not code |
 | [0006](0006-cli-as-universal-base.md) | K6 | The CLI is the universal base |
 | [0007](0007-fail-open-hooks.md) | K7 | Hooks fail open, always |
-| [0008](0008-no-background-model-calls.md) | K8 | No background model calls, no daemon |
+| [0008](0008-no-background-model-calls.md) | K8 | No background model calls, no daemon (amended by 0027) |
 | [0009](0009-markdown-as-source-of-truth.md) | K9 | Markdown files are the source of truth |
 | [0010](0010-team-and-local-scopes.md) | K10 | Two scopes, team and local |
 | [0011](0011-record-schema-versioning.md) | K11 | Versioned records, unknown fields preserved |
@@ -36,7 +36,8 @@ keeps its number and its text; the ADR that replaces it says so.
 | [0023](0023-build-provenance-instead-of-a-detached-signature.md) | post-release | Build provenance, not a detached signature |
 | [0024](0024-npm-one-package-per-platform.md) | post-release | npm, with one package per platform |
 | [0025](0025-the-extractor-learns-cli-errors.md) | post-release | The extractor learns what a CLI error looks like |
-| [0026](0026-work-memory-is-captured-twice.md) | Phase 10 | Work memory, captured two ways and never by a model |
+| [0026](0026-work-memory-is-captured-twice.md) | Phase 10 | Work memory, captured two ways |
+| [0027](0027-distillation-runs-the-agents-own-cli.md) | K8 (amended) | Distillation runs the agent's own CLI, and only when asked |
 
 ## Writing a new one
 

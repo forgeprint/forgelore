@@ -3414,3 +3414,77 @@ Bir açık nokta: `drift-payloads.sh` yalnızca `*.json` okuduğu için
 `transcript.jsonl`'i görmüyor. Dökümün kayma kontrolü ayrı iş: değerler her
 koşuda değişir, karşılaştırılması gereken şey girdi `type`'ı başına alan
 şekilleri. Faz 9'a ya da Faz 10 adım 3'e bağlanacak.
+
+## 2026-10-06 — K8 değişti: damıtma var, ama kullanıcının kendi CLI'ıyla
+
+Kullanıcı kuralı değiştirdi: Forgelore ihtiyacı olduğunda arkada yapay zekâ
+kullanabilir, yeter ki net etki token tüketimini azaltmak olsun. K8 kilitli bir
+karardı, bu yüzden önce `plan.md` ve ADR'ler değişti; kod değişmedi.
+
+### Üç soru, üç cevap (kullanıcı verdi)
+
+- **Mekanizma: yalnızca kurulu ajan CLI'ı.** `claude -p` ve dengi. Forgelore'un
+  API anahtarı yok, HTTP model istemcisi yok, ayrı fatura yok. K3 sağlam kalıyor.
+- **Tetik: oturum sınırlarında otomatik.** Ama hook beklemiyor: tek seferlik bir
+  çocuk süreç bırakıp K7'nin zaman aşımı içinde çıkıyor, çocuk işini bitirip
+  ölüyor. Daemon yasağı duruyor — kalıcı süreç, denetim, oturumdan uzun yaşayan
+  durum yok.
+- **Varsayılan: kapalı.** Forgelore kurduğu için kimsenin dökümü bir sağlayıcıya
+  gitmiyor. `config` ile açılıyor, `doctor` açık mı kapalı mı ve hangi ikiliyi
+  çağıracağını söylüyor.
+
+Buna iki sınır daha eklendi: damıtma **aday** üretir, kayıt üretmez (`review`
+yine arada duruyor), ve gönderilen metin önce maskelemeden geçer; `<private>`
+hiç gönderilmez.
+
+### Güncellenenler
+
+- `docs/plan.md`: K8 satırı yeniden yazıldı; §1'e "Damıtma" maddesi; "ne
+  yapmaz" listesinin iki maddesi dürüstleştirildi; Faz 10'un başlığı C'yi
+  reddetmiyor artık; ölçüm adımına damıtma harcaması eklendi; yeni **adım 10**
+  damıtmayı tarif ediyor; iki yeni açık soru.
+- `docs/adr/0027-distillation-runs-the-agents-own-cli.md`: yeni. Dört kısıt ve
+  bedelleri.
+- `docs/adr/0008-no-background-model-calls.md`: "superseded in part by
+  ADR-0027" + hangi yarısının durduğunu söyleyen bir not. Metin silinmedi;
+  ADR geçmiş kaydıdır.
+- `docs/adr/0026-…`: başlığındaki "and never by a model" düştü (artık doğru
+  değil), ve C'nin reddi aynı gün geri alındığı için o paragraf yeniden yazıldı.
+- `docs/adr/README.md`: 0027 satırı, 0008'e "amended by 0027".
+
+### Bilerek yapılmayan: README ve site
+
+`README.md` "No background model calls", "No network access, no telemetry"
+diyor; `site/index.html` "It will not send anything anywhere"; `site/agents.html`
+"It makes no network calls"; `site/llms.txt` "no network calls". Bunlar
+**bugün yayında olan ikili için doğru** — v0.1.10 gerçekten model çağırmıyor.
+Şimdi değiştirmek siteyi bugünün ürünü hakkında yalancı yapardı.
+
+Bu yüzden düzeltme, damıtmayı taşıyan sürümle **aynı** sürümde yapılacak,
+öncesinde değil. ADR-0027 bunu sonuç olarak yazıyor ki sürüm hazırlığında
+kaçmasın.
+
+### Açık kalanlar
+
+- Damıtma adayının `source` alanı ne olsun (öneri: `distill`), ve bir oturumda
+  en fazla kaç damıtma çağrısına izin verilsin?
+- Keşif aracı sayımı hangi araçları kapsayacak?
+- `work` kayıtlarının oturum başı bütçesi.
+- Döküm yakalama script'i hâlâ koşulmadı (`[SEN]`).
+
+### Damıtmanın iki ayrıntısı verildi
+
+- **`source: distill`.** Bir kaydın cümlesini kimin yazdığı kaydın kendisinde
+  duruyor. Bedeli: `source` katı doğrulanan kapalı bir enum (`user`, `hook`,
+  `import`), yani bu bir şema değişikliği. ADR-0011 bilinmeyen *alanları*
+  korur, bilinmeyen *enum değerlerini* korumaz: eski bir ikili damıtılmış bir
+  kaydı "problem" olarak bildirip dışarıda bırakır. Güvenli yön, ama görünmez
+  değil. `work` tipiyle birlikte `docs/record-format.md`'ye Faz 10 adım 5'te
+  girecek.
+- **Oturum başına en fazla bir çağrı.** Sayaç oturum kimliğine bağlı ve çocuk
+  süreç onu çağrıdan **önce** yazıyor; iki hook aynı anda tetiklenirse ikinci
+  çağrı yapılmaz. Sınırsız bırakmak "harcama ölçülüyor" cümlesini anlamsız
+  yapardı.
+
+Faz 10 adım 10'un "sorulacaklar" listesi bu ikisi kadar kısaldı; kalan iki soru
+keşif aracı sayımı ve `work` bütçesi.

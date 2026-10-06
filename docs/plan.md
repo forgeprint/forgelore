@@ -28,13 +28,14 @@ Ne yapar:
 - **Olay tetiklemeli, tam zamanında hafıza.** Bir komut başarısız olduğunda hatanın parmak izini çıkarır. Aynı hata daha önce görülmüş ve çözülmüşse, o an tek satırlık bir ipucu enjekte eder ("Bu hata daha önce görüldü, çözüm: …; denenip işe yaramayanlar: …"). Eşleşme yoksa hiç token harcamaz.
 - **Çıkmaz sokakları hatırlar.** Denenmiş ve işe yaramamış yaklaşımlar kod tabanından çıkarılamaz, ama tekrarlanan hata döngüleri en çok token yakan şeydir.
 - **İş hafızası.** Bir oturumun öğrendiği şey hatalardan ibaret değildir: hangi dosya neyi yapıyor, bir iş nerede duruyor, bir yol neden seçildi. Bunu iki kaynaktan toplar — ajanın kendi oturum dökümünden deterministik olarak çıkarılan **olgular**, ve ajanın oturum sonunda kendi yazdığı **yargı**. Amaç, yeni bir oturumun kod tabanını baştan keşfetmemesidir; token'ı en çok yakan şey tekrarlanan hata döngüsü değil, tekrarlanan keşiftir.
+- **Damıtma (isteğe bağlı, varsayılan kapalı).** Deterministik yakalamanın ürettiği olgular ham olur. İstenirse Forgelore bunları **makinede zaten kurulu olan ajanın CLI'ına** verip düzgün yazılmış bir kayıt adayı ister. Kendi API anahtarı yoktur, kalıcı bir servis çalıştırmaz, ve çıkan şey aday olarak kalır — `review` olmadan hafızaya girmez.
 - **Kademeli erişim.** Oturum başında bütçesi sınırlı küçük bir dizin yükler. Ayrıntılar yalnızca istenince getirilir. Bu disiplin araç tasarımıyla zorlanır: dizinden kimlik almadan ayrıntı çekilemez.
 - **Fayda takibi.** Her kaydın ne kadar işe yaradığı izlenir. Faydasız kayıtlar zamanla dizinden düşer.
 - **Ölçüm (A/B).** İsteğe bağlı olarak bazı oturumlarda enjeksiyonu kapatır ve token kullanımını karşılaştırır. Kullanıcıya "bu araç sana şu kadar kazandırdı ya da kaybettirdi" raporu verir.
 
 Ne yapmaz:
-- Arka planda yapay zekâ çağrısı yapmaz. Yakalama deterministiktir.
-- Ağa çıkmaz, telemetri göndermez.
+- Kendiliğinden model çağırmaz. Yakalamanın tabanı deterministiktir; damıtma onun üstüne eklenen, varsayılan kapalı ve yalnızca aday üreten bir katmandır.
+- Telemetri göndermez. Kendi başına ağa çıkmaz: damıtma açıkken ağa çıkan şey Forgelore değil, kullanıcının kendi ajanının CLI'ıdır.
 - Ajanı asla engellemez (bkz. kilitli kararlar).
 - Ajanın yerleşik hafızasının (ör. Claude Code auto memory) yerine geçmeye çalışmaz. Oturum hafızası tarafında **örtüşme gerçektir** ve saklanmaz; ayrıştığı yer şudur: kayıtlar yerel dosyalardır, git ile ekip arasında paylaşılır, enjekte edilen her bayt ölçülür ve hiçbir ajana bağlı değildir.
 
@@ -51,7 +52,7 @@ Ne yapmaz:
 | K5 | **Adaptörler kod değil, veri:** her ajan için binary'ye gömülü bir eşleme dosyası. Depodaki bir dosyayla yerelde geçersiz kılınabilir. | Ajan bir olay adını değiştirdiğinde yeniden derleme gerekmez. |
 | K6 | **Evrensel taban CLI'dır.** Her özellik önce bir CLI komutu olarak var olur. Hook ve MCP bunun üstüne eklenen katmanlardır. | Her kodlama ajanı shell komutu çalıştırabilir. |
 | K7 | **Fail-open:** hook'lar her koşulda başarıyla çıkar, katı zaman aşımıyla çalışır. Hata olursa hiçbir şey enjekte etmez, sessizce devam eder. | Hafıza yardımcı katmandır, ajanın çalışmasını asla durdurmaz. |
-| K8 | **Arka planda LLM çağrısı yok**, sürekli çalışan servis (daemon) yok. | Maliyet ve kararlılık. |
+| K8 | **Damıtma kurulu bir ajan CLI'ıyla yapılabilir, varsayılan kapalı.** Forgelore'un API anahtarı yoktur ve kalıcı servis (daemon) çalıştırmaz. Model çağrısı yalnızca **aday** üretir, kayıt üretmez, ve harcadığı para defterin maliyet tarafına yazılır. | Hafıza token tasarrufu sağlıyorsa, iyi yazılmış bir kaydı üretmek için bir kez model harcamak kârlı olabilir — ama bunun kanıtı ölçümde görünmek zorunda. Anahtar yerine kullanıcının zaten kurulu ajanı çağrılır: yeni bağımlılık yok, ayrı fatura yok. ADR-0027, ADR-0008'i kısmen geçersiz kılar. |
 | K9 | **Doğruluk kaynağı düz markdown**, kayıt başına bir dosya. SQLite indeksi türetilmiştir, git'e girmez, her an yeniden üretilebilir. | Git ile ekip paylaşımı, merge çakışmasız, insan tarafından okunabilir. |
 | K10 | İki kapsam: **ekip** (commit edilir, PR ile incelenir) ve **yerel/kişisel** (gitignore). | Bir kişinin yanlış kaydı herkesi kirletmez. |
 | K11 | Her kayıtta **`schema` sürümü**. Tanınmayan alanlar okunur ve **korunur**, silinmez. | İleri ve geri uyumluluk. |
@@ -280,13 +281,14 @@ Kabul kriterleri: Bir eşleme alanı bilerek bozulduğunda kayma dedektörü bun
 
 ### Faz 10 — İş hafızası (oturumlar arası bağlam)
 
-**Amaç:** Yeni bir oturumun kod tabanını baştan keşfetmemesi. Yakalama melezdir:
-**olgu** ajanın oturum dökümünden deterministik çıkar (A), **yargı** ajanın kendi
-yazdığıdır (B). Arka planda model çağrısı yoktur, K8'e dokunulmaz.
+**Amaç:** Yeni bir oturumun kod tabanını baştan keşfetmemesi. Yakalamanın
+tabanı melezdir: **olgu** ajanın oturum dökümünden deterministik çıkar (A),
+**yargı** ajanın kendi yazdığıdır (B). Üçüncü bir katman olarak **damıtma (C)**
+vardır ama varsayılan kapalıdır ve adım 10'a bırakılmıştır: adım 3 ve 4
+olmadan damıtılacak bir şey yoktur.
 
-Reddedilen üçüncü yol, oturum sonunda arka planda bir model çağırıp dökümü
-özetlemekti (claude-mem'in yaptığı). K8 bunu yasaklar; gerekçe ve bedeli
-ADR-0026'da.
+A ve B bedavadır ve her zaman çalışır. C para harcar, bu yüzden ne harcadığı
+ölçülür (ADR-0019) ve ne zaman harcadığına kullanıcı karar verir.
 
 Adımlar:
 1. `[CLAUDE]` Oturum dökümü (`transcript_path`) formatını doğrula: resmî
@@ -319,7 +321,9 @@ Adımlar:
    genişletilir.
 5. `[CLAUDE]` Yeni kayıt tipi **`work`**. ADR-0016 değişir: `work` oturum başı
    dizine girer ama kendi, daha sıkı bütçesiyle; en yeniler önce, faydasızlar
-   düşer. `docs/record-format.md` bu adımda güncellenir.
+   düşer. `docs/record-format.md` bu adımda güncellenir — `work` tipi ve
+   `source` enum'una eklenen `distill` değeri birlikte, çünkü ikisi de şu an
+   katı doğrulamadan geçmez.
 6. `[CLAUDE]` Çağırma: prompt gönderildiğinde prompt'taki dosya, yol ya da
    sembol dizinle eşleşirse ilgili başlıklar verilir. **Varsayılan kapalı**,
    config ile açılır; her prompt'ta enjeksiyon en büyük geri tepme riskidir.
@@ -331,8 +335,25 @@ Adımlar:
 8. `[CLAUDE]` Ölçüm: yeni metrik — oturum başına keşif aracı çağrısı sayısı ve
    ilk düzenlemeye kadar geçen çağrı sayısı. Kontrol grubunda iş hafızası
    enjekte edilmez. Bu metrik olmadan tasarruf iddiası edilmez (ADR-0019).
+   Damıtma açıksa harcadığı para defterin **maliyet** tarafına yazılır; net
+   kazanç damıtma bedeli düşüldükten sonra ne kalıyorsa odur.
 9. `[CLAUDE]` ADR-0026 (iş hafızası, melez yakalama, reddedilenler) ve
    ADR-0016 güncellemesi.
+10. `[CLAUDE]` **Damıtma (C).** Sırada en sonda, çünkü adım 3 ve 4 olmadan
+    damıtılacak olgu yok. Kurulu ajan CLI'ı çağrılır (`claude -p` ve dengi);
+    hangi komut, hangi bayraklar, prompt nasıl geçilir ve cevap nasıl okunur
+    eşleme dosyasına yazılır, koda gömülmez (K5). Oturum sınırında
+    kendiliğinden tetiklenir ama **hook beklemez**: hook tek seferlik bir
+    çocuk süreç bırakıp K7'nin zaman aşımı içinde çıkar, çocuk işini bitirip
+    ölür. Kalıcı servis yok. Çıkan şey **aday**dır. Gönderilen metin önce
+    maskelemeden geçer (ADR-0013); `<private>` hiç gönderilmez. Varsayılan
+    kapalı, `config` ile açılır, ve `doctor` açık mı kapalı mı olduğunu ve
+    hangi CLI'ı çağıracağını söyler. Adayın `source` alanı **`distill`**, yani
+    bir kaydın cümlesini kimin yazdığı kaydın kendisinde duruyor. **Oturum
+    başına en fazla bir çağrı**; sayaç oturum kimliğine bağlı ve çocuk süreç
+    onu çağrıdan önce yazar, yani iki hook aynı anda tetiklenirse ikinci çağrı
+    yapılmaz. Ayrıntı ve bedeller ADR-0027'de.
+
 Sorulacaklar: Keşif aracı sayımı hangi araçları kapsasın? `work` kayıtlarının
 oturum başı bütçesi ne olsun, ve mevcut bütçeden ayrı mı tutulsun?
 

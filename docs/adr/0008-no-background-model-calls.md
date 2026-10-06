@@ -1,8 +1,14 @@
 # ADR-0008: No background model calls, no daemon
 
-- Status: Accepted
+- Status: Accepted, superseded in part by ADR-0027
 - Date: 2026-09-25
 - Locked decision: K8
+
+> ADR-0027 (2026-10-06) reopens the first half of this decision: a model may be
+> called, through an agent CLI the user has already installed, off by default,
+> producing candidates only. The daemon ban and the no-API-key rule below stand
+> unchanged, and so does the reasoning about cost and reproducibility — what
+> changed is that the cost is now measured and chosen rather than forbidden.
 
 ## Context
 

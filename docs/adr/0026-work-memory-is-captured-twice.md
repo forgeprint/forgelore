@@ -1,6 +1,6 @@
-# ADR-0026: Work memory, captured two ways and never by a model
+# ADR-0026: Work memory, captured two ways
 
-- Status: Accepted
+- Status: Accepted, amended by ADR-0027
 - Date: 2026-10-06
 - Phase: 10
 
@@ -39,7 +39,12 @@ money per session, needs a key or a signed-in CLI, and breaks K8.
 ## Decision
 
 **A and B together.** Facts come from the transcript, judgement comes from the
-agent. C is rejected; K8 stands.
+agent.
+
+C was rejected here, and ADR-0027 reinstates it the same day as an optional
+third layer: off by default, run through a CLI the user already has, producing
+candidates only. A and B remain the floor — they cost nothing and they work
+with no configuration, which is what makes C optional rather than necessary.
 
 Extraction happens at **session start, from the previous session's
 transcript** — not at the end of the session that produced it. The hooks
