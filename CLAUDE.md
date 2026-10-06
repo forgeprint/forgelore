@@ -45,6 +45,28 @@ These rules come from `docs/plan.md` and are not optional.
 The user writes Turkish; answer in Turkish. Public documents and code comments
 are English; internal notes (`docs/ilerleme.md`, `docs/plan.md`) are Turkish.
 
+## Forgelore is installed here
+
+This repository uses its own product. `.forgelore/records/` is committed and
+holds what earlier sessions learned the hard way; the index, the ledger and
+the local scope are gitignored.
+
+```sh
+forgelore search <query>      # what is already known
+forgelore recall --command "<the command>" --error-file -   # with its output on stdin
+forgelore record --type decision --scope team --title "…" --body "…"
+forgelore review              # what a session proposed, before it becomes a record
+```
+
+When a command here fails, look before fixing. When something turns out to
+be worth knowing next time, record it — a title states the answer, not the
+question.
+
+One limit worth knowing: the fingerprinter recognises compiler and runtime
+diagnostics, not the prose errors CLI tools write. `npm error code E403` and
+`Failed to authenticate: …` produce no fingerprint, so they cannot be `fix`
+records and are kept as `decision` instead.
+
 ## Commands
 
 Every check CI runs is a script, and CI runs nothing else:

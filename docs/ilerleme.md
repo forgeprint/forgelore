@@ -2431,6 +2431,60 @@ başlık: düz komutla kaydedilmiş hiçbir parmak izi değişmiyor, yalnızca
 bugüne kadar hiçbir şeyle eşleşmeyenler değişiyor. Zincirli ya da `npm run`
 ile kaydedilmiş bir fix varsa `forgelore dedupe` çifti bulur.
 
+---
+
+## 2026-10-06 — Forgelore kendi deposunda kuruldu, ve ilk dakikada bir sınır buldu
+
+Kullanıcı "bu yazışmada kendimiz için kullanalım, hem denemiş oluruz"
+dedi. `forgelore init --with-git-hook` çalıştırıldı; `.forgelore/records/`
+commit'lenir, index/ledger/local gitignore'lu, `pre-commit` her commit'te
+`forgelore check` çalıştırıyor.
+
+### Bulgu: bugünkü hataların hiçbiri parmak izi üretmiyor
+
+Kaydetmek istediğim beş gerçek hata vardı. Hiçbiri `fix` olamadı, çünkü
+`fingerprint.Scan` hiçbirinde bir şey bulmuyor:
+
+```
+Error authenticating: IneligibleTierError: ...   (yok)
+npm error code E403 ... spam detection           (yok)
+npm error code EOTP                              (yok)
+Failed to authenticate: OAuth session expired    (yok)
+the working tree is not clean                    (yok)
+```
+
+Sınırı ölçtüm: eşleştiriciler **derleyici ve çalışma-zamanı teşhislerini**
+tanıyor — `dosya.go:4:2: ...`, `TypeError: ...`, `panic:`, `--- FAIL:`.
+CLI'ların düzyazı hatalarını tanımıyor. `IneligibleTierError: ...` satır
+başındayken eşleşiyor (`16e2c186...`), ama gerçek çıktıda önünde
+`Error authenticating: ` olduğu için eşleşmiyor. `npm error code E403`
+küçük harfli ve iki nokta kalıbına uymadığı için hiç görünmüyor.
+
+Bu bir hata değil, kapsamın sınırı: korpus 29 ailenin hepsi derleyici /
+runtime hatası. Ama şunu söylüyor — **Forgelore, kendi geliştiricisinin bütün
+gün karşılaştığı hataları göremiyor.** Dogfooding'in bulması gereken şey
+tam olarak buydu ve ilk dakikada buldu.
+
+### Yapılan
+
+Beşi de `decision` olarak kaydedildi (parmak izi gerektirmiyor, oturum
+başlangıcı indeksinde başlıkla görünüyor): claude CLI'ın ayrı girişi,
+`dist/`'in paylaşılan değişken durum olması, npm'in `win32` adını
+reddetmesi, Gemini'nin API anahtarı ve folder trust gereksinimi, ve
+ajanların komut zincirleme/borulama alışkanlığı.
+
+`CLAUDE.md`'ye kısa bir bölüm eklendi: deponun kendi ürününü kullandığı,
+hangi komutların işe yaradığı, ve yukarıdaki sınırın açıkça yazılması —
+yoksa bir sonraki oturum `fix` kaydetmeye çalışıp sessizce başarısız olur.
+
+### Açık soru
+
+Eşleştiriciler CLI hatalarını kapsayacak şekilde genişletilsin mi? Kazancı
+büyük: enjeksiyon yolu bugün yalnızca derleyici hatalarında çalışıyor.
+Riski de büyük: `Error:` ile başlayan her satırı yakalamak yanlış pozitif
+üretir ve `onCommandFailed`'ın ucuz olmasının sebebi tam da bu darlık.
+Yapılırsa korpusa yeni aileler ve bir ADR gerekir. Karar verilmedi.
+
 ### Kalanlar — hepsi `[SEN]`
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
