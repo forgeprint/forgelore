@@ -154,7 +154,11 @@ mkdir -p "$work/cmd/app"
 printf 'package main\n\nfunc main() {\n\tgreet("world")\n}\n' > "$work/cmd/app/main.go"
 
 echo "==> running a session"
-prompt='Run these two shell commands in order and then stop. Do not fix anything, do not edit any file. First: go build ./...   Second: go version'
+# "exactly as written" is load-bearing. Left to itself a model writes
+# `go build ./... 2>&1 | head -40`, and a pipeline exits with head's status,
+# so the build failure never reaches the agent's failure event and the
+# capture quietly comes back without one.
+prompt='Run these two shell commands in order and then stop. Run each one exactly as written: no pipes, no redirection, no extra flags, no wrapping. Do not fix anything, do not edit any file. First: go build ./...   Second: go version'
 ( cd "$work" && run_session "$prompt" 2>&1 | tail -3 ) || true
 
 shopt -s nullglob
@@ -168,6 +172,13 @@ fi
 # corpus, which is how drift-payloads.sh compares a fresh capture against the
 # committed one without overwriting it first.
 out="${FORGELORE_CAPTURE_OUT:-$out_root/$agent/$version}"
+
+# Emptied first. Payloads are numbered per event, so a capture whose model
+# happened to call fewer tools than the last one leaves the extra files
+# behind and the directory ends up holding two sessions at once — which
+# reads as one and is not. Safe here because the run above already refused
+# to continue if it captured nothing.
+rm -rf "$out"
 mkdir -p "$out"
 account="$(id -un)"
 for f in "${captured[@]}"; do

@@ -216,37 +216,56 @@ func TestCapturedPayloadsAreScrubbed(t *testing.T) {
 	}
 }
 
-// TestEveryCapturedPayloadHasAScratchpad records what the corpus settles.
+// TestTheScratchpadCameAndWent records what two corpora settle between
+// them, and it has been wrong twice.
 //
-// An earlier capture had no scratchpad_dir on any event, and the conclusion
-// drawn from it — that the fallback was the ordinary path — was wrong: that
-// run never reached a model, because the CLI was not logged in. In a real
-// session all four events carry it. The fallback still has to work, because
-// the documentation says the field is absent when a session has no
-// scratchpad, but it is the exception and not the rule.
-func TestEveryCapturedPayloadHasAScratchpad(t *testing.T) {
-	for _, name := range []string{
+// First reading: an early capture carried no scratchpad_dir anywhere, and
+// the conclusion — that the fallback was the ordinary path — was wrong,
+// because that run never reached a model. Second reading: 2.1.289 carried
+// it on all four events, so it was called the rule. Then 2.1.290 dropped it
+// from every event again.
+//
+// So the field is optional in practice and not only on paper, and the
+// fallback is load-bearing rather than a corner. Nothing breaks either way:
+// without it the session state goes to the store's own cache. This test
+// holds both shapes so that neither reading can quietly become an
+// assumption again.
+func TestTheScratchpadCameAndWent(t *testing.T) {
+	events := []string{
 		"PostToolUseFailure-1.json", "PostToolUse-1.json",
 		"SessionStart-1.json", "SessionEnd-1.json",
+	}
+	for _, tc := range []struct {
+		version string
+		want    bool
+	}{
+		{"2.1.289", true},
+		{"2.1.290", false},
 	} {
-		payload, err := os.ReadFile(filepath.Join(corpusRoot, "2.1.289", name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		e, ok, err := mustBuilt(t).Translate(payload, "", now)
-		if err != nil || !ok {
-			t.Fatalf("%s: ok=%v err=%v", name, ok, err)
-		}
-		if e.Scratchpad == "" {
-			t.Errorf("%s: no scratchpad_dir", name)
-			continue
-		}
-		if filepath.Dir(StatePath(e, "/cache")) != e.Scratchpad {
-			t.Errorf("%s: the state file left the scratchpad", name)
+		for _, name := range events {
+			payload, err := os.ReadFile(filepath.Join(corpusRoot, tc.version, name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			e, ok, err := mustBuilt(t).Translate(payload, "", now)
+			if err != nil || !ok {
+				t.Fatalf("%s/%s: ok=%v err=%v", tc.version, name, ok, err)
+			}
+			if got := e.Scratchpad != ""; got != tc.want {
+				t.Errorf("%s/%s: scratchpad present = %v, want %v", tc.version, name, got, tc.want)
+				continue
+			}
+			dir := filepath.Dir(StatePath(e, "/cache"))
+			if tc.want && dir != e.Scratchpad {
+				t.Errorf("%s/%s: the state file left the scratchpad", tc.version, name)
+			}
+			if !tc.want && dir != filepath.Join("/cache", "sessions") {
+				t.Errorf("%s/%s: without a scratchpad the state went to %q", tc.version, name, dir)
+			}
 		}
 	}
 
-	// And without one, it falls back rather than writing to the root.
+	// And with no session at all, it still does not write to the root.
 	bare := Event{Session: "s1"}
 	if dir := filepath.Dir(StatePath(bare, "/cache")); dir != filepath.Join("/cache", "sessions") {
 		t.Errorf("the fallback went to %q", dir)

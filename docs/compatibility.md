@@ -20,7 +20,7 @@ listed as not measured, and does not count towards a tier.
 
 | Agent | Tier | Verified against | Hooks | MCP | Usage reader |
 |---|---|---|---|---|---|
-| Claude Code | **A** | 2.1.289 | ✅ 4 captured payloads | ✅ both protocol eras measured | ✅ status line |
+| Claude Code | **A** | 2.1.290 | ✅ two corpora, 2.1.289 and 2.1.290 | ✅ both protocol eras measured | ✅ status line |
 | Copilot CLI | **B**, hooks verified | 1.0.91 | ✅ 3 captured payloads | never connected | none known |
 | Codex CLI | **unverified** | — | mapping written from docs | never connected | none known |
 | Gemini CLI | **B**, hooks verified | 0.62.0 | ✅ 4 captured payloads | never connected | none known |
@@ -54,7 +54,9 @@ question.
 
 ## Claude Code
 
-Verified against 2.1.289 on 2026-10-05.
+Verified against 2.1.289 on 2026-10-05 and against 2.1.290 on 2026-10-06.
+Both corpora are kept and both are replayed, because the difference between
+them is the point.
 
 Hooks: `SessionStart`, `PostToolUse`, `PostToolUseFailure`, `SessionEnd`,
 configured by the plugin in [`plugin/`](../plugin/). A failed Bash command
@@ -91,6 +93,25 @@ when it does — so a piped build is recalled like any other. See
 a command that succeeds while printing error-shaped text, `cat build.log`
 for instance, is now read as a failure. Nothing is written to memory either
 way; the visible effect is a lookup that probably misses.
+
+### What changed in 2.1.290
+
+`scratchpad_dir` is **gone from every event**. In 2.1.289 all four carried
+it; in 2.1.290 none do. Nothing breaks — session state falls back to the
+store's own cache, which was always the documented behaviour for a session
+without a scratchpad — but the fallback is now the ordinary path rather
+than the corner case this project twice assumed it was not.
+
+The failure payload is otherwise unchanged: a failed Bash command still
+arrives as `PostToolUseFailure` with a top-level `error` reading
+`Exit code 1\n…`, and `is_interrupt` still marks a stopped command.
+
+`drift-payloads.sh` found this, on its first real use, by comparing field
+paths rather than values. It also reported `PostToolUseFailure: no longer
+captured`, which was **not** a regression: the model had written
+`go build ./... 2>&1 | head -40`, so the command genuinely succeeded. The
+capture prompt now forbids pipes and redirection, because that mistake has
+cost three investigations.
 
 MCP: both protocol eras are served, because the client speaks either one
 depending on a feature flag. Its v2 runtime opens with `server/discover` at

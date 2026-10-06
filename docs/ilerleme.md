@@ -2237,6 +2237,67 @@ pane benim okuyabildiğim bir yer ve değer orada göründü. Söylendi,
 değiştirildi. Bir sonraki sefer için doğru biçim komutun önüne tek
 kullanımlık değişken koymak ve satırı geçmişe sokmamak.
 
+---
+
+## 2026-10-06 — Claude Code 2.1.290: drift aracı ilk kez iş gördü
+
+Kullanıcı "claude çalışıyor değil mi" diye sordu. Ölçmeye kalkınca canlı
+oturumda bir **ıskalama** çıktı: arama yapıldı (sayaç 16 → 17) ama eşleşme
+bulunamadı. Ve kurulu CLI 2.1.290'dı, korpus ise 2.1.289'a doğrulanmış.
+
+`./scripts/drift-payloads.sh claude-code` dört satır döndü ve ikisi gerçek:
+
+### 1. Yanlış alarm: "PostToolUseFailure no longer captured"
+
+Bunu ciddi bir regresyon sandım ve kullanıcıya öyle söyledim. **Değildi.**
+Yeni yakalanan payload gösterdi ki model komutu yine borulamış
+(`go build ./... 2>&1 | head -40`), yani komut gerçekten 0 ile çıkmış ve
+doğru şekilde `PostToolUse` gelmiş.
+
+Bu, aynı tuzağa **üçüncü** düşüşümüz: borulanmış komut önce ADR-0022'ye,
+sonra v0.1.3'e, şimdi de bir yanlış drift alarmına yol açtı. Yakalama
+promptu artık açıkça "no pipes, no redirection, no extra flags" diyor.
+Düzeltince gerçek `PostToolUseFailure` payload'ı ilk denemede geldi.
+
+Ders: drift aracı "alan kayboldu" diyebilir ama bunun iki sebebi olabilir —
+ajan değişmiştir, ya da o oturumda o olay hiç oluşmamıştır. Araç ikisini
+ayıramaz; ayıran şey yeni payload'a bakmak.
+
+### 2. Gerçek değişiklik: `scratchpad_dir` gitti
+
+Üç olaydan da kalkmış. 2.1.289'da dördü de taşıyordu, 2.1.290'da hiçbiri
+taşımıyor. Hiçbir şey kırılmıyor — oturum durumu store'un cache'ine
+düşüyor, ki bu zaten belgelenmiş davranıştı — ama **yedek yol artık
+olağan yol**.
+
+Bu alan hakkında iki kez yanıldık: önce "hiç gelmiyor" dedik (oturum
+açılmamış bir yakalamadan), sonra düzeltip "gerçek oturumda dördü de
+taşıyor" dedik. Şimdi üçüncü hali. Test bu yüzden yeniden yazıldı:
+`TestTheScratchpadCameAndWent` **iki korpusu birden** tutuyor — 2.1.289'da
+var, 2.1.290'da yok, ve her iki durumda durum dosyasının nereye gittiğini
+doğruluyor. Artık hiçbir okuma sessizce varsayıma dönüşemez.
+
+### Yakalama script'inde iki düzeltme
+
+- Prompt borulamayı yasaklıyor.
+- Çıktı dizini yazmadan önce **temizleniyor**. Payload'lar olay başına
+  numaralandığı için, daha az araç çağıran bir yakalama öncekinin
+  dosyalarını bırakıyordu; dizin iki oturumu birden tutuyordu ve tek
+  oturum gibi okunuyordu. Gerçekten de bir dosya öyle kalmış, elle silindi.
+
+### Durum
+
+Her iki korpus da replay'den geçiyor, `verified_against` 2.1.290 oldu ve
+ikisi de saklanıyor — aralarındaki fark zaten bulgunun kendisi.
+`compatibility.md` tabloda "two corpora" diyor.
+
+**Açıklanmadan kalan bir şey var:** kullanıcının canlı oturumundaki
+ıskalamanın parmak izi `b9bd373fd700b328` idi, ve ne kayıtlı hata, ne
+yakalanan 2.1.290 payload'ları, ne de denediğim beş komut biçimi onu
+üretiyor. O oturumun payload'ı kaydedilmediği için geriye dönük
+bakılamıyor. Uydurmak yerine açık bırakıldı; bir dahaki denemede o projeye
+payload döken geçici bir hook koymak yeterli olur.
+
 ### Kalanlar — hepsi `[SEN]`
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
 - Codex CLI doğrulaması, erişim olduğunda:
