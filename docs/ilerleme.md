@@ -17,6 +17,7 @@ ve nasıl bulunduğu tarihli bölümlerde, en yenisi en sonda.
 | Hata korpusu | 31 aile |
 | Ajan payload'ları | 22, beş ajan sürümünden |
 | Bu deponun kendi hafızası | `.forgelore/records/`'ta 9 kayıt (4 fix, 5 decision) |
+| Site | **https://forgeprint.github.io/forgelore/** — İngilizce ve Türkçe, ajanlar için ayrı sayfa ve `llms.txt` |
 
 Yayım zinciri elle müdahale istemiyor: etiket → `release.yml` derler, attest
 eder, **taslak** çıkarır; taslağı bir insan yayımlayınca `npm.yml` paketleri
