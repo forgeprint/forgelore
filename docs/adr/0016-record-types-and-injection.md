@@ -1,6 +1,6 @@
 # ADR-0016: Record types and what each one costs
 
-- Status: Accepted
+- Status: Accepted, amended by ADR-0026
 - Date: 2026-09-25
 - Phase: 1
 
@@ -25,11 +25,15 @@ Five types, each with a fixed injection behaviour:
 | `command` | title only | no | yes |
 | `decision` | title only | no | yes |
 | `note` | no | no | yes |
+| `work` | title only, own budget | no | yes |
 
 `fix` and `dead_end` are event-triggered and cost nothing until a fingerprint
 matches. `command` and `decision` are stable project knowledge, worth a title in
 the session-start index and nothing more until asked for. `note` is never
-injected automatically; it exists to be searched.
+injected automatically; it exists to be searched. `work` was added by ADR-0026:
+it is stable knowledge like the two above it, but it accumulates per session
+rather than per decision, so it is held to a budget of its own and ordered
+newest first.
 
 Two link fields:
 

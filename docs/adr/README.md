@@ -36,6 +36,7 @@ keeps its number and its text; the ADR that replaces it says so.
 | [0023](0023-build-provenance-instead-of-a-detached-signature.md) | post-release | Build provenance, not a detached signature |
 | [0024](0024-npm-one-package-per-platform.md) | post-release | npm, with one package per platform |
 | [0025](0025-the-extractor-learns-cli-errors.md) | post-release | The extractor learns what a CLI error looks like |
+| [0026](0026-work-memory-is-captured-twice.md) | Phase 10 | Work memory, captured two ways and never by a model |
 
 ## Writing a new one
 

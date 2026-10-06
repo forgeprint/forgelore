@@ -27,6 +27,7 @@ Forgelore, kodlama ajanları için **yerel, ekip paylaşımlı, bağımsız** bi
 Ne yapar:
 - **Olay tetiklemeli, tam zamanında hafıza.** Bir komut başarısız olduğunda hatanın parmak izini çıkarır. Aynı hata daha önce görülmüş ve çözülmüşse, o an tek satırlık bir ipucu enjekte eder ("Bu hata daha önce görüldü, çözüm: …; denenip işe yaramayanlar: …"). Eşleşme yoksa hiç token harcamaz.
 - **Çıkmaz sokakları hatırlar.** Denenmiş ve işe yaramamış yaklaşımlar kod tabanından çıkarılamaz, ama tekrarlanan hata döngüleri en çok token yakan şeydir.
+- **İş hafızası.** Bir oturumun öğrendiği şey hatalardan ibaret değildir: hangi dosya neyi yapıyor, bir iş nerede duruyor, bir yol neden seçildi. Bunu iki kaynaktan toplar — ajanın kendi oturum dökümünden deterministik olarak çıkarılan **olgular**, ve ajanın oturum sonunda kendi yazdığı **yargı**. Amaç, yeni bir oturumun kod tabanını baştan keşfetmemesidir; token'ı en çok yakan şey tekrarlanan hata döngüsü değil, tekrarlanan keşiftir.
 - **Kademeli erişim.** Oturum başında bütçesi sınırlı küçük bir dizin yükler. Ayrıntılar yalnızca istenince getirilir. Bu disiplin araç tasarımıyla zorlanır: dizinden kimlik almadan ayrıntı çekilemez.
 - **Fayda takibi.** Her kaydın ne kadar işe yaradığı izlenir. Faydasız kayıtlar zamanla dizinden düşer.
 - **Ölçüm (A/B).** İsteğe bağlı olarak bazı oturumlarda enjeksiyonu kapatır ve token kullanımını karşılaştırır. Kullanıcıya "bu araç sana şu kadar kazandırdı ya da kaybettirdi" raporu verir.
@@ -35,7 +36,7 @@ Ne yapmaz:
 - Arka planda yapay zekâ çağrısı yapmaz. Yakalama deterministiktir.
 - Ağa çıkmaz, telemetri göndermez.
 - Ajanı asla engellemez (bkz. kilitli kararlar).
-- Ajanların yerleşik hafıza özelliklerini (ör. Claude Code auto memory) kopyalamaz. Onların yapmadığını yapar.
+- Ajanın yerleşik hafızasının (ör. Claude Code auto memory) yerine geçmeye çalışmaz. Oturum hafızası tarafında **örtüşme gerçektir** ve saklanmaz; ayrıştığı yer şudur: kayıtlar yerel dosyalardır, git ile ekip arasında paylaşılır, enjekte edilen her bayt ölçülür ve hiçbir ajana bağlı değildir.
 
 ---
 
@@ -277,6 +278,94 @@ Kabul kriterleri: Bir eşleme alanı bilerek bozulduğunda kayma dedektörü bun
 
 ---
 
+### Faz 10 — İş hafızası (oturumlar arası bağlam)
+
+**Amaç:** Yeni bir oturumun kod tabanını baştan keşfetmemesi. Yakalama melezdir:
+**olgu** ajanın oturum dökümünden deterministik çıkar (A), **yargı** ajanın kendi
+yazdığıdır (B). Arka planda model çağrısı yoktur, K8'e dokunulmaz.
+
+Reddedilen üçüncü yol, oturum sonunda arka planda bir model çağırıp dökümü
+özetlemekti (claude-mem'in yaptığı). K8 bunu yasaklar; gerekçe ve bedeli
+ADR-0026'da.
+
+Adımlar:
+1. `[CLAUDE]` Oturum dökümü (`transcript_path`) formatını doğrula: resmî
+   dokümantasyondan, ve eldeki gerçek bir dosyadan. Format resmî olarak
+   tanımlı değilse rapora **"doğrulanmadı"** yazılır ve kayma riski ADR'ye
+   geçer (kural 7). Alan eşlemeye eklenir, koda gömülmez (K5).
+2. `[CLAUDE]` `scripts/capture-agent-events.sh` dökümü de saklasın: yolu
+   yakalanan payload'dan okur, payload'larla aynı temizlikten geçirir,
+   `testdata/agents/<ajan>/<sürüm>/transcript.jsonl` olarak yazar. Döküm
+   yolu vermeyen ajan dosya bırakmaz. `[SEN]` script'i koş; `claude` CLI'ın
+   giriş yapmış olması gerekir ve küçük bir model kullanımı yakar.
+3. `[CLAUDE]` Çıkarıcı (A): dökümden yalnızca olgu — düzenlenen dosyalar,
+   geçen ve kalan komutlar, bu oturumda açılan kayıtlar. Yalnızca API biçimli
+   katman okunur (`message.content[]` blokları ve `tool_result.is_error`);
+   ajanın iç kayıtlarına dokunulmaz. Bayt tavanı, kuyruktan okuma, model yok,
+   K7 gereği her koşulda sessiz çıkış.
+   **Okuma anı SessionStart'tır, önceki oturumun dökümünden.** Dokümantasyon
+   dökümün eşzamansız yazıldığını ve son turu içermeyebileceğini söylüyor; biten
+   oturumun dosyası bir sonraki oturum başladığında tamamlanmış olur. Dosya
+   seçimi, aynı dizindeki başka dökümler, hâlâ koşan paralel oturumlar ve
+   her dökümün bir kez işlenmesini sağlayan bir işaret (`cache/` altında,
+   türetilmiş ve silinebilir) bu adımın işidir.
+4. `[CLAUDE]` Ajan yazımı (B), iki kaynaktan: oturum sonunda **bir kez**,
+   bütçeli tek satır dürtme; **ve** Stop olayının dokümante
+   `last_assistant_message` alanı, yani ajanın kendi son sözü — çoğu oturumda
+   ne yapıldığının raporu, dürtmeye gerek kalmadan. İkisi birbirinin yerine
+   değil, yanında: dürtme uyulmazsa son söz yine bir aday verir. Aday yerel
+   kapsamda doğar ve `review` olmadan ekip kapsamına geçmez. Aday deposu parmak
+   izi üstüne kurulu olduğu için parmak izsiz adayı taşıyacak şekilde
+   genişletilir.
+5. `[CLAUDE]` Yeni kayıt tipi **`work`**. ADR-0016 değişir: `work` oturum başı
+   dizine girer ama kendi, daha sıkı bütçesiyle; en yeniler önce, faydasızlar
+   düşer. `docs/record-format.md` bu adımda güncellenir.
+6. `[CLAUDE]` Çağırma: prompt gönderildiğinde prompt'taki dosya, yol ya da
+   sembol dizinle eşleşirse ilgili başlıklar verilir. **Varsayılan kapalı**,
+   config ile açılır; her prompt'ta enjeksiyon en büyük geri tepme riskidir.
+   Oturum içi tekrar engeli ajanın scratchpad'inde tutulur.
+7. `[CLAUDE]` Maskeleme: döküm bütün prompt'ları içerir, yani ADR-0013'ün en
+   sert sınandığı yer burasıdır. `<private>` ve sır desenleri yazmadan önce
+   uygulanır. Dökümden gelen aday **`tainted` işaretlenmez** — gerekçe
+   ADR-0026'da; lekenin karşılığı yerel kapsamda doğmaktır.
+8. `[CLAUDE]` Ölçüm: yeni metrik — oturum başına keşif aracı çağrısı sayısı ve
+   ilk düzenlemeye kadar geçen çağrı sayısı. Kontrol grubunda iş hafızası
+   enjekte edilmez. Bu metrik olmadan tasarruf iddiası edilmez (ADR-0019).
+9. `[CLAUDE]` ADR-0026 (iş hafızası, melez yakalama, reddedilenler) ve
+   ADR-0016 güncellemesi.
+Sorulacaklar: Keşif aracı sayımı hangi araçları kapsasın? `work` kayıtlarının
+oturum başı bütçesi ne olsun, ve mevcut bütçeden ayrı mı tutulsun?
+
+Kabul kriterleri: Gerçek bir dökümden model çağrısı olmadan doğru olgular
+çıkıyor, sözleşme testi hangi ajan sürümüyle doğrulandığını söylüyor. Bozuk,
+eksik, çok büyük ya da silinmiş dökümde hook sessiz ve zamanında çıkıyor (K7).
+İkinci bir oturum, birinci oturumun dokunduğu alan sorulduğunda dosya okumaya
+başlamadan önce ilgili başlığı görüyor; bu senaryo elle denenmiş ve
+raporlanmış. Dökümde geçen bir sır hiçbir dosyaya yazılmıyor, testi var.
+`report` keşif çağrısı sayısını iki grup için gösteriyor ve fark anlamsızsa
+"anlamlı değil" diyor.
+
+---
+
+### Faz 10.1 — Sıkıştırma anı (PreCompact)
+
+**Amaç:** Bağlam sıkıştırılırken atılmak üzere olan şeyi, atılmadan önce
+yakalamak. Faz 10'dan ayrı tutulur, çünkü ikinci bir ajan formatına bağımlılık
+demektir ve Faz 10'un kazancı buna bağlı değildir.
+
+Adımlar:
+1. `[CLAUDE]` Olayın adı, zamanlaması ve payload'ı güncel resmî
+   dokümantasyondan doğrulanır (kural 7); kanonik olay kümesine eklenmesi
+   gerekiyorsa ADR-0020 güncellenir.
+2. `[SEN]` Gerçek bir sıkıştırma olayı örneği toplanır.
+3. `[CLAUDE]` Davranış: sıkıştırma öncesi Faz 10'un çıkarıcısı çalışır, aday
+   üretilir. Hiçbir şey enjekte edilmez — bu an yazma anıdır, okuma anı değil.
+
+Kabul kriterleri: Gerçek bir sıkıştırmada aday üretiliyor, ve olay hiç
+gelmezse Faz 10 tek başına eksiksiz çalışmaya devam ediyor.
+
+---
+
 ## 5. Kullanıcıya ait işlerin özeti
 
 | Faz | Senin yapacakların |
@@ -287,6 +376,8 @@ Kabul kriterleri: Bir eşleme alanı bilerek bozulduğunda kayma dedektörü bun
 | 6 | Ekip denemesi |
 | 7 | Her ajanı kurup olay örneklerini toplamak |
 | 8 | Yayın, imzalama kararı, Forgeprint marketplace kaydı |
+| 10 | Döküm yakalama script'ini koşmak |
+| 10.1 | Gerçek bir sıkıştırma olayı örneği toplamak |
 
 ---
 

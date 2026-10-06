@@ -11,6 +11,11 @@
 # nothing touches the user's own configuration. Paths are scrubbed the way
 # testdata/errors is: the account name goes, the shape of the path stays.
 #
+# One exception, and it is read-only: an agent writes its session transcript
+# under the user's own home, not under the throwaway directory, so keeping a
+# transcript means reading from there. Nothing is written or deleted there,
+# which leaves the capture's session file behind in the agent's own history.
+#
 # Usage: capture-agent-events.sh [agent]   (default: claude-code)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -210,21 +215,58 @@ out="${FORGELORE_CAPTURE_OUT:-$out_root/$agent/$version}"
 rm -rf "$out"
 mkdir -p "$out"
 account="$(id -un)"
-for f in "${captured[@]}"; do
-	# Cursor puts user_email in every payload, so the address is scrubbed
-	# by shape rather than by name: an agent that starts sending one
-	# tomorrow is covered without anybody noticing it needed to be.
+
+# A function because the transcript below has to be scrubbed exactly the way
+# a payload is. Cursor puts user_email in every payload, so the address goes
+# by shape rather than by name: an agent that starts sending one tomorrow is
+# covered without anybody noticing it needed to be.
+scrub() {
 	sed -e "s|/Users/$account|/Users/dev|g" \
 		-e "s|/home/$account|/home/dev|g" \
 		-e "s|\\\\$account|\\\\dev|g" \
 		-e "s|$account|dev|g" \
 		-e "s|$work|/work|g" \
 		-e 's|[A-Za-z0-9._%+-]\{1,\}@[A-Za-z0-9.-]\{1,\}\.[A-Za-z]\{2,\}|dev@example.com|g' \
-		"$f" > "$out/$(basename "$f")"
-done
+		"$1"
+}
 
+for f in "${captured[@]}"; do
+	scrub "$f" > "$out/$(basename "$f")"
+done
 echo "==> wrote ${#captured[@]} payload(s) to $out"
-if grep -l "$account" "$out"/*.json 2>/dev/null; then
+
+# The session transcript, which is a second surface and a more fragile one.
+# Phase 10's extractor reads it at the next session start (ADR-0026), and no
+# agent documents its format, so the corpus is the only statement of what it
+# actually looked like at a given version.
+#
+# The path comes out of the payloads rather than from a guess about where an
+# agent keeps its sessions. An agent that sends no transcript_path — Copilot
+# CLI sends none — simply leaves no file here, and that absence is itself
+# true of the agent.
+transcript="$(sed -n 's/.*"transcript_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+	"${captured[@]}" | sed 's|\\\\|\\|g' | head -1)"
+if [ -n "$transcript" ]; then
+	# Documented as written asynchronously, so it can still be lagging the
+	# SessionEnd hook that fired a moment ago. Waiting a few seconds is the
+	# difference between a corpus with a transcript and one without.
+	for _ in 1 2 3 4 5; do
+		[ -s "$transcript" ] && break
+		sleep 1
+	done
+fi
+if [ -n "$transcript" ] && [ -s "$transcript" ]; then
+	scrub "$transcript" > "$out/transcript.jsonl"
+	echo "==> wrote the transcript ($(du -k "$out/transcript.jsonl" | cut -f1) KB)"
+elif [ -n "$transcript" ]; then
+	echo "==> no transcript at $transcript (it never appeared)"
+else
+	echo "==> $agent sent no transcript_path, so there is no transcript to keep"
+fi
+
+# Every file, not only the payloads: the transcript carries whole prompts and
+# whole file contents, which is the likeliest place for a name to survive.
+if grep -rl "$account" "$out" 2>/dev/null; then
 	echo "the account name survived scrubbing" >&2
 	exit 1
 fi

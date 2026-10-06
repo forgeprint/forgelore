@@ -3203,10 +3203,10 @@ README'deki üç site bağlantısı da canlı. Kontrol ederken yanlarındaki iki
 Deponun `homepage` alanı da dolduruldu, artık GitHub depo sayfasında site
 bağlantısı görünüyor.
 
-### Sır taraması açıldı
+### Yan gözlem: sır taraması kapalı
 
-Depo ayarlarına bakarken kapalı olduğu görülmüştü: `secret_scanning` ve
-`secret_scanning_push_protection`.
+Depo ayarlarına bakarken görüldü: `secret_scanning` ve
+`secret_scanning_push_protection` **kapalı**.
 
 `SECURITY.md`'nin tehdit modelinde birinci madde "sırların diske ya da bir
 git uzağına ulaşması" ve buna karşı `scripts/gitleaks.sh` ile
@@ -3214,21 +3214,203 @@ git uzağına ulaşması" ve buna karşı `scripts/gitleaks.sh` ile
 push protection'ı sunucu tarafında: biz hiçbir şey çalıştırmasak bile
 yanlışlıkla push edilen bir anahtarı durdurur. Halka açık depoda ücretsiz.
 
-İkisi de açıldı. Doğrulandı: `secret_scanning: enabled`,
-`push_protection: enabled`, ve geçmiş taramasında **sıfır uyarı** — depo
-tarihinde kalmış bir anahtar yok.
-
-Artık üç katman var ve üçü ayrı yerde duruyor: commit'ten önce `forgelore
-check` (pre-commit hook), CI'da `scripts/gitleaks.sh`, ve push anında
-GitHub. Sonuncusu bizim hiçbir script'imiz koşmasa bile çalışır — ilk
-ikisini atlamanın yolu var, bunu atlamanın yok.
-
-Bilinmesi gereken yan etkisi: push protection bir sırra **benzeyeni**
-reddeder. `testdata/` altında kasıtlı sahte kimlik bilgileri duruyor, ve
-gitleaks daha önce bir fixture'ı yakalamış, düşük entropili bir yer
-tutucuyla değiştirmiştik. Aynı şey push protection'da olursa doğru hamle
-atlatmak değil, yine düşük entropili bir yer tutucu.
+Açılmadı; güvenlik ayarı ve `[SEN]`.
 
 ### Kalanlar — hepsi `[SEN]`
 
 - Deneme haftası sürüyor (2026-10-06 başladı, tek kişilik, bu depoda).
+
+---
+
+## 2026-10-06 — kapsam genişledi: iş hafızası (Faz 10 planlandı)
+
+Kullanıcı planın kapsamını hatırlattı: Forgelore yalnızca hata hatırlayan bir
+araç değil, token tüketimini azaltan bir hafıza katmanı olacak. Örnek olarak
+[claude-mem](https://github.com/thedotmack/claude-mem) verildi.
+
+### Karşılaştırma
+
+claude-mem'in README'sine göre: beş hook (SessionStart, UserPromptSubmit,
+PostToolUse, Stop, SessionEnd), araç kullanımından gözlem toplama, bunları
+**AI ile sıkıştırıp** özet üretme, SQLite + FTS5 + Chroma, MCP'de
+`search`/`timeline`/`get_observations`, ve kademeli erişimle "~10x token
+tasarrufu" iddiası.
+
+Depolama ve çağırma yarısı bizde **zaten var**: kayıtlar, FTS5, bütçeli oturum
+dizini, `search`/`show`, MCP. Eksik olan yakalama yarısıydı — ve claude-mem'in
+onu doldurma yolu (arka planda model çağrısı) K8'e aykırı.
+
+### Kararlar (hepsi kullanıcının)
+
+- Yakalama **A+B melez**: olgu oturum dökümünden deterministik çıkar, yargı
+  ajanın oturum sonunda kendi yazdığıdır. Arka plan model çağrısı (C) reddedildi.
+- Yeni kayıt tipi **`work`**, oturum başı dizine kendi bütçesiyle girer.
+- Prompt anında çağırma **varsayılan kapalı**.
+- **PreCompact ayrı adım** (Faz 10.1) — ikinci bir format bağımlılığı, ve
+  Faz 10'un kazancı ona bağlı değil.
+- Dökümden gelen aday **`tainted` değil**; karşılığı yerel kapsamda doğmak.
+
+### İşlenen dosyalar
+
+- `docs/plan.md`: §1'e "İş hafızası" maddesi; "yerleşik hafızayı kopyalamaz"
+  cümlesi dürüstleştirildi (örtüşme kabul edildi, ayrışma dört maddeye
+  indirildi); Faz 10 ve Faz 10.1 eklendi; §5 tablosuna iki `[SEN]` satırı.
+- `docs/adr/0026-work-memory-is-captured-twice.md`: yeni. A, B, C'nin üçü de
+  bedeliyle yazıldı, C'nin reddi gerekçelendirildi.
+- `docs/adr/0016-record-types-and-injection.md`: `work` satırı eklendi, başlığa
+  "amended by ADR-0026".
+- `docs/adr/README.md`: dizin satırı.
+
+### Bilerek yapılmayanlar
+
+- Kod yazılmadı. `internal/record`'daki tip sabitleri ve
+  `docs/record-format.md` **değişmedi**; `work` tipi normatif belgeye Faz 10
+  adım 5'te, kodla birlikte girecek. Şu an `work` yazan bir kayıt
+  "bilinmeyen tip" gibi davranır: aranabilir, enjekte edilmez.
+- Oturum dökümünün (`transcript_path`) formatı **doğrulanmadı**. Payload'da
+  alan var ama kodda hiçbir yer okumuyor, ve format resmî olarak dokümante
+  değil. Faz 10 adım 1 bunu doğrulamakla başlıyor; doğrulanamazsa ADR-0026'nın
+  söylediği gibi kayma yüzeyi olarak kalır.
+
+### Açık kalanlar
+
+- Keşif aracı sayımı hangi araçları kapsayacak?
+- `work` kayıtlarının oturum başı bütçesi ne, mevcut bütçeden ayrı mı?
+- Deneme haftası sürüyor (2026-10-06 başladı, tek kişilik, bu depoda).
+
+## 2026-10-06 — Faz 10 adım 1: oturum dökümü formatı incelendi
+
+### Resmî dokümantasyon ne diyor
+
+Kaynak: <https://code.claude.com/docs/en/hooks> (eski `docs.claude.com/en/docs/claude-code/hooks` adresi buraya 301 veriyor).
+
+- `transcript_path` dokümante: "Path to conversation JSON", ve ortak alanlar
+  tablosunda, yani **her olayda** var (SessionEnd, Stop, PreCompact dahil).
+- **Dosyanın şeması dokümante değil.** Sayfa girdi tiplerinden, alanlardan,
+  satır biçiminden hiç söz etmiyor. Yani formata dair aşağıdaki her şey
+  **doğrulanmadı** sayılır; yalnızca bu makinedeki gerçek dosyalardan ölçüldü.
+- Sayfa bir de şunu söylüyor: döküm **eşzamansız yazılır** ve hook ateşlendiğinde
+  son turu henüz içermeyebilir. Son asistan metni gerekiyorsa Stop'taki
+  **`last_assistant_message`** alanı önerilir — bu alan dokümante.
+
+### Gerçek dosyalardan ölçülen (bu proje, sürüm 2.1.286)
+
+Dosya `~/.claude/projects/<kodlanmış-yol>/<oturum>.jsonl`. 8.269 satır,
+17,4 MB tek oturum. Satırların tip dağılımı:
+
+```
+2198 attachment     2133 assistant     1222 user        406 custom-title
+ 403 last-prompt     399 agent-name     399 atis-latch   338 mode
+ 282 queue-operation 226 pr-link        138 system        96 file-history-snapshot
+  24 file-history-delta   5 cost-state
+```
+
+**Asıl bulgu: dökümün içinde iki ayrı katman var.**
+
+1. **API biçimli olanlar** — `type: user|assistant`, ve `message.content[]`
+   içinde `text`, `thinking`, `tool_use`, `tool_result` blokları. Bu şekil
+   Claude Code'un icadı değil, Messages API'nin tel biçimi.
+   - `tool_use`: `name` + `input` → Edit/Write'ta `file_path`, Bash'te `command`.
+   - `tool_result`: `is_error` → ölçülen oturumda 920 `false`, 19 `true`,
+     140 alan yok.
+2. **Claude Code'un iç kayıtları** — `attachment`, `atis-latch`,
+   `custom-title`, `agent-name`, `queue-operation`, `pr-link`,
+   `file-history-snapshot`/`-delta`, `cost-state`, ve girdi düzeyindeki
+   `toolUseResult`. Bunlar dokümante değil, sürümlenmiş değil, adlarından
+   belli ki iç mesele.
+
+Buradan çıkan tasarım kuralı: **çıkarıcı yalnızca 1. katmanı okur.** Komutun
+geçip geçmediği `is_error`'dan, düzenlenen dosya `tool_use.input.file_path`'ten
+çıkıyor; yani `toolUseResult` gibi dokümante olmayan hiçbir alana ihtiyaç yok.
+Kayma yüzeyi bir ajanın iç günlüğünden bir API'nin tel biçimine iniyor.
+
+Her girdi `version` taşıyor (bu dosyada 2.1.286), yani sözleşme testi hangi
+sürümden ölçtüğünü dosyanın kendisinden söyleyebilir.
+
+Boyut: 17,4 MB'ın %83'ü `user` + `assistant`. Kuyruktan okuma ve bayt tavanı
+tartışma dışı.
+
+### Sıkıştırma dökümün içinde görünüyor
+
+Ölçülen oturumda bir `subtype: compact_boundary` girdisi ve
+`compactMetadata: {trigger: "manual", preTokens: 87339}`, ayrıca
+`isCompactSummary: true` taşıyan bir girdi var. Yani Faz 10.1 sıkıştırmanın
+**olduğunu** hook'suz da görebilir; PreCompact'in tek üstünlüğü atılmadan
+önceki an olması.
+
+### Diğer ajanlar: A yarısı bedava taşınmıyor
+
+Toplanmış payload'lara göre döküm yolu veren üç ajan var, üçü farklı biçimde:
+Claude Code (`~/.claude/projects/…jsonl`), Cursor
+(`~/.cursor/projects/…/agent-transcripts/…jsonl`), Gemini CLI
+(`~/.gemini/tmp/…/chats/session-…jsonl`). Copilot CLI hiç vermiyor.
+
+Sonuç: **yol veridir, ayrıştırıcı koddur.** K5 eşlemeye `transcript` alanı ve
+bir `transcript_format` adı eklemekle korunur (alan adı değişirse yeniden
+derleme gerekmez), ama her biçim için bir ayrıştırıcı yazılır. B yarısı
+(ajanın kendi yazması) tüm ajanlarda çalışır, A yarısı ajan ajan kazanılır.
+Faz 7'nin seviye tablosuna yeni bir sütun gelecek.
+
+### Adım 3 ve 4 için çıkan iki karar
+
+1. **Çıkarma anı.** Dokümantasyon dökümün son turu eksik olabileceğini
+   söylüyor, yani SessionEnd'de okumak yapısal olarak eksik okumaktır. Öneri:
+   **bir sonraki SessionStart'ta önceki oturumun dökümünü oku** — o dosya
+   artık tamamlanmış, zaman baskısı yok, ve enjeksiyon tam ihtiyaç anında
+   oluyor. Bedeli: SessionStart'ın işi büyür, bütçe ve zaman aşımı oraya yüklenir.
+2. **`last_assistant_message`.** Stop'ta dokümante bir alan ve içeriği tam
+   olarak "ajanın kendi son sözü" — çoğu oturumda ne yapıldığının raporu.
+   Dürtmeye hiç gerek olmadan B yarısının bir kısmını verir. Dürtme yerine
+   (ya da yanında) bunun aday üretmesi tartışılmalı.
+
+### Açık kalanlar
+
+- Yukarıdaki iki karar.
+- Keşif aracı sayımı hangi araçları kapsayacak?
+- `work` kayıtlarının oturum başı bütçesi ne, mevcut bütçeden ayrı mı?
+- Döküm şeması hiç dokümante olmadığı için sürüm sürüm değişebilir; Faz 9'un
+  kayma dedektörüne bu yüzey eklenecek.
+
+### Adım 1'in iki kararı verildi
+
+- **Çıkarma anı: SessionStart, önceki oturumun dökümünden.** Faz 10 adım 3 ve
+  ADR-0026 buna göre yazıldı. Beraberinde gelen iş: dosya seçimi, hâlâ koşan
+  paralel oturumların dökümüne dokunmamak, ve her dökümü bir kez işlemeyi
+  sağlayan işaret (`cache/` altında, türetilmiş).
+- **`last_assistant_message` dürtmenin yanında.** Dürtmeye uyulmazsa ajanın
+  son sözü yine bir aday veriyor.
+
+### Adım 2: yakalama script'i dökümü de saklıyor
+
+Elle maskeleme yerine `scripts/capture-agent-events.sh` genişletildi; planın
+adım 2'si de buna göre `[CLAUDE]` + `[SEN]` olarak bölündü.
+
+- Temizleme altı `sed` ifadesiyle tek yerdeydi, `scrub()` fonksiyonu oldu:
+  döküm payload'la **aynı** temizlikten geçiyor, ikinci bir kopya kural yok.
+- Döküm yolu yakalanan payload'ın `transcript_path` alanından okunuyor — bir
+  ajanın oturumlarını nerede tuttuğuna dair tahminden değil. Windows'un
+  kaçışlanmış ters bölü yolları da çözülüyor. Copilot CLI bu alanı hiç
+  göndermediği için dosya bırakmıyor, ve bu yokluk ajan hakkında doğru bir
+  ifade.
+- Döküm eşzamansız yazıldığı için (dokümante) SessionEnd'den sonra beş
+  saniyeye kadar bekleniyor.
+- Hesap adı kontrolü artık `*.json` değil `$out`'un tamamına bakıyor. Döküm
+  prompt'ların ve dosya içeriklerinin tamamını taşıdığı için bir adın hayatta
+  kalmasının en olası yeri orası.
+- Script'in başlığına bir dürüstlük notu: ajan dökümü geçici dizine değil
+  kullanıcının kendi ev dizinine yazıyor, yani bu tek yerde script
+  kullanıcının ağacından **okuyor**. Yazmıyor, silmiyor — dolayısıyla
+  yakalamanın oturum dosyası ajanın geçmişinde kalıyor.
+
+Test edilenler (model kullanmadan): `bash -n` geçiyor; yol çıkarma
+`claude-code` ve `cursor` payload'larında doğru yolu veriyor, `copilot-cli`'de
+boş dönüyor, ve kaçışlanmış Windows yolu doğru çözülüyor. shellcheck bu
+makinede kurulu değil.
+
+**Script koşulmadı** — giriş yapmış `claude` CLI gerektiriyor ve model
+kullanımı yakıyor, yani `[SEN]`.
+
+Bir açık nokta: `drift-payloads.sh` yalnızca `*.json` okuduğu için
+`transcript.jsonl`'i görmüyor. Dökümün kayma kontrolü ayrı iş: değerler her
+koşuda değişir, karşılaştırılması gereken şey girdi `type`'ı başına alan
+şekilleri. Faz 9'a ya da Faz 10 adım 3'e bağlanacak.
