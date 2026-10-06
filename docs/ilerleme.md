@@ -2948,6 +2948,31 @@ ulaştığına değil.
   sözleşme testi artık çalışma dizinini yalnızca komut olaylarında istiyor.
   Alternatif, testi memnun etmek için `Cwd` alanına JSON dizisi koymaktı.
 
+---
+
+## 2026-10-06 — v0.1.10
+
+https://github.com/forgeprint/forgelore/releases/tag/v0.1.10
+
+Cursor desteği. Zincir yine elle hiçbir komut olmadan işledi (dördüncü
+kez).
+
+Yayımlanan paketle doğrulandı:
+
+- Yedi paket de `0.1.10`, `latest` 0.1.10, `npm audit signatures` →
+  verified attestations, ikili `v0.1.10 darwin/arm64 go1.26.8`.
+- **Cursor eşlemesi yayımlanan ikilide çalışıyor:** gerçek
+  `postToolUseFailure` payload'ı `additional_context` ile enjeksiyon
+  üretti, `afterShellExecution` ise bilerek sessiz kaldı.
+
+Etiket sıralaması da kontrol edildi: `git tag --sort=version:refname`
+`v0.1.8 → v0.1.9 → v0.1.10` diyor, yani çift haneli yama sürümü
+sıralamayı bozmuyor.
+
+Release notu Cursor'ın **yapamadığını** da ayrı bir başlıkta söylüyor:
+borulanmış build görünmez, çünkü sonuç JSON dizgesi olarak geliyor ve
+metin kaçışlanmış tek satıra düşüyor.
+
 ### Kalanlar — hepsi `[SEN]`
 
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
