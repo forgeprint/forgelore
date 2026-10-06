@@ -2834,14 +2834,17 @@ biliyoruz. Kalan tek güvenilir kaynak ikilinin kendisi oldu.
 ve öldürüldü — bu da Codex'in dosyayı okuduğunu ve bir şeyin (muhtemelen
 hook trust, bypass bayrağına rağmen) bloke ettiğini düşündürüyor.
 
-**Yakalama profiline giren iki kalıcı düzeltme:**
+**Script'e giren düzeltme — bir tane:** `codex exec` model komutlarını
+varsayılan olarak kum havuzunda çalıştırıyor, bu yüzden
+`--dangerously-bypass-approvals-and-sandbox` eklendi.
 
-- `codex exec` model komutlarını varsayılan olarak kum havuzunda
-  çalıştırıyor, bu yüzden `--dangerously-bypass-approvals-and-sandbox`
-  eklendi.
-- Geçici bir `CODEX_HOME` + gerçek `auth.json`'a **sembolik bağ** oturumu
-  açık tutuyor. Kimlik kopyalanmıyor, kullanıcının yapılandırmasına
-  dokunulmuyor — Copilot'taki `COPILOT_HOME` kalıbının Codex karşılığı.
+**Script'e girmeyen bulgu:** geçici bir `CODEX_HOME` + gerçek `auth.json`'a
+**sembolik bağ** oturumu açık tutuyor (elle doğrulandı: `codex login
+status` → "Logged in"). Kimlik kopyalanmıyor, kullanıcının yapılandırmasına
+dokunulmuyor — Copilot'taki `COPILOT_HOME` kalıbının Codex karşılığı. Koda
+geçirilmedi, çünkü `hooks.json`'ın o home içinde nereye konacağı hâlâ
+bilinmiyor; yarısı bilinen bir yolu script'e yazmak işe yarıyormuş gibi
+görünür.
 
 `verified_against` boş kaldı, tablo "unverified" diyor. Her deneme bir model
 çağrısı yakıyor; şekli tahmin ederek devam etmek pahalı. Ucuz yol TUI'nin
