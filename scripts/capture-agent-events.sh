@@ -108,6 +108,28 @@ gemini-cli)
 	# Checked against v0.62.0.
 	run_session() { GEMINI_CLI_TRUST_WORKSPACE=true "$bin" -p "$1" --yolo; }
 	;;
+cursor)
+	bin=cursor-agent
+	version_cmd=(--version)
+	config_path=".cursor/hooks.json"
+	# afterShellExecution hands over the command and its output directly and
+	# is one of the few hooks reported to fire in the CLI; postToolUseFailure
+	# is the only one that states a failure outright. Both are mapped: if the
+	# second never arrives, nothing is lost, and the capture says so by
+	# simply not producing a file for it.
+	events=(sessionStart postToolUse postToolUseFailure afterShellExecution sessionEnd)
+	write_config() {
+		local hooks=""
+		for e in "${events[@]}"; do
+			hooks="$hooks,\"$e\":[{\"type\":\"command\",\"command\":\"$1 $e\",\"timeout\":10}]"
+		done
+		printf '{"version":1,"hooks":{%s}}' "${hooks:1}"
+	}
+	# -p is mandatory: without it the CLI opens a TUI that hangs in a
+	# subshell. --force lets it run the commands, --trust skips the
+	# workspace prompt a throwaway directory would otherwise get.
+	run_session() { "$bin" -p --force --trust "$1"; }
+	;;
 copilot-cli)
 	bin=copilot
 	version_cmd=(--version)
@@ -126,7 +148,7 @@ copilot-cli)
 	run_session() { COPILOT_HOME="$work/copilot-home" "$bin" -p "$1" --allow-all-tools; }
 	;;
 *)
-	echo "unknown agent $agent (claude-code, codex-cli, copilot-cli, gemini-cli)" >&2
+	echo "unknown agent $agent (claude-code, codex-cli, copilot-cli, cursor, gemini-cli)" >&2
 	exit 1
 	;;
 esac
@@ -189,11 +211,15 @@ rm -rf "$out"
 mkdir -p "$out"
 account="$(id -un)"
 for f in "${captured[@]}"; do
+	# Cursor puts user_email in every payload, so the address is scrubbed
+	# by shape rather than by name: an agent that starts sending one
+	# tomorrow is covered without anybody noticing it needed to be.
 	sed -e "s|/Users/$account|/Users/dev|g" \
 		-e "s|/home/$account|/home/dev|g" \
 		-e "s|\\\\$account|\\\\dev|g" \
 		-e "s|$account|dev|g" \
 		-e "s|$work|/work|g" \
+		-e 's|[A-Za-z0-9._%+-]\{1,\}@[A-Za-z0-9.-]\{1,\}\.[A-Za-z]\{2,\}|dev@example.com|g' \
 		"$f" > "$out/$(basename "$f")"
 done
 

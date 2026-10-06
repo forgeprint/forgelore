@@ -1,0 +1,54 @@
+{
+  "mapping_version": 1,
+  "agent": "cursor",
+  "verified_against": "2026.10.01",
+  "common": {
+    "event_name": "hook_event_name",
+    "session": "session_id",
+    "cwd": "cwd"
+  },
+  "events": [
+    {
+      "agent_event": "sessionStart",
+      "kind": "session_started"
+    },
+    {
+      "agent_event": "postToolUseFailure",
+      "kind": "command_failed",
+      "tools": [
+        "Shell"
+      ],
+      "tool": "tool_name",
+      "command": "tool_input.command",
+      "output": [
+        "error_message"
+      ],
+      "skip_when": "is_interrupt",
+      "failure": {
+        "always": true
+      }
+    },
+    {
+      "agent_event": "postToolUse",
+      "kind": "command_succeeded",
+      "tools": [
+        "Shell"
+      ],
+      "tool": "tool_name",
+      "command": "tool_input.command",
+      "output": [
+        "tool_output"
+      ],
+      "failure": {
+        "output_matches": "\"exitCode\":[1-9]"
+      }
+    },
+    {
+      "agent_event": "sessionEnd",
+      "kind": "session_ended"
+    }
+  ],
+  "response": {
+    "context_path": "additional_context"
+  }
+}

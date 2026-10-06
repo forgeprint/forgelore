@@ -13,9 +13,9 @@ ve nasıl bulunduğu tarihli bölümlerde, en yenisi en sonda.
 | Son sürüm | **v0.1.9**, GitHub release attested, npm'de yedi paket, `latest` 0.1.9 |
 | Kayıt şeması | 1 |
 | Eşleme formatı | 2 (`claude-code` 2 kullanıyor; diğerleri 1) |
-| Ajanlar | Claude Code 2.1.290 **A** · Copilot CLI 1.0.91 **B** · Gemini CLI 0.62.0 **B** · Codex CLI doğrulanmamış · Cursor başlanmadı |
+| Ajanlar | Claude Code 2.1.290 **A** · Copilot CLI 1.0.91 **B** · Gemini CLI 0.62.0 **B** · Cursor 2026.10.01 **B** · Codex CLI doğrulanmamış |
 | Hata korpusu | 31 aile |
-| Ajan payload'ları | 16, dört ajan sürümünden |
+| Ajan payload'ları | 22, beş ajan sürümünden |
 | Bu deponun kendi hafızası | `.forgelore/records/`'ta 9 kayıt (4 fix, 5 decision) |
 
 Yayım zinciri elle müdahale istemiyor: etiket → `release.yml` derler, attest
@@ -2885,6 +2885,69 @@ tahmin iz bırakmıyor) ama kapatılmadı: eşleşen bir tahmin hâlâ hiçbir �
 bozulmadığı bir yere tek satır sokabilir. ADR-0022 bunu ölçümle birlikte
 yazıyor.
 
+---
+
+## 2026-10-06 — Cursor eklendi ve doğrulandı: tier B, 2026.10.01
+
+Eski notumuz yanlışmış: "Cursor'ın olay modeli farklı, kendi turunu hak
+ediyor" demiştik. Hiç de değil — `sessionStart`, `postToolUse`,
+`postToolUseFailure`, `sessionEnd`, yani dört kanonik olayımızın birebir
+karşılığı. Yapılandırma `.cursor/hooks.json`, `{"version":1,"hooks":{…}}`
+biçiminde, Copilot ailesinden.
+
+CLI resmî script'le kuruldu (`cursor-agent 2026.10.01-e373342`), kullanıcı
+giriş yaptı, **altı payload ilk denemede** yakalandı.
+
+### Forum bilgisi yanlıştı, payload doğruyu söyledi
+
+Araştırmada "CLI'da `postToolUseFailure` ateşlenmiyor" diye bir rapor
+vardı ve eşlemeyi ona göre kurmaya hazırlanıyordum. **Ateşleniyor** — ve
+`error_message`, `failure_type`, `is_interrupt` ile en temiz başarısızlık
+sinyalini veren olay o. İkinci elden bilgiyle payload arasındaki fark yine
+payload lehine çıktı.
+
+### Bir komut, iki olay
+
+Tek bir kırık `go build` hem `afterShellExecution` hem
+`postToolUseFailure` üretiyor. İkisini de eşlesek **aynı hatayı iki kez**
+arardık: iki ledger satırı, iki enjeksiyon, bir başarısızlık. Yalnızca
+araç olayları eşlendi; `afterShellExecution` payload'ları korpusta duruyor
+çünkü çiftlenme bulgunun kendisi.
+
+Bu, sözleşme testine yeni bir kavram getirdi: `deliberatelyUnmapped`.
+`withoutSamples`'ın tersi — örneği olan ama bilerek eşlenmeyen olay.
+Olmasaydı test bunu "eşleme çürümüş" diye okurdu.
+
+### Çıkış kodu var, ama metni kullanılamıyor
+
+`postToolUse` sonucu **JSON dizgesi** olarak veriyor:
+`{"output":"…","exitCode":0}`. İyi haber: çıkış kodu okunabiliyor, yani
+başarısızlık `output_matches` ile `"exitCode":[1-9]` üzerinden
+kararlaşıyor — tahmine gerek yok. Kötü haber: maskelenmiş bir
+başarısızlığın metni satır sonları kaçışlanmış tek satır olarak geliyor ve
+fingerprinter içinde hiçbir şey bulamıyor. **Cursor'da borulanmış build
+görünmez**, ve bunu hiçbir eşleme çözemez.
+
+### Yanıt yolu bu kez tahmin edilmedi, ölçüldü
+
+Doküman `additional_context` diyordu. Codex'te tam burada yanılmıştık ve
+sessiz kalacaktı. Bu yüzden gerçek bir oturumda sınadım: hook
+`FORGELORE-PROBE-7731` içeren bir `additional_context` döndürdü ve model
+onu **kelimesi kelimesine tekrarladı**. Herhangi bir ajan için yaptığımız
+en güçlü doğrulama bu — diğerlerinde hook'un çıktısına bakmıştık, modele
+ulaştığına değil.
+
+### İki küçük düzeltme daha
+
+- **Her payload `user_email` taşıyor.** Yakalama artık e-posta adreslerini
+  **biçime göre** temizliyor (alan adına göre değil), ve korpusta
+  placeholder dışında adres bulursa test düşüyor. Yarın başka bir ajan
+  adres göndermeye başlarsa kimse fark etmeden kapsanır.
+- **Oturum olaylarında `cwd` yok**, yalnızca `workspace_roots` (dizi).
+  `Event.Cwd` üretim kodunda hiç okunmuyor — sadece set ediliyor — o yüzden
+  sözleşme testi artık çalışma dizinini yalnızca komut olaylarında istiyor.
+  Alternatif, testi memnun etmek için `Cwd` alanına JSON dizisi koymaktı.
+
 ### Kalanlar — hepsi `[SEN]`
 
 - İki kişilik bir haftalık ekip denemesi (`docs/team-trial.md`).
@@ -2904,4 +2967,4 @@ yazıyor.
   - geçici `CODEX_HOME` + gerçek `auth.json`'a sembolik bağ oturumu açık
     tutuyor (elle doğrulandı), yani yakalama kullanıcının yapılandırmasına
     dokunmadan yapılabilir.
-- Cursor: araştırıldı, başlanmadı.
+- Cursor: **doğrulandı** (2026-10-06, tier B). Kalan iş yok.

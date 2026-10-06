@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -28,6 +29,19 @@ var withoutSamples = map[string]string{
 	// postToolUse with "exit code 1" in the result text. Provoking a real
 	// tool failure needs something other than a broken build.
 	"copilot-cli/postToolUseFailure": "a failing command is not a failing tool; needs a tool error to provoke",
+}
+
+// deliberatelyUnmapped is the other direction: an event the corpus holds
+// and the mapping ignores on purpose. Without this the replay reads an
+// unmapped payload as a mapping that has rotted.
+var deliberatelyUnmapped = map[string]string{
+	// Cursor fires both for the same command: afterShellExecution carries
+	// the command and its output, and postToolUse/postToolUseFailure carry
+	// the same thing with a tool name, a cwd and an exit code. Mapping
+	// both would look one error up twice — two ledger lines and two
+	// injections for one failure. The payloads stay in the corpus because
+	// the duplication is the finding.
+	"cursor/afterShellExecution": "duplicates postToolUse for the same command",
 }
 
 // TestEveryBuiltInMappingParses: a mapping that ships broken is a feature
@@ -131,13 +145,22 @@ func replayAgent(t *testing.T, mapping *Mapping, dir string) {
 			continue
 		}
 		if !ok {
+			if why, listed := deliberatelyUnmapped[mapping.Agent+"/"+event]; listed {
+				t.Logf("%s/%s not mapped on purpose: %s", mapping.Agent, event, why)
+				continue
+			}
 			t.Errorf("%s/%s: the mapping no longer covers %s", dir, f.Name(), event)
 			continue
 		}
 		if e.Session == "" {
 			t.Errorf("%s/%s: the session id did not resolve", dir, f.Name())
 		}
-		if e.Cwd == "" {
+		// A working directory is required of a command event and not of a
+		// session one. Cursor's session payloads carry only
+		// workspace_roots, a list, and Event.Cwd is informational — it is
+		// set and never read. Demanding it everywhere would mean putting
+		// a JSON array into a field named Cwd to satisfy a test.
+		if e.Cwd == "" && (e.Kind == CommandFailed || e.Kind == CommandSucceeded) {
 			t.Errorf("%s/%s: the working directory did not resolve", dir, f.Name())
 		}
 
@@ -209,12 +232,25 @@ func TestCapturedPayloadsAreScrubbed(t *testing.T) {
 		if strings.Contains(string(data), account) {
 			t.Errorf("%s carries the account name", path)
 		}
+		// Cursor puts the signed-in user's address in every payload, and
+		// an address is the one thing in a hook payload that identifies a
+		// person outright. The scrubbing replaces it with
+		// dev@example.com; anything else reaching the corpus is a leak.
+		for _, m := range emailish.FindAllString(string(data), -1) {
+			if m != "dev@example.com" {
+				t.Errorf("%s carries an email address: %s", path, m)
+			}
+		}
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
+
+// emailish is deliberately loose. It is looking for something to refuse,
+// not something to parse.
+var emailish = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
 
 // TestTheScratchpadCameAndWent records what two corpora settle between
 // them, and it has been wrong twice.
@@ -443,6 +479,90 @@ func TestGeminiWrappingDoesNotReachTheFingerprint(t *testing.T) {
 		if got[0].Sum != plain[0].Sum {
 			t.Errorf("pgid %s: %s, but the same error unwrapped is %s", pgid, got[0].Sum, plain[0].Sum)
 		}
+	}
+}
+
+// TestCursorSendsTheSameCommandTwice is the finding its capture produced,
+// and the reason one of its events is deliberately unmapped.
+//
+// A single failing build fires both afterShellExecution, which carries the
+// command and its output, and postToolUseFailure, which carries the same
+// failure with a tool name, a working directory and an error message.
+// Mapping both would look one error up twice: two ledger lines, two
+// injections, one failure.
+//
+// The exit code is also worth pinning. postToolUse hands the result back as
+// a JSON *string* — `{"output":"…","exitCode":0}` — so a command whose
+// status was masked can be spotted by reading the code out of the text,
+// which is what the mapping does.
+func TestCursorSendsTheSameCommandTwice(t *testing.T) {
+	const dir = "../../testdata/agents/cursor/2026.10.01"
+	m, err := Built("cursor")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The two events describing the same failing `go build`.
+	shell, err := os.ReadFile(filepath.Join(dir, "afterShellExecution-1.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := m.Translate(shell, "", now); ok {
+		t.Error("afterShellExecution produced an event; the same failure is already covered by postToolUseFailure")
+	}
+
+	failure, err := os.ReadFile(filepath.Join(dir, "postToolUseFailure-1.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, ok, err := m.Translate(failure, "", now)
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if e.Kind != CommandFailed {
+		t.Errorf("kind = %q", e.Kind)
+	}
+	if !strings.Contains(e.Output, "undefined: greet") {
+		t.Errorf("the error text did not reach the event: %q", e.Output)
+	}
+
+	// And the succeeding command stays a success, exit code zero.
+	success, err := os.ReadFile(filepath.Join(dir, "postToolUse-1.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, ok, err = m.Translate(success, "", now)
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if e.Kind != CommandSucceeded {
+		t.Errorf("kind = %q, want %q", e.Kind, CommandSucceeded)
+	}
+	if !strings.Contains(e.Output, `"exitCode":0`) {
+		t.Errorf("the result is no longer a JSON string carrying the code: %q", e.Output)
+	}
+}
+
+// TestCursorRepliesWhereCursorReads: verified against a running agent on
+// 2026-10-06, not taken from the documentation. A hook returned a probe
+// token in additional_context and the model repeated it verbatim, which is
+// the only way to know a reply path works — Codex's documented one turned
+// out to be wrong, and would have been silent.
+func TestCursorRepliesWhereCursorReads(t *testing.T) {
+	m, err := Built("cursor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply, err := m.Context("postToolUseFailure", "a hint")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(reply, &got); err != nil {
+		t.Fatalf("%v\n%s", err, reply)
+	}
+	if got["additional_context"] != "a hint" {
+		t.Errorf("the context is not where Cursor reads it:\n%s", reply)
 	}
 }
 

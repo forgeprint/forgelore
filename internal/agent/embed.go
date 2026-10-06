@@ -18,6 +18,9 @@ var codexCLIMapping []byte
 //go:embed mappings/gemini-cli.json
 var geminiCLIMapping []byte
 
+//go:embed mappings/cursor.json
+var cursorMapping []byte
+
 // Built returns a mapping that ships with this binary.
 //
 // The mappings are data (K5) and can be replaced on disk without rebuilding,
@@ -34,13 +37,15 @@ func Built(name string) (*Mapping, error) {
 		return ParseMapping(codexCLIMapping)
 	case "gemini-cli":
 		return ParseMapping(geminiCLIMapping)
+	case "cursor":
+		return ParseMapping(cursorMapping)
 	}
 	return nil, fmt.Errorf("agent: no built-in mapping for %q (%s)", name, strings.Join(BuiltIn(), ", "))
 }
 
 // BuiltIn names the mappings that ship with this binary.
 func BuiltIn() []string {
-	return []string{"claude-code", "codex-cli", "copilot-cli", "gemini-cli"}
+	return []string{"claude-code", "codex-cli", "copilot-cli", "cursor", "gemini-cli"}
 }
 
 // Verified reports the agent version each built-in mapping was checked
@@ -68,6 +73,8 @@ func Binary(agent string) string {
 		return "copilot"
 	case "gemini-cli":
 		return "gemini"
+	case "cursor":
+		return "cursor-agent"
 	}
 	return ""
 }

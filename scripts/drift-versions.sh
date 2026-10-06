@@ -33,6 +33,11 @@ latest_version() {
 		curl -fsSL https://registry.npmjs.org/@google/gemini-cli/latest |
 			sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
 		;;
+	cursor)
+		# Not on a registry: the install script pins the version it fetches.
+		curl -fsSL https://cursor.com/install |
+			sed -n 's|.*downloads\.cursor\.com/lab/\([0-9.]*\)-.*|\1|p' | head -1
+		;;
 	*)
 		return 1
 		;;

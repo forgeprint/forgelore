@@ -24,10 +24,11 @@ listed as not measured, and does not count towards a tier.
 | Copilot CLI | **B**, hooks verified | 1.0.91 | ✅ 3 captured payloads | never connected | none known |
 | Codex CLI | **unverified** | — | mapping written from docs | never connected | none known |
 | Gemini CLI | **B**, hooks verified | 0.62.0 | ✅ 4 captured payloads | never connected | none known |
-| Cursor | researched, not started | — | — | — | — |
+| Cursor | **B**, hooks verified | 2026.10.01 | ✅ 6 captured payloads | never connected | none known |
 
-Gemini CLI is B for the same reason as Copilot CLI: its hooks are verified,
-but nobody has pointed its MCP client at `forgelore mcp`.
+Gemini CLI and Cursor are B for the same reason as Copilot CLI: their
+hooks are verified, but nobody has pointed their MCP clients at
+`forgelore mcp`.
 
 Copilot CLI is listed as B rather than A on a technicality worth keeping:
 its hooks are verified against captured payloads, but nobody has pointed its
@@ -332,12 +333,49 @@ capture cannot give, hence `--yolo`.
 
 ## Cursor
 
-Researched on 2026-10-05, not started.
+Verified against `cursor-agent` 2026.10.01 on 2026-10-06.
 
-Cursor configures hooks in `.cursor/hooks.json` and hangs them off shell
-execution and file edits — `beforeShellExecution`, `afterFileEdit`,
-`afterMCPExecution` — rather than off a tool result, which is a different
-enough model to deserve its own round.
+An earlier note here said Cursor's event model was "different enough to
+deserve its own round". That was wrong: it fires `sessionStart`,
+`postToolUse`, `postToolUseFailure` and `sessionEnd`, which are the four
+canonical events exactly.
+
+Hooks go in `.cursor/hooks.json` — project, or `~/.cursor/hooks.json` —
+shaped `{"version": 1, "hooks": {…}}`, the same family as Copilot CLI's.
+
+**One command fires two events.** A failing `go build` produces
+`afterShellExecution`, carrying the command and its output, *and*
+`postToolUseFailure`, carrying the same failure with `tool_name`, `cwd`,
+`error_message`, `failure_type` and `is_interrupt`. Only the tool events
+are mapped; mapping both would look one error up twice. The duplicate
+payloads stay in the corpus because the duplication is the finding.
+
+`postToolUse` returns the result as a **JSON string**:
+
+```json
+"tool_output": "{\"output\":\"go version go1.27.1 darwin/arm64\\n\",\"exitCode\":0}"
+```
+
+So the exit code is readable, and failure is decided with `output_matches`
+on `"exitCode":[1-9]` rather than by guessing from the output's shape. The
+cost of that string is real though: a masked failure's text arrives with
+its newlines escaped, as one line, so the fingerprinter finds nothing in
+it. For Cursor a piped build is invisible, and no mapping can fix that.
+
+**Context goes back as a top-level `additional_context`** — snake_case,
+unlike every other agent here. This one was checked against a running
+agent rather than read: a hook returned a probe token and the model
+repeated it verbatim. Codex's documented reply path turned out to be
+wrong, and would have been silent, so the documented path is no longer
+taken on trust.
+
+Session events carry no `cwd`, only `workspace_roots`, which is a list.
+Nothing needs it — the event's working directory is informational — but it
+is why the contract test asks for one on command events only.
+
+Every payload carries `user_email`. The capture scrubs email addresses by
+shape, and a test refuses any address in the corpus that is not the
+placeholder.
 
 ## Keeping this table true
 
