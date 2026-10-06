@@ -97,11 +97,15 @@ for i, (kind, text) in enumerate(lines):
         f"{html.escape(text)}</text>"
     )
 
+LABEL = "A terminal: a build fails, the fix is recorded, and a different command finds it again."
+TITLE = "Forgelore: one error, recorded once, found again"
+DESC = "The same transcript is in site/demo.txt as plain text."
+
 svg = f"""<svg xmlns="http://www.w3.org/2000/svg" id="demo-term" viewBox="0 0 {width} {height}"
      width="{width}" height="{height}" role="img"
-     aria-label="A terminal: a build fails, the fix is recorded, and a different command finds it again.">
-  <title>Forgelore: one error, recorded once, found again</title>
-  <desc>The same transcript is in site/demo.txt as plain text.</desc>
+     aria-label="{LABEL}">
+  <title>{TITLE}</title>
+  <desc>{DESC}</desc>
   <style>
     #demo-term .bg{{fill:#13151a}}
     #demo-term .bar{{fill:#1d2026}}
@@ -136,11 +140,26 @@ with open(out, "w", encoding="utf-8") as f:
 # worked around. Every selector is scoped to #demo-term, because an inline
 # <style> in HTML applies to the whole page.
 START, END = "<!-- demo:start -->", "<!-- demo:end -->"
+
+# The accessible text is the picture, for anybody who cannot see it, so it
+# follows the page's language rather than the file's. The standalone
+# demo.svg keeps the English wording.
+TR = {
+    LABEL: "Terminal kayd\u0131: bir derleme patl\u0131yor, \u00e7\u00f6z\u00fcm kaydediliyor, "
+           "ve ba\u015fka bir komut ayn\u0131 hatay\u0131 yeniden buluyor.",
+    TITLE: "Forgelore: bir hata, bir kez kaydedilir, yeniden bulunur",
+    DESC: "Ayn\u0131 d\u00f6k\u00fcm\u00fcn d\u00fcz metni site/demo.txt i\u00e7inde.",
+}
+
 indented = "\n".join("  " + ln if ln.strip() else ln for ln in svg.strip().split("\n"))
-for page in ("site/index.html", "site/tr/index.html"):
+for page, translate in (("site/index.html", False), ("site/tr/index.html", True)):
+    block = indented
+    if translate:
+        for english, turkish in TR.items():
+            block = block.replace(english, turkish)
     text = open(page, encoding="utf-8").read()
     a, b = text.index(START), text.index(END)
-    text = text[: a + len(START)] + "\n" + indented + "\n  " + text[b:]
+    text = text[: a + len(START)] + "\n" + block + "\n  " + text[b:]
     open(page, "w", encoding="utf-8").write(text)
 
 print(f"{out}: {len(lines)} lines, {total:.1f}s loop; inlined into 2 pages")
