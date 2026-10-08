@@ -311,14 +311,15 @@ Adımlar:
    seçimi, aynı dizindeki başka dökümler, hâlâ koşan paralel oturumlar ve
    her dökümün bir kez işlenmesini sağlayan bir işaret (`cache/` altında,
    türetilmiş ve silinebilir) bu adımın işidir.
-4. `[CLAUDE]` Ajan yazımı (B), iki kaynaktan: oturum sonunda **bir kez**,
-   bütçeli tek satır dürtme; **ve** Stop olayının dokümante
-   `last_assistant_message` alanı, yani ajanın kendi son sözü — çoğu oturumda
-   ne yapıldığının raporu, dürtmeye gerek kalmadan. İkisi birbirinin yerine
-   değil, yanında: dürtme uyulmazsa son söz yine bir aday verir. Aday yerel
-   kapsamda doğar ve `review` olmadan ekip kapsamına geçmez. Aday deposu parmak
-   izi üstüne kurulu olduğu için parmak izsiz adayı taşıyacak şekilde
-   genişletilir.
+4. `[CLAUDE]` Ajan yazımı (B): ajanın kendi son sözü, **dökümün son asistan
+   metin bloğundan**. Dürtme fikri düştü ve `last_assistant_message` alanına
+   güvenilmedi; ikisinin de gerekçesi doğrulamadan çıktı, ADR-0026'da yazılı.
+   Aday yerel kapsamda doğar, başlıksız (enjekte edilecek satırı yazmak kişiye
+   ait) ve `review` olmadan ekip kapsamına geçmez. Aday deposu parmak izi
+   üstüne kurulu olduğu için parmak izsiz adayı taşıyacak şekilde genişletilir:
+   anahtar oturum kimliğidir. Yazmadan önce maskeleme (ADR-0013). `work` tipi
+   adım 5'te geldiğinden, o güne kadar kabul edilen iş adayı hiç enjekte
+   edilmeyen `note` olarak kaydedilir.
 5. `[CLAUDE]` Yeni kayıt tipi **`work`**. ADR-0016 değişir: `work` oturum başı
    dizine girer ama kendi, daha sıkı bütçesiyle; en yeniler önce, faydasızlar
    düşer. `docs/record-format.md` bu adımda güncellenir — `work` tipi ve

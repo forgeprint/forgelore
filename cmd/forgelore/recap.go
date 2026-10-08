@@ -6,6 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/forgeprint/forgelore/internal/candidate"
+	"github.com/forgeprint/forgelore/internal/redact"
+	"github.com/forgeprint/forgelore/internal/store"
 	"github.com/forgeprint/forgelore/internal/worklog"
 )
 
@@ -14,8 +17,10 @@ import (
 // transcript: a person can run this, see exactly what Forgelore would have
 // learned, and disagree with it before anything is written.
 //
-// Nothing here writes a record or a candidate. The only thing it can write is
-// the mark saying a transcript has been read, and only when asked.
+// Nothing here becomes a record. --propose puts what it found in the review
+// queue, which is where a person turns it into memory or does not (ADR-0026);
+// --mark says a transcript has been read. Without either flag it writes
+// nothing at all.
 func cmdRecap(e env, args []string) error {
 	fs := newFlags(e, "recap")
 	transcript := fs.String("transcript", "", "the agent transcript to read")
@@ -24,6 +29,7 @@ func cmdRecap(e env, args []string) error {
 	settled := fs.Duration("settled", worklog.Settled,
 		"how long a transcript must go unwritten to count as finished")
 	limit := fs.Int64("max-bytes", worklog.Cap, "how much of a transcript to read")
+	propose := fs.Bool("propose", false, "write what it found as a candidate for review")
 	mark := fs.Bool("mark", false, "record the transcript as read")
 	all := fs.Bool("all", false, "read a transcript even if it is marked as read")
 	dir := fs.String("dir", "", "work on the project containing this directory")
@@ -76,6 +82,11 @@ func cmdRecap(e env, args []string) error {
 	if err != nil {
 		return err
 	}
+	if *propose {
+		if err := proposeWork(s, session); err != nil {
+			return err
+		}
+	}
 	if *mark {
 		marks.Add(path, now)
 		if err := worklog.SaveMarks(marksPath, marks, now); err != nil {
@@ -91,6 +102,45 @@ func cmdRecap(e env, args []string) error {
 		}{path, session, session.Fixed()})
 	}
 	return printRecap(e, path, session)
+}
+
+// proposeWork puts a session's account in the review queue.
+//
+// The body is the agent's own closing words first and the facts after them,
+// because the words say why and the facts only say what. No title: the one
+// line that would be injected is the person's to write, exactly as it is for
+// a fix (ADR-0026). Redaction runs before anything is written — a transcript
+// carries whole prompts, which is the hardest thing this project asks of it
+// (ADR-0013).
+func proposeWork(s *store.Store, session *worklog.Session) error {
+	var b strings.Builder
+	if session.Closing != "" {
+		b.WriteString(session.Closing)
+		b.WriteString("\n")
+	}
+	if len(session.Edits) > 0 {
+		b.WriteString("\nFiles touched:\n")
+		for _, f := range session.Edits {
+			b.WriteString("- " + f + "\n")
+		}
+	}
+	if fixed := session.Fixed(); len(fixed) > 0 {
+		b.WriteString("\nStarted working again:\n")
+		for _, c := range fixed {
+			b.WriteString("- `" + oneLine(c) + "`\n")
+		}
+	}
+	body, _ := redact.Text(strings.TrimSpace(b.String()))
+	if body == "" {
+		return nil
+	}
+
+	return candidate.Upsert(s.Root(), candidate.Candidate{
+		Time:    time.Now().UTC().Truncate(time.Second),
+		Session: session.ID,
+		Kind:    candidate.KindWork,
+		Body:    body,
+	})
 }
 
 func printRecap(e env, path string, s *worklog.Session) error {
@@ -140,6 +190,10 @@ func printRecap(e env, path string, s *worklog.Session) error {
 		}
 	}
 
+	if s.Closing != "" {
+		fmt.Fprintf(e.stdout, "\nwhat the agent said last:\n%s\n", indent(firstLines(s.Closing, 6), "  "))
+	}
+
 	if s.Truncated || s.Unreadable > 0 {
 		fmt.Fprintln(e.stdout)
 		if s.Truncated {
@@ -151,6 +205,16 @@ func printRecap(e env, path string, s *worklog.Session) error {
 		}
 	}
 	return nil
+}
+
+// firstLines keeps a closing message from filling a terminal. The whole of it
+// is what a candidate carries; this is only the look at it.
+func firstLines(s string, n int) string {
+	lines := strings.Split(strings.TrimSpace(s), "\n")
+	if len(lines) <= n {
+		return strings.Join(lines, "\n")
+	}
+	return strings.Join(lines[:n], "\n") + "\n..."
 }
 
 // oneLine keeps a multi-line command from turning one row into several.

@@ -58,6 +58,16 @@ type Response struct {
 	// EventNamePath, when set, is where the agent's own event name is
 	// echoed back. Claude Code requires it; nothing else seen so far does.
 	EventNamePath string `json:"event_name_path,omitempty"`
+
+	// NoticePath is where a message meant for the person goes, as opposed
+	// to one meant for the model.
+	//
+	// Not every event can speak to the model. Claude Code documents
+	// SessionEnd as observational: it "cannot add additionalContext", and
+	// its only channel to the person is `systemMessage`. Text put in the
+	// context path on such an event reaches nobody at all, which is what
+	// used to happen to the line saying candidates were waiting.
+	NoticePath string `json:"notice_path,omitempty"`
 }
 
 // Common are the fields every payload of this agent carries.
@@ -97,6 +107,11 @@ type Match struct {
 	// Untrusted marks every event from this match as coming from outside
 	// the project (ADR-0013).
 	Untrusted bool `json:"untrusted,omitempty"`
+
+	// Reply names which channel this event answers on: "notice" for the
+	// person, anything else for the model. An agent decides this per event,
+	// so it is data (K5).
+	Reply string `json:"reply,omitempty"`
 }
 
 // Failure is how an agent says a command did not work.
@@ -228,7 +243,8 @@ func (m *Mapping) Translate(payload []byte, callerEvent string, now time.Time) (
 			return Event{}, false, nil
 		}
 
-		e := Event{Kind: match.Kind, Time: now, Tool: tool, AgentEvent: name, Untrusted: match.Untrusted}
+		e := Event{Kind: match.Kind, Time: now, Tool: tool, AgentEvent: name,
+			Untrusted: match.Untrusted, Reply: match.Reply}
 		e.Session, _ = lookup(raw, m.Common.Session)
 		e.Cwd, _ = lookup(raw, m.Common.Cwd)
 		e.Scratchpad, _ = lookup(raw, m.Common.Scratchpad)
@@ -319,6 +335,22 @@ func contains(xs []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// Notice builds the reply that says something to the person rather than to
+// the model. An agent with no channel for it gets nothing: a notice is worth
+// less than a malformed reply.
+func (m *Mapping) Notice(text string) ([]byte, error) {
+	if m.Response.NoticePath == "" {
+		return nil, nil
+	}
+	reply := map[string]any{}
+	setPath(reply, m.Response.NoticePath, text)
+	data, err := json.Marshal(reply)
+	if err != nil {
+		return nil, err
+	}
+	return append(data, '\n'), nil
 }
 
 // Context builds the reply that hands text back to the agent, in whatever

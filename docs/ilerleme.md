@@ -3732,3 +3732,68 @@ döngüyü fark etmez.
   çağırma) iki açık sorusu: keşif aracı sayımı hangi araçları kapsar, `work`
   bütçesi ne olur.
 - Dökümün kayma kontrolü hâlâ yok (`drift-payloads.sh` yalnızca `*.json`).
+
+## 2026-10-06 — Faz 10 adım 4: aday üretimi, ve iki yanlış okumanın düzeltilmesi
+
+Adım 4 planlandığı gibi uygulanamadı; iki şey doğrulamadan çıktı ve ikisi de
+`plan.md` ile ADR-0026'ya işlendi.
+
+### Bir: SessionEnd ajana konuşamıyor
+
+[Hooks dokümantasyonu](https://code.claude.com/docs/en/hooks) SessionEnd için
+"No decision control" diyor ve `additionalContext` eklenemediğini söylüyor; tek
+kanalı `systemMessage`, o da kişiye gidiyor. Yani **oturum sonunda dürtme
+mümkün değil** ve fikir düştü.
+
+Dahası bu mevcut bir hatayı ortaya çıkardı: `onSessionEnded`'ın "şu kadar aday
+bekliyor" satırı `hookSpecificOutput.additionalContext`'e yazılıyordu, yani
+**hiç kimseye ulaşmıyordu**. Eşleme biçimine `notice_path` eklendi
+(claude-code'da `systemMessage`), olay da `"reply": "notice"` diyor — hangi
+kanalda cevap verileceği ajan bilgisi, dolayısıyla kodda değil veride (K5).
+Testi de düzeltildi: artık hem bildirimin göründüğünü hem de modele hiçbir şey
+söylenmediğini kontrol ediyor.
+
+### İki: `last_assistant_message` payload'da yok
+
+Doküman bu alanı SessionEnd ve Stop için tanımlıyor. Yakalanan 2.1.291
+SessionEnd payload'ında **yok**: `reason` var (doküman `exit_reason` diyor) ve
+mesaja benzer hiçbir şey yok. Yakalama `claude -p` ile, yani etkileşimli bir
+oturumda farklı olabilir.
+
+Dökümün kendisi aynı şeyi taşıyor, ve o gerçek bir dosyada doğrulandı: son
+asistan girdisinin son `text` bloğu. `worklog.Session.Closing` bu. Böylece B
+ayrı bir kanal olmaktan çıkıp ikinci bir olgu türü oldu — ajan ne yaptı, ve
+ajan onun hakkında ne dedi — ikisi aynı dosyadan, tek kod yolundan.
+
+### Yazılanlar
+
+- `internal/worklog`: `Closing`.
+- `internal/candidate`: `Kind` (`fix`/`work`; boş olan `fix`, çünkü daha önceki
+  her aday oydu), `Key()` (parmak izi varsa o, yoksa oturum kimliği), ve
+  `Upsert` — bir oturumun iki parçası tek kuyruk girdisine katlanıyor, aynı
+  metin iki kez eklenmiyor.
+- `internal/agent`: `Response.NoticePath`, `Match.Reply`, `Event.Reply`,
+  `Mapping.Notice`. Yalnızca claude-code eşlemesi güncellendi; diğer ajanların
+  bildirim kanalı doğrulanmadı, o yüzden onlara dokunulmadı.
+- `cmd/forgelore/recap.go`: `--propose`. Gövde önce ajanın sözü, sonra olgular;
+  başlık yok (enjekte edilecek satırı kişi yazar) ve yazmadan önce maskeleme.
+- `review`: iki tür adayı birlikte listeliyor, anahtarla alıyor. Kabul edilen
+  iş adayı şimdilik `note` olarak kaydediliyor — `work` tipi adım 5'te geliyor
+  ve o güne kadar `work` yazan bir kayıt kendi ikilisinin doğrulamasından
+  geçmezdi.
+
+### Denendi
+
+Gerçek bir dökümle baştan sona: `recap --propose` oturum kimliğiyle bir aday
+yazdı, `review` onu listeledi, `--accept --title` bir `note` kaydı üretti,
+gövdesinde ajanın son sözü ve dokunulan dosyalar vardı, parmak izi yoktu.
+Sırların maskelendiği ayrı bir testle tutuluyor.
+
+### Açık
+
+- Dokümante olup payload'da görünmeyen `last_assistant_message` eşlemeye
+  **yedek yol olarak** eklenecek mi? Döküm zaten yetiyor; eklenirse
+  "doğrulanmadı" diye işaretlenmeli. Ya da etkileşimli bir oturumun SessionEnd
+  payload'ı yakalanıp mesele kapatılabilir (`[SEN]`, ve yakalama script'i şu an
+  yalnızca `-p` koşuyor).
+- Keşif aracı sayımı (adım 8) ve `work` bütçesi (adım 6) hâlâ açık.

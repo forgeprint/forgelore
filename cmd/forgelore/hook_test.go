@@ -40,6 +40,23 @@ func hookContext(t *testing.T, dir, payload string, args ...string) string {
 	return r.HookSpecificOutput.AdditionalContext
 }
 
+// hookNotice runs a hook and returns the systemMessage it handed back: the
+// channel for an event that cannot speak to the model.
+func hookNotice(t *testing.T, dir, payload string, args ...string) string {
+	t.Helper()
+	out := mustCLI(t, dir, payload, append([]string{"hook"}, args...)...)
+	if strings.TrimSpace(out) == "" {
+		return ""
+	}
+	var r struct {
+		SystemMessage string `json:"systemMessage"`
+	}
+	if err := json.Unmarshal([]byte(out), &r); err != nil {
+		t.Fatalf("hook wrote something that is not a response: %v\n%s", err, out)
+	}
+	return r.SystemMessage
+}
+
 // TestHookNeverFails is K7. Every one of these is a real way the world
 // breaks, and not one of them may reach the user's agent as an error.
 func TestHookNeverFails(t *testing.T) {
@@ -364,15 +381,21 @@ func TestSessionEndMentionsWaitingCandidates(t *testing.T) {
 	mustCLI(t, dir, hookPayload("PostToolUseFailure", "s1", command, "./main.go:5:14: undefined: greet"), "hook")
 	mustCLI(t, dir, hookPayload("PostToolUse", "s1", command, "ok"), "hook")
 
-	got := hookContext(t, dir, `{"hook_event_name":"SessionEnd","session_id":"s1","reason":"clear"}`)
-	if !strings.Contains(got, "forgelore review") {
+	// On the person's channel, not the model's. Claude Code documents
+	// SessionEnd as unable to add context, so this used to be written where
+	// nothing would read it.
+	payload := `{"hook_event_name":"SessionEnd","session_id":"s1","reason":"clear"}`
+	if got := hookNotice(t, dir, payload); !strings.Contains(got, "forgelore review") {
 		t.Errorf("session end did not mention the candidates:\n%s", got)
+	}
+	if got := hookContext(t, dir, payload); got != "" {
+		t.Errorf("session end spoke to the model, which cannot hear it:\n%s", got)
 	}
 }
 
 func TestSessionEndIsSilentWithNothingWaiting(t *testing.T) {
 	dir := newProject(t)
-	if got := hookContext(t, dir, `{"hook_event_name":"SessionEnd","session_id":"s1"}`); got != "" {
+	if got := hookNotice(t, dir, `{"hook_event_name":"SessionEnd","session_id":"s1"}`); got != "" {
 		t.Errorf("session end spoke with nothing to say: %q", got)
 	}
 }

@@ -3,6 +3,7 @@ package candidate
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -101,5 +102,56 @@ func TestWriteRemovesAnEmptyFile(t *testing.T) {
 func TestCandidatesLiveInTheLocalScope(t *testing.T) {
 	if dir := filepath.Base(filepath.Dir(Path("/project/.forgelore"))); dir != "local" {
 		t.Errorf("candidates are kept in %q", dir)
+	}
+}
+
+func TestWorkIsKeyedBySessionAndFoldsTogether(t *testing.T) {
+	root := t.TempDir()
+
+	if err := Upsert(root, Candidate{Session: "s1", Kind: KindWork, Body: "what the agent said"}); err != nil {
+		t.Fatal(err)
+	}
+	// The second half of one session's memory: the facts, arriving later.
+	if err := Upsert(root, Candidate{Session: "s1", Kind: KindWork, Body: "files: a.go"}); err != nil {
+		t.Fatal(err)
+	}
+	// And the same text again, which must not stack up.
+	if err := Upsert(root, Candidate{Session: "s1", Kind: KindWork, Body: "files: a.go"}); err != nil {
+		t.Fatal(err)
+	}
+	// A fix from the same session is a different thing, waiting separately.
+	if err := Upsert(root, Candidate{Session: "s1", Fingerprint: "abc123", Command: "go build"}); err != nil {
+		t.Fatal(err)
+	}
+
+	waiting, err := Read(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(waiting) != 2 {
+		t.Fatalf("waiting = %d, want one work and one fix: %+v", len(waiting), waiting)
+	}
+
+	work, fix := waiting[0], waiting[1]
+	if work.Key() != "s1" {
+		t.Errorf("work key = %q, want the session id", work.Key())
+	}
+	if fix.Key() != "abc123" {
+		t.Errorf("fix key = %q, want the fingerprint", fix.Key())
+	}
+	if !strings.Contains(work.Body, "what the agent said") || !strings.Contains(work.Body, "files: a.go") {
+		t.Errorf("the two halves did not fold together: %q", work.Body)
+	}
+	if strings.Count(work.Body, "files: a.go") != 1 {
+		t.Errorf("the same text was appended twice: %q", work.Body)
+	}
+
+	// Taking one by key leaves the other alone.
+	taken, rest, err := Take(waiting, "s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if taken.Kind != KindWork || len(rest) != 1 || rest[0].Key() != "abc123" {
+		t.Errorf("took %+v, left %+v", taken, rest)
 	}
 }

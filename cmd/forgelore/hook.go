@@ -105,7 +105,16 @@ func runHook(e env, adapter, mappingFile, callerEvent, dir string, started *time
 		return "", err
 	}
 
-	reply, err := mapping.Context(event.AgentEvent, text)
+	// A notice goes to the person, and on an event that cannot reach the
+	// model it is the only channel there is. Claude Code's SessionEnd is
+	// such an event: text put in the context path there used to reach
+	// nobody at all.
+	var reply []byte
+	if event.Reply == "notice" {
+		reply, err = mapping.Notice(text)
+	} else {
+		reply, err = mapping.Context(event.AgentEvent, text)
+	}
 	if err != nil {
 		return "", err
 	}
@@ -298,8 +307,23 @@ func onSessionEnded(s *store.Store, e agent.Event) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf(
-		"forgelore: %d fix candidate(s) from this session are waiting. Review with: forgelore review",
+		"forgelore: %d candidate(s) are waiting. Review with: forgelore review",
 		len(pending)), nil
+}
+
+// firstLine is how a body with no title introduces itself in a list.
+func firstLine(s string) string {
+	line := strings.TrimSpace(s)
+	if i := strings.IndexByte(line, '\n'); i >= 0 {
+		line = line[:i]
+	}
+	if len(line) > 72 {
+		line = line[:69] + "..."
+	}
+	if line == "" {
+		return "(nothing said)"
+	}
+	return line
 }
 
 // cmdReview is where a candidate becomes a memory, or stops being one.
@@ -308,9 +332,9 @@ func onSessionEnded(s *store.Store, e agent.Event) (string, error) {
 // means.
 func cmdReview(e env, args []string) error {
 	fs := newFlags(e, "review")
-	accept := fs.String("accept", "", "the fingerprint of the candidate to record")
+	accept := fs.String("accept", "", "the key of the candidate to record")
 	title := fs.String("title", "", "the one line that will be injected")
-	drop := fs.String("drop", "", "the fingerprint of a candidate to discard")
+	drop := fs.String("drop", "", "the key of a candidate to discard")
 	dir := fs.String("dir", "", "work on the project containing this directory")
 	asJSON := fs.Bool("json", false, "machine-readable output")
 	if err := fs.Parse(args); err != nil {
@@ -342,7 +366,7 @@ func cmdReview(e env, args []string) error {
 		// Say so. Accepting prints the new record's id, and dropping used
 		// to print nothing at all, which left running review again as the
 		// only way to find out whether it had worked.
-		fmt.Fprintf(e.stdout, "%s  dropped, %d still waiting\n", dropped.Fingerprint, len(kept))
+		fmt.Fprintf(e.stdout, "%s  dropped, %d still waiting\n", dropped.Key(), len(kept))
 		return nil
 	}
 
@@ -360,9 +384,12 @@ func cmdReview(e env, args []string) error {
 		if what == "" {
 			what = c.Command
 		}
-		fmt.Fprintf(e.stdout, "%s  %s\n", c.Fingerprint, what)
+		if c.Kind == candidate.KindWork {
+			what = firstLine(c.Body)
+		}
+		fmt.Fprintf(e.stdout, "%s  %s\n", c.Key(), what)
 	}
-	fmt.Fprintf(e.stdout, "\n%d waiting. Record one with:\n  forgelore review --accept <fingerprint> --title \"what fixed it\"\n", len(pending))
+	fmt.Fprintf(e.stdout, "\n%d waiting. Record one with:\n  forgelore review --accept <key> --title \"what it was\"\n", len(pending))
 	return nil
 }
 
@@ -379,12 +406,23 @@ func acceptCandidate(e env, s *store.Store, pending []candidate.Candidate, sum, 
 		title = chosen.Title
 	}
 	if strings.TrimSpace(title) == "" {
-		return fmt.Errorf("--accept needs --title: nothing proposed one, and Forgelore saw the error stop, not why")
+		return fmt.Errorf("--accept needs --title: nothing proposed one, and a title is what gets injected")
 	}
 
 	body := chosen.Body
 	if body == "" && chosen.Command != "" {
 		body = "Noticed when `" + chosen.Command + "` started working again."
+	}
+
+	// Work memory has no fingerprint to answer, so it is recorded as the
+	// one existing type that is never injected automatically: searchable,
+	// and costing nothing until asked for (ADR-0016). The `work` type with
+	// its own session-start budget arrives with step 5 of phase 10; until
+	// then a record that claimed to be `work` would fail validation on the
+	// binary that wrote it.
+	kind, fingerprint := record.TypeFix, chosen.Fingerprint
+	if chosen.Kind == candidate.KindWork {
+		kind, fingerprint = record.TypeNote, ""
 	}
 
 	id, err := record.NewULID()
@@ -394,13 +432,13 @@ func acceptCandidate(e env, s *store.Store, pending []candidate.Candidate, sum, 
 	r := &record.Record{
 		Schema:      record.CurrentSchema,
 		ID:          id,
-		Type:        record.TypeFix,
+		Type:        kind,
 		Scope:       record.ScopeLocal,
 		Title:       title,
 		Created:     time.Now().UTC().Truncate(time.Second),
 		Source:      record.SourceHook,
 		Tainted:     chosen.Tainted,
-		Fingerprint: chosen.Fingerprint,
+		Fingerprint: fingerprint,
 		Body:        body,
 	}
 	if _, err := s.Put(r); err != nil {

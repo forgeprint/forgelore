@@ -21,12 +21,25 @@ import (
 // file is where candidates accumulate inside a .forgelore directory.
 const file = "local/candidates.jsonl"
 
+// Kinds of candidate. A candidate written before work memory existed has no
+// kind at all, and an empty kind means KindFix: every candidate there was.
+const (
+	KindFix  = "fix"
+	KindWork = "work"
+)
+
 // A Candidate is a proposed memory.
 type Candidate struct {
 	Time        time.Time `json:"time"`
 	Session     string    `json:"session,omitempty"`
 	Fingerprint string    `json:"fingerprint"`
 	Command     string    `json:"command,omitempty"`
+
+	// Kind separates a fix noticed when an error stopped from an account of
+	// what a session did. They wait in the same queue and are reviewed by
+	// the same command, but they are not keyed the same way: a fix is keyed
+	// by the error it answers, and a session's work has no error.
+	Kind string `json:"kind,omitempty"`
 
 	// Title is set when whoever proposed it could say what the fix was. A
 	// hook cannot: it saw an error stop, not a reason. An agent calling
@@ -37,6 +50,17 @@ type Candidate struct {
 	// Tainted marks a proposal derived from content outside the project
 	// (ADR-0013). It carries through to the record if one is made.
 	Tainted bool `json:"tainted,omitempty"`
+}
+
+// Key is how a person names this candidate to `review`. A fix is keyed by its
+// fingerprint, which is the thing it answers. Work has no fingerprint, so it
+// is keyed by the session it came out of — a value the agent already chose,
+// which is readable in a way a second identifier would not be.
+func (c Candidate) Key() string {
+	if c.Fingerprint != "" {
+		return c.Fingerprint
+	}
+	return c.Session
 }
 
 // Path returns the candidates file for a store root.
@@ -105,11 +129,10 @@ func Write(root string, cs []Candidate) error {
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
 
-// Take removes the candidate with this fingerprint and returns it with what
-// remains.
-func Take(cs []Candidate, fingerprint string) (taken *Candidate, rest []Candidate, err error) {
+// Take removes the candidate with this key and returns it with what remains.
+func Take(cs []Candidate, key string) (taken *Candidate, rest []Candidate, err error) {
 	for _, c := range cs {
-		if c.Fingerprint == fingerprint && taken == nil {
+		if c.Key() == key && taken == nil {
 			found := c
 			taken = &found
 			continue
@@ -117,7 +140,50 @@ func Take(cs []Candidate, fingerprint string) (taken *Candidate, rest []Candidat
 		rest = append(rest, c)
 	}
 	if taken == nil {
-		return nil, cs, fmt.Errorf("no candidate with fingerprint %s", fingerprint)
+		return nil, cs, fmt.Errorf("no candidate with key %s", key)
 	}
 	return taken, rest, nil
+}
+
+// Upsert adds a candidate, or folds it into the one already waiting under the
+// same key and kind.
+//
+// Work memory arrives in two parts and at two moments — what the agent said
+// about the session, and the facts read out of its transcript afterwards — and
+// two entries in the review queue for one session would be two decisions for
+// one thing. Appending text that is already there is skipped, so running the
+// same command twice changes nothing.
+func Upsert(root string, c Candidate) error {
+	waiting, err := Read(root)
+	if err != nil {
+		return err
+	}
+	for i, old := range waiting {
+		if old.Key() != c.Key() || old.Kind != c.Kind {
+			continue
+		}
+		merged := old
+		merged.Body = join(old.Body, c.Body)
+		if merged.Title == "" {
+			merged.Title = c.Title
+		}
+		merged.Tainted = old.Tainted || c.Tainted
+		waiting[i] = merged
+		return Write(root, waiting)
+	}
+	return Append(root, c)
+}
+
+// join puts two bodies together without repeating what is already said.
+func join(old, add string) string {
+	add = strings.TrimSpace(add)
+	switch {
+	case add == "":
+		return old
+	case strings.TrimSpace(old) == "":
+		return add
+	case strings.Contains(old, add):
+		return old
+	}
+	return old + "\n\n" + add
 }

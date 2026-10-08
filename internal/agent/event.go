@@ -43,6 +43,10 @@ type Event struct {
 	// it back where the agent expects to see it.
 	AgentEvent string
 
+	// Reply is the channel this event answers on: "notice" means the
+	// person, anything else means the model.
+	Reply string
+
 	// Tool, Command and Output are set for the two command events.
 	Tool    string
 	Command string

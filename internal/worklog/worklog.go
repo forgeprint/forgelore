@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -43,6 +44,17 @@ type Session struct {
 
 	// Commands are shell commands in the order they ran.
 	Commands []Command `json:"commands,omitempty"`
+
+	// Closing is the last thing the agent said in its own words.
+	//
+	// The agent's account of a session is worth more than any summary this
+	// package could assemble, and it is already written: the final text
+	// block of the final assistant entry. Claude Code documents a
+	// `last_assistant_message` field on its hook payloads for the same
+	// thing, but the payload captured from 2.1.291 does not carry it, and
+	// the transcript does — verified against a real one rather than taken
+	// from documentation (ADR-0026).
+	Closing string `json:"closing,omitempty"`
 
 	// Truncated says the cap was reached and the beginning was not read, so
 	// an absent edit is not evidence that nothing was edited.
@@ -173,6 +185,7 @@ type entry struct {
 // block is one Messages API content block.
 type block struct {
 	Type  string `json:"type"`
+	Text  string `json:"text"`
 	Name  string `json:"name"`
 	ID    string `json:"id"`
 	Input struct {
@@ -207,6 +220,10 @@ func (s *Session) read(line []byte) {
 			s.tool(b, at)
 		case "tool_result":
 			s.result(b)
+		case "text":
+			if e.Type == "assistant" && strings.TrimSpace(b.Text) != "" {
+				s.Closing = strings.TrimSpace(b.Text)
+			}
 		}
 	}
 }
