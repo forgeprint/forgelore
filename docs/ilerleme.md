@@ -3797,3 +3797,28 @@ Sırların maskelendiği ayrı bir testle tutuluyor.
   payload'ı yakalanıp mesele kapatılabilir (`[SEN]`, ve yakalama script'i şu an
   yalnızca `-p` koşuyor).
 - Keşif aracı sayımı (adım 8) ve `work` bütçesi (adım 6) hâlâ açık.
+
+## 2026-10-11 — Faz 10 adım 5: `work` tipi ve ikinci bütçe
+
+- `record`: `TypeWork`, `SourceDistill`, doğrulama (`work` parmak izi istemiyor),
+  ve `InWorkIndex()`. `InSessionIndex()` dokunulmadı: `work` oraya girmiyor,
+  kendi yarısına giriyor.
+- **İki bütçe.** `inject.budget_tokens` 500 (komut + karar), yeni
+  `inject.work_budget_tokens` **200** (iş hafızası). Ayrı olmasının gerekçesi
+  ADR-0016'ya yazıldı: karar birisi bir şeye karar verdiğinde yazılır, iş ise
+  her oturumda; tek bütçe olsa yoğun bir iki hafta bütün kararları sessizce
+  dizinden atardı. 200 token dört-altı başlık, yani son birkaç oturum — "ne
+  yapıyordum" sorusunun gerçekten geriye gittiği mesafe.
+- Oturum başı dizin artık iki parçalı; iş yarısı `What recent sessions learned:`
+  başlığı altında, en yeniler önce.
+- `review --accept` iş adayını artık `note` değil **`work`** kaydediyor; adım
+  4'ün geçici çözümü kalktı.
+- `docs/record-format.md`: `type` ve `source` enum'ları, davranış tablosunda
+  `work` satırı ve ne olduğu.
+
+Testler: `work` + `distill` doğrulaması, süperseded `work`'ün enjekte
+edilmemesi, ve kırk iş kaydının tek bir kararı dizinden atmadığı (kabul
+kriterinin kendisi bir test). Elle de bakıldı: iki yarım da doğru görünüyor.
+
+**Açık kalanlar:** keşif aracı sayımı (adım 8), `recap`'in hook'a bağlanması,
+adım 6/7/10, Faz 10.1. Deneme haftasının son günü 13 Ekim.

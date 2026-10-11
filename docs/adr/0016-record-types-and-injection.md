@@ -35,6 +35,15 @@ it is stable knowledge like the two above it, but it accumulates per session
 rather than per decision, so it is held to a budget of its own and ordered
 newest first.
 
+The two budgets are `inject.budget_tokens`, 500 by default, and
+`inject.work_budget_tokens`, 200. They are separate because they are spent at
+different rates: a decision is written when somebody decides something, and
+work is written every session that produced any. Sharing one budget would mean
+a busy fortnight pushing every decision out of the index without anyone
+choosing that, and the session-start cost is the one cost this project cannot
+let drift. 200 tokens is four to six titles — enough for the last few sessions,
+which is as far back as "what was I doing" reaches.
+
 Two link fields:
 
 - `related: [id, ...]` — stored one way, treated as undirected by the index.

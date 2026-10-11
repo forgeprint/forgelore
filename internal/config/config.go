@@ -76,6 +76,12 @@ var known = []spec{
 		doc:  "ceiling on the session-start index handed to the agent",
 	},
 	{
+		key:  "inject.work_budget_tokens",
+		kind: record.KindInt,
+		def:  record.Value{Kind: record.KindInt, Int: 200},
+		doc:  "ceiling on the work-memory half of the session-start index",
+	},
+	{
 		key:  "hook.deadline_ms",
 		kind: record.KindInt,
 		def:  record.Value{Kind: record.KindInt, Int: 500},

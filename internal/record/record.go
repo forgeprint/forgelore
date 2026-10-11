@@ -25,6 +25,7 @@ const (
 	TypeDecision = "decision"
 	TypeCommand  = "command"
 	TypeNote     = "note"
+	TypeWork     = "work"
 )
 
 // Scope is where a record lives. The directory decides it; the field is
@@ -41,6 +42,11 @@ const (
 	SourceUser   = "user"
 	SourceHook   = "hook"
 	SourceImport = "import"
+
+	// SourceDistill: a model wrote this record's prose, through a CLI the
+	// user already had (ADR-0027). Kept in the record because who wrote a
+	// sentence is worth knowing when reading it back.
+	SourceDistill = "distill"
 )
 
 // timeLayout is ISO-8601 UTC at second precision. Parsing with this layout
@@ -97,6 +103,20 @@ func (r *Record) InSessionIndex() bool {
 		return false
 	}
 	return r.Type == TypeCommand || r.Type == TypeDecision
+}
+
+// InWorkIndex reports whether this record's title belongs in the session-start
+// index's own, tighter budget for work memory (ADR-0016, amended by ADR-0026).
+//
+// It is separate from InSessionIndex because the two grow at different rates.
+// Commands and decisions accumulate when somebody decides something; work
+// accumulates once per session, and sharing one budget would mean a busy
+// fortnight pushing every decision out of the index.
+func (r *Record) InWorkIndex() bool {
+	if r.SupersededBy != "" {
+		return false
+	}
+	return r.Type == TypeWork
 }
 
 // InjectableOnMatch reports whether this record may be injected when its
@@ -246,9 +266,9 @@ func (r *Record) Validate() error {
 		return &ValidationError{"created", "missing"}
 	}
 	switch r.Source {
-	case SourceUser, SourceHook, SourceImport:
+	case SourceUser, SourceHook, SourceImport, SourceDistill:
 	default:
-		return &ValidationError{"source", "must be user, hook or import"}
+		return &ValidationError{"source", "must be user, hook, import or distill"}
 	}
 	switch r.Type {
 	case TypeFix, TypeDeadEnd:

@@ -49,11 +49,11 @@ Listed in canonical order. The writer emits them in exactly this order.
 |---|---|---|---|
 | `schema` | integer | yes | `1` for this document |
 | `id` | ULID | yes | Matches the file name |
-| `type` | enum | yes | `fix`, `dead_end`, `decision`, `command`, `note` |
+| `type` | enum | yes | `fix`, `dead_end`, `decision`, `command`, `note`, `work` |
 | `scope` | enum | yes | `team` or `local`; the directory is authoritative |
 | `title` | string | yes | One line. This is the text that gets injected |
 | `created` | timestamp | yes | ISO-8601 UTC, second precision, always `Z` |
-| `source` | enum | yes | `user`, `hook`, `import` |
+| `source` | enum | yes | `user`, `hook`, `import`, `distill` |
 | `tainted` | boolean | yes | `true` if derived from external content (ADR-0013) |
 | `fingerprint` | string | for `fix` and `dead_end` | Sixteen lowercase hex characters, one per record |
 | `tags` | string list | no | Lowercase, kebab-case; omitted when empty |
@@ -97,7 +97,14 @@ body before either is written.
 | `command` | title only | no | yes |
 | `decision` | title only | no | yes |
 | `note` | no | no | yes |
+| `work` | title only, under a budget of its own | no | yes |
 | unrecognised | no | no | yes |
+
+`work` is what a session learned about the project rather than about an error
+(ADR-0026). It shares the session-start index with `command` and `decision` but
+not their budget: work arrives once per session and would otherwise push out
+knowledge that arrives once per decision. Newest first, and
+`inject.work_budget_tokens` is the ceiling.
 
 ## Canonical writing
 

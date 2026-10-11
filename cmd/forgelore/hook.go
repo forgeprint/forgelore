@@ -133,23 +133,50 @@ func loadMapping(adapter, file string) (*agent.Mapping, error) {
 }
 
 // sessionIndex is the budgeted list handed over once per session: the titles
-// of commands and decisions, and nothing else (ADR-0016). Fixes and dead ends
-// are deliberately absent — they cost nothing until an error matches them.
+// of commands and decisions, and of the last few sessions' work (ADR-0016).
+// Fixes and dead ends are deliberately absent — they cost nothing until an
+// error matches them.
+//
+// Work has a budget of its own rather than a share of this one. It arrives
+// once per session where a decision arrives once per decision, so one budget
+// would mean a busy fortnight quietly pushing every decision out of the index.
 func sessionIndex(s *store.Store, cfg *config.Config, deadline time.Time) (string, error) {
 	records, _, err := s.All()
 	if err != nil {
 		return "", err
 	}
+	sort.Slice(records, func(i, j int) bool { return records[i].ID > records[j].ID })
 
-	budget := int(cfg.Int("inject.budget_tokens"))
+	// Newest first in both halves, which for work is the point: what the
+	// last session learned is worth more than what the tenth-last did.
+	known := titlesWithin(records, deadline,
+		int(cfg.Int("inject.budget_tokens")), (*record.Record).InSessionIndex)
+	work := titlesWithin(records, deadline,
+		int(cfg.Int("inject.work_budget_tokens")), (*record.Record).InWorkIndex)
+	if len(known) == 0 && len(work) == 0 {
+		return "", nil
+	}
+
+	out := "Project memory (forgelore). Ask for detail with: forgelore show <id>"
+	if len(known) > 0 {
+		out += "\n" + strings.Join(known, "\n")
+	}
+	if len(work) > 0 {
+		out += "\nWhat recent sessions learned:\n" + strings.Join(work, "\n")
+	}
+	return out, nil
+}
+
+// titlesWithin collects the titles a predicate admits, up to a budget.
+func titlesWithin(records []*record.Record, deadline time.Time, budget int,
+	wanted func(*record.Record) bool) []string {
 	var lines []string
 	used := 0
-	sort.Slice(records, func(i, j int) bool { return records[i].ID > records[j].ID })
 	for _, r := range records {
 		if time.Now().After(deadline) {
 			break
 		}
-		if !r.InSessionIndex() {
+		if !wanted(r) {
 			continue
 		}
 		line := "- " + r.Title + " (" + r.ID + ")"
@@ -160,12 +187,7 @@ func sessionIndex(s *store.Store, cfg *config.Config, deadline time.Time) (strin
 		used += cost
 		lines = append(lines, line)
 	}
-	if len(lines) == 0 {
-		return "", nil
-	}
-
-	return "Project memory (forgelore). Ask for detail with: forgelore show <id>\n" +
-		strings.Join(lines, "\n"), nil
+	return lines
 }
 
 // onCommandFailed is the injection path.
@@ -414,15 +436,12 @@ func acceptCandidate(e env, s *store.Store, pending []candidate.Candidate, sum, 
 		body = "Noticed when `" + chosen.Command + "` started working again."
 	}
 
-	// Work memory has no fingerprint to answer, so it is recorded as the
-	// one existing type that is never injected automatically: searchable,
-	// and costing nothing until asked for (ADR-0016). The `work` type with
-	// its own session-start budget arrives with step 5 of phase 10; until
-	// then a record that claimed to be `work` would fail validation on the
-	// binary that wrote it.
+	// Work memory has no fingerprint to answer. Its title reaches the
+	// session-start index under the work budget, and nothing else about it
+	// is injected (ADR-0016).
 	kind, fingerprint := record.TypeFix, chosen.Fingerprint
 	if chosen.Kind == candidate.KindWork {
-		kind, fingerprint = record.TypeNote, ""
+		kind, fingerprint = record.TypeWork, ""
 	}
 
 	id, err := record.NewULID()

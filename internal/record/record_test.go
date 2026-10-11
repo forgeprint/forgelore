@@ -326,3 +326,34 @@ func validRecord() *Record {
 		Body:        "\nbody\n",
 	}
 }
+
+func TestWorkNeedsNoFingerprintAndDistillIsASource(t *testing.T) {
+	r := &Record{
+		Schema:  CurrentSchema,
+		ID:      "01K68P9AB2C3D4E5F6G7H8J9K0",
+		Type:    TypeWork,
+		Scope:   ScopeLocal,
+		Title:   "The index was rebuilt on every open",
+		Created: time.Date(2026, 10, 11, 9, 0, 0, 0, time.UTC),
+		Source:  SourceDistill,
+	}
+	if err := r.Validate(); err != nil {
+		t.Fatalf("a work record from a distillation did not validate: %v", err)
+	}
+	if !r.InWorkIndex() {
+		t.Error("work is not in the work index")
+	}
+	if r.InSessionIndex() {
+		t.Error("work is in the index that has the other budget")
+	}
+	if r.InjectableOnMatch() {
+		t.Error("work would be injected on a fingerprint it does not have")
+	}
+
+	// A superseded one stays searchable and out of context, like every
+	// other type.
+	r.SupersededBy = "01K68P9AB2C3D4E5F6G7H8J9K1"
+	if r.InWorkIndex() {
+		t.Error("a superseded work record is still injected")
+	}
+}

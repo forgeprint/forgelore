@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -172,7 +173,7 @@ func TestProposeMakesOneCandidateAPersonCanAccept(t *testing.T) {
 		"--title", "The index was rebuilt on every open")
 	id := strings.Fields(out)[0]
 	shown := mustCLI(t, project, "", "show", id)
-	for _, want := range []string{"type: note", "The index was rebuilt", "/w/store.go", "go test ./..."} {
+	for _, want := range []string{"type: work", "The index was rebuilt", "/w/store.go", "go test ./..."} {
 		if !strings.Contains(shown, want) {
 			t.Errorf("the record does not carry %q:\n%s", want, shown)
 		}
@@ -201,5 +202,34 @@ func TestRecapWithoutProposeQueuesNothing(t *testing.T) {
 	mustCLI(t, project, "", "recap", "--transcript", path)
 	if out := mustCLI(t, project, "", "review"); !strings.Contains(out, "nothing waiting") {
 		t.Errorf("recap queued something without being asked:\n%s", out)
+	}
+}
+
+// TestWorkHasItsOwnSessionBudget is why the two budgets are separate: work
+// arrives once per session, and a busy fortnight must not push the decisions
+// out of the index.
+func TestWorkHasItsOwnSessionBudget(t *testing.T) {
+	project := newProject(t)
+
+	mustCLI(t, project, "", "record", "--type", "decision", "--scope", "team",
+		"--title", "SQLite is the index and markdown is the truth", "--body", "x")
+	// Enough work records that one shared budget would crowd the decision
+	// out: they sort newest first and every one of these is newer.
+	for i := 0; i < 40; i++ {
+		mustCLI(t, project, "", "record", "--type", "work", "--scope", "local",
+			"--title", fmt.Sprintf("Session %02d went into the store and the index", i),
+			"--body", "x")
+	}
+
+	got := hookContext(t, project, `{"hook_event_name":"SessionStart","session_id":"s1"}`)
+	if !strings.Contains(got, "SQLite is the index") {
+		t.Errorf("forty sessions of work pushed the decision out:\n%s", got)
+	}
+	if !strings.Contains(got, "What recent sessions learned") {
+		t.Errorf("the work half is missing:\n%s", got)
+	}
+	// And the work half is capped: 200 tokens is nowhere near forty titles.
+	if n := strings.Count(got, "went into the store"); n == 0 || n > 12 {
+		t.Errorf("work titles injected = %d, want a few:\n%s", n, got)
 	}
 }
