@@ -1,6 +1,6 @@
 # ADR-0020: Four canonical events, and mappings in JSON
 
-- Status: Accepted
+- Status: Accepted, amended by ADR-0028
 - Date: 2026-10-05
 - Phase: 4
 

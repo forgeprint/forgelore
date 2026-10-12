@@ -52,6 +52,11 @@
       }
     },
     {
+      "agent_event": "UserPromptSubmit",
+      "kind": "prompt_submitted",
+      "prompt": "prompt"
+    },
+    {
       "agent_event": "SessionEnd",
       "kind": "session_ended",
       "reply": "notice"

@@ -76,6 +76,18 @@ var known = []spec{
 		doc:  "ceiling on the session-start index handed to the agent",
 	},
 	{
+		key:  "inject.on_prompt",
+		kind: record.KindBool,
+		def:  record.Value{Kind: record.KindBool, Bool: false},
+		doc:  "look up what a prompt names, and offer matching titles; off by default",
+	},
+	{
+		key:  "inject.prompt_budget_tokens",
+		kind: record.KindInt,
+		def:  record.Value{Kind: record.KindInt, Int: 150},
+		doc:  "ceiling on what one prompt's lookup may inject",
+	},
+	{
 		key:  "work.harvest",
 		kind: record.KindBool,
 		def:  record.Value{Kind: record.KindBool, Bool: true},

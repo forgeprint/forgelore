@@ -445,3 +445,65 @@ func TestHookAcceptsAMappingFromDisk(t *testing.T) {
 		t.Errorf("the reply used Claude Code's shape for another agent:\n%s", out)
 	}
 }
+
+// promptPayload is a submitted prompt, the fifth canonical event.
+func promptPayload(session, prompt string) string {
+	b, err := json.Marshal(map[string]string{
+		"hook_event_name": "UserPromptSubmit",
+		"session_id":      session,
+		"prompt":          prompt,
+	})
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
+}
+
+func TestPromptLookupIsOffUntilAskedFor(t *testing.T) {
+	dir := newProject(t)
+	mustCLI(t, dir, "", "record", "--type", "work", "--scope", "local",
+		"--title", "The index is rebuilt on every open of internal/store/index.go",
+		"--body", "x")
+
+	payload := promptPayload("s1", "why is internal/store/index.go slow")
+	if got := hookContext(t, dir, payload); got != "" {
+		t.Errorf("prompt lookup happened with the setting off:\n%s", got)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, ".forgelore", "config.yaml"),
+		[]byte("inject.on_prompt: true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := hookContext(t, dir, payload)
+	if !strings.Contains(got, "rebuilt on every open") {
+		t.Fatalf("the prompt named the file and nothing came back:\n%s", got)
+	}
+
+	// The same record is not paid for twice in one session.
+	if again := hookContext(t, dir, payload); again != "" {
+		t.Errorf("the same record was offered twice:\n%s", again)
+	}
+	// A different session starts over.
+	if other := hookContext(t, dir, promptPayload("s2", "why is internal/store/index.go slow")); other == "" {
+		t.Error("a new session got nothing")
+	}
+}
+
+func TestPromptLookupOffersNothingForProseOrForFixes(t *testing.T) {
+	dir := newProject(t)
+	if err := os.WriteFile(filepath.Join(dir, ".forgelore", "config.yaml"),
+		[]byte("inject.on_prompt: true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A fix answers an error that has not happened; the error path has it.
+	mustCLI(t, dir, "", "record", "--type", "fix", "--scope", "local",
+		"--fingerprint", "0123456789abcdef",
+		"--title", "Rebuild the index when store_index.go changes", "--body", "x")
+
+	if got := hookContext(t, dir, promptPayload("s1", "please make this faster")); got != "" {
+		t.Errorf("prose bought a lookup:\n%s", got)
+	}
+	if got := hookContext(t, dir, promptPayload("s2", "look at store_index.go")); got != "" {
+		t.Errorf("a fix was injected on a prompt:\n%s", got)
+	}
+}

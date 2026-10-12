@@ -3851,3 +3851,35 @@ hasat edilmediği testleri var.
 
 Sözleşme testine bir satır daha: 2.1.291'in gerçek SessionStart payload'ı
 `transcript_path` taşıyor — dokümandan değil, payload'dan doğrulandı.
+
+### A2 (adım 6): prompt anında çağırma, varsayılan kapalı
+
+**Beşinci kanonik olay.** ADR-0020 dört olayda ısrar ediyordu; prompt anı o
+dördünden hiçbiri değil. Gerekçe ve bedeli **ADR-0028**'de, ADR-0020 "amended
+by" diye işaretlendi. Testi geçti: bu da Forgelore'un cevapladığı bir soru
+("birisi bir şeyi adıyla andı mı"), bir ajanın yaşam döngüsünün kopyası değil.
+
+- `internal/inject` (plandan beri boş duran dizin) artık `Terms()` taşıyor:
+  yollar ve tanımlayıcılar (`snake_case`, `kebab-case`, iki yönlü camelCase),
+  prose hiç değil. Prompt'un tamamını FTS5'e sormak her şey için bir şey
+  döndürür, yani tur başına maliyetle hiçbir işe yaramaz. En fazla sekiz terim.
+- **Pasted içerik kesiliyor.** Dokümantasyon `<pasted_content>` sınırları
+  arasında geldiğini söylüyor; orada yazan şey kişinin söylediği şey değil.
+- Verilen şey `work` ve `decision` **başlıkları**, kendi bütçesiyle
+  (`inject.prompt_budget_tokens`, 150), oturumda kayıt başına bir kez
+  (`State.Shown`). `fix` dışarıda: o henüz olmamış bir hatayı cevaplıyor ve
+  hata yolu zaten taşıyor.
+- Deftere kendi olayı girdi: `prompt`. Bu tek harcama bir başarısızlığı
+  cevaplamıyor, ve ikisini karıştıran bir rapor hangi yarının kendini
+  ödediğini söyleyemez. Kontrol grubunda hiçbir şey enjekte edilmiyor ama satır
+  yine düşüyor.
+- **`prompt` alanı yalnızca dokümandan doğrulandı.** Yakalama script'i artık
+  `UserPromptSubmit`'i de istiyor; o koşulana kadar sözleşme testinin
+  `withoutSamples` listesinde gerekçesiyle duruyor — yani test "doğrulanmış"
+  gibi davranmıyor.
+- `UserPromptSubmit` bir kişinin yazmasından daha sık ateşliyor: zamanlanmış
+  iş, arka plan alt-ajanı, başka oturumdan mesaj. Varsayılanın kapalı olmasının
+  bir sebebi de bu.
+
+Prompt hiçbir yere yazılmıyor: deftere kimlik ve bayt sayısı, oturum durumuna
+kayıt kimliği giriyor, metin hiçbirine girmiyor.

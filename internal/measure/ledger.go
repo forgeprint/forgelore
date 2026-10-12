@@ -40,6 +40,11 @@ const (
 	EventControl = "control"
 	// EventMiss: the error was fingerprinted and nothing matched. Free.
 	EventMiss = "miss"
+	// EventPrompt: a prompt named something the index knew about, and the
+	// titles were handed over. Kept apart from EventInject because this is
+	// the one spend that is not answering a failure, and a report that
+	// mixed them could not say which half paid for itself.
+	EventPrompt = "prompt"
 )
 
 // The two arms of the trial.

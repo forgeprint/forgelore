@@ -30,7 +30,7 @@ keeps its number and its text; the ADR that replaces it says so.
 | [0017](0017-restricted-yaml.md) | Phase 1 | A restricted YAML dialect, written canonically |
 | [0018](0018-configuration-and-precedence.md) | Phase 1 | Configuration files and their precedence |
 | [0019](0019-cost-in-dollars-is-the-comparison.md) | Phase 3 | Cost in dollars is what the two arms are compared on |
-| [0020](0020-canonical-events-and-json-mappings.md) | Phase 4 | Four canonical events, and mappings in JSON |
+| [0020](0020-canonical-events-and-json-mappings.md) | Phase 4 | Four canonical events, and mappings in JSON (amended by 0028) |
 | [0021](0021-mcp-target-versions.md) | Phase 5 | Two MCP revisions, because one client needs both |
 | [0022](0022-a-failure-test-that-is-not-data.md) | post-release | A failure test the mapping cannot answer alone |
 | [0023](0023-build-provenance-instead-of-a-detached-signature.md) | post-release | Build provenance, not a detached signature |
@@ -38,6 +38,7 @@ keeps its number and its text; the ADR that replaces it says so.
 | [0025](0025-the-extractor-learns-cli-errors.md) | post-release | The extractor learns what a CLI error looks like |
 | [0026](0026-work-memory-is-captured-twice.md) | Phase 10 | Work memory, captured two ways |
 | [0027](0027-distillation-runs-the-agents-own-cli.md) | K8 (amended) | Distillation runs the agent's own CLI, and only when asked |
+| [0028](0028-a-fifth-canonical-event.md) | Phase 10 | A fifth canonical event, for the moment somebody asks |
 
 ## Writing a new one
 

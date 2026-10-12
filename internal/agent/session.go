@@ -17,6 +17,10 @@ import (
 type State struct {
 	// Failed maps an error fingerprint to the command that produced it.
 	Failed map[string]string `json:"failed"`
+
+	// Shown holds the records already handed to this session, so that ten
+	// prompts about one file do not pay for the same reminder ten times.
+	Shown map[string]bool `json:"shown,omitempty"`
 }
 
 // StatePath is where a session's state file goes.
@@ -35,13 +39,16 @@ func StatePath(e Event, cacheDir string) string {
 // LoadState reads a session's state. A missing or unreadable file is an empty
 // state: losing it costs a candidate, and failing here would cost the hook.
 func LoadState(path string) *State {
-	s := &State{Failed: map[string]string{}}
+	s := &State{Failed: map[string]string{}, Shown: map[string]bool{}}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return s
 	}
 	if json.Unmarshal(data, s) != nil || s.Failed == nil {
-		return &State{Failed: map[string]string{}}
+		return &State{Failed: map[string]string{}, Shown: map[string]bool{}}
+	}
+	if s.Shown == nil {
+		s.Shown = map[string]bool{}
 	}
 	return s
 }

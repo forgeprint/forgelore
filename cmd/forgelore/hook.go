@@ -13,6 +13,7 @@ import (
 	"github.com/forgeprint/forgelore/internal/candidate"
 	"github.com/forgeprint/forgelore/internal/config"
 	"github.com/forgeprint/forgelore/internal/fingerprint"
+	"github.com/forgeprint/forgelore/internal/inject"
 	"github.com/forgeprint/forgelore/internal/measure"
 	"github.com/forgeprint/forgelore/internal/record"
 	"github.com/forgeprint/forgelore/internal/store"
@@ -106,6 +107,8 @@ func runHook(e env, adapter, mappingFile, callerEvent, dir string, started *time
 		text, err = onCommandFailed(s, cfg, event, deadline, *started)
 	case agent.CommandSucceeded:
 		err = onCommandSucceeded(s, event)
+	case agent.PromptSubmitted:
+		text, err = onPromptSubmitted(s, cfg, event, deadline, *started)
 	case agent.SessionEnded:
 		text, err = onSessionEnded(s, event)
 	}
@@ -284,6 +287,96 @@ func onCommandFailed(s *store.Store, cfg *config.Config, e agent.Event, deadline
 		return "", nil
 	}
 	return "forgelore has seen this error before:\n" + strings.Join(lines, "\n"), nil
+}
+
+// onPromptSubmitted offers what the index knows about whatever the prompt
+// named. It is off unless asked for (`inject.on_prompt`), because it is the
+// only path here that spends on every turn rather than on an event — and it
+// fires more often than a person types: a scheduled task, a subagent
+// reporting back and a message from another session all arrive this way.
+//
+// What it offers is titles of `work` and `decision` records. Fixes stay out:
+// those answer an error that has not happened, and the error path already has
+// them. A record offered once is not offered again in the same session.
+func onPromptSubmitted(s *store.Store, cfg *config.Config, e agent.Event,
+	deadline, startedAt time.Time) (string, error) {
+	if !cfg.Bool("inject.on_prompt") {
+		return "", nil
+	}
+	terms := inject.Terms(e.Prompt)
+	if len(terms) == 0 {
+		return "", nil
+	}
+
+	idx, err := openIndex(s)
+	if err != nil {
+		return "", err
+	}
+	defer idx.Close()
+
+	statePath := agent.StatePath(e, filepath.Join(s.Root(), "cache"))
+	state := agent.LoadState(statePath)
+
+	budget := int(cfg.Int("inject.prompt_budget_tokens"))
+	entry := measure.Entry{
+		Time: e.Time, Session: e.Session, Event: measure.EventPrompt,
+		Group: measure.Assign(cfg.String("measure.ab.salt"), e.Session,
+			int(cfg.Int("measure.ab.control_percent"))),
+	}
+	var lines []string
+	used := 0
+
+	// One query per term rather than one query for all of them: the index
+	// joins a query's words with AND, and a prompt naming two files is not
+	// asking about a record that mentions both.
+	for _, term := range terms {
+		if time.Now().After(deadline) {
+			break
+		}
+		hits, err := idx.Search(term, 5)
+		if err != nil {
+			break
+		}
+		for _, h := range hits {
+			if h.Superseded || state.Shown[h.ID] {
+				continue
+			}
+			if h.Type != record.TypeWork && h.Type != record.TypeDecision {
+				continue
+			}
+			line := "- " + h.Title + " (" + h.ID + ")"
+			cost := measure.EstimateTokens(line)
+			if used+cost > budget {
+				break
+			}
+			used += cost
+			state.Shown[h.ID] = true
+			entry.RecordID = h.ID
+			entry.Bytes += len(line)
+			lines = append(lines, line)
+		}
+	}
+	if len(lines) == 0 {
+		return "", nil
+	}
+
+	if entry.Group == measure.GroupControl {
+		// The control arm pays nothing and learns nothing, and the ledger
+		// still records that there was something to hand over.
+		entry.Event = measure.EventControl
+		entry.Bytes, entry.RecordID = 0, ""
+		lines = nil
+	}
+	entry.EstTokens = measure.EstimateTokensFromBytes(entry.Bytes)
+	entry.HookMS = int(time.Since(startedAt) / time.Millisecond)
+	if cfg.Bool("measure.ledger") {
+		_ = measure.AppendEntry(s.Root(), entry)
+	}
+	_ = agent.SaveState(statePath, state)
+	if len(lines) == 0 {
+		return "", nil
+	}
+	return "forgelore, on what this prompt names:\n" + strings.Join(lines, "\n"), nil
 }
 
 // onCommandSucceeded proposes a fix when a command that failed earlier in

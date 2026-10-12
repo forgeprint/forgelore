@@ -29,6 +29,13 @@ var withoutSamples = map[string]string{
 	// postToolUse with "exit code 1" in the result text. Provoking a real
 	// tool failure needs something other than a broken build.
 	"copilot-cli/postToolUseFailure": "a failing command is not a failing tool; needs a tool error to provoke",
+
+	// UserPromptSubmit is in the mapping on the strength of the
+	// documentation, which names a `prompt` field (ADR-0028). The capture
+	// script now asks for the event; until somebody runs it, the field name
+	// is unverified and this line says so rather than the test passing as
+	// though it were not.
+	"claude-code/UserPromptSubmit": "documented only; capture it to settle the prompt field",
 }
 
 // deliberatelyUnmapped is the other direction: an event the corpus holds

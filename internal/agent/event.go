@@ -23,6 +23,11 @@ const (
 	CommandSucceeded Kind = "command_succeeded"
 	// SessionEnded: anything proposed during the session is summarised.
 	SessionEnded Kind = "session_ended"
+	// PromptSubmitted: the person named something, and the index may know
+	// about it. The fifth canonical event, added by ADR-0020's amendment —
+	// the only one that fires on a person speaking rather than on a
+	// command or a session boundary.
+	PromptSubmitted Kind = "prompt_submitted"
 )
 
 // Event is one thing that happened, in Forgelore's vocabulary.
@@ -52,6 +57,11 @@ type Event struct {
 	// Reply is the channel this event answers on: "notice" means the
 	// person, anything else means the model.
 	Reply string
+
+	// Prompt is the submitted text, set for PromptSubmitted. It is read and
+	// never stored: what it names decides a lookup, and the prompt itself
+	// goes nowhere (ADR-0013).
+	Prompt string
 
 	// Tool, Command and Output are set for the two command events.
 	Tool    string

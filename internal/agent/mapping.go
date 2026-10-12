@@ -100,6 +100,7 @@ type Match struct {
 	Tools []string `json:"tools,omitempty"`
 
 	Tool    Path `json:"tool,omitempty"`
+	Prompt  Path `json:"prompt,omitempty"`
 	Command Path `json:"command,omitempty"`
 	Output  Path `json:"output,omitempty"`
 
@@ -200,7 +201,8 @@ func ParseMapping(data []byte) (*Mapping, error) {
 			return nil, fmt.Errorf("agent: event %d has no agent_event", i)
 		}
 		switch ev.Kind {
-		case SessionStarted, CommandFailed, CommandSucceeded, SessionEnded:
+		case SessionStarted, CommandFailed, CommandSucceeded, SessionEnded,
+			PromptSubmitted:
 		case "":
 			return nil, fmt.Errorf("agent: %s has no kind", ev.AgentEvent)
 		default:
@@ -261,6 +263,7 @@ func (m *Mapping) Translate(payload []byte, callerEvent string, now time.Time) (
 		e.Transcript, _ = lookup(raw, m.Common.Transcript)
 		e.TranscriptFormat = m.Common.TranscriptFormat
 		e.Command, _ = lookup(raw, match.Command)
+		e.Prompt, _ = lookup(raw, match.Prompt)
 		e.Output, _ = lookup(raw, match.Output)
 
 		// A match that maps to one outcome says so; one that has to read

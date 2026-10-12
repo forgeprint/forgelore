@@ -31,7 +31,7 @@ claude-code)
 	bin=claude
 	version_cmd=(--version)
 	config_path=".claude/settings.json"
-	events=(SessionStart PostToolUse PostToolUseFailure SessionEnd)
+	events=(SessionStart UserPromptSubmit PostToolUse PostToolUseFailure SessionEnd)
 	write_config() { # $1 = hook script
 		local h hooks=""
 		for e in "${events[@]}"; do
