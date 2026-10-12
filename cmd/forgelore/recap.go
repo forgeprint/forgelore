@@ -116,7 +116,7 @@ func cmdRecap(e env, args []string) error {
 // a hook that cannot be silent is a hook that can break an agent (K7).
 func harvest(s *store.Store, cfg *config.Config, format, transcript string,
 	deadline time.Time, now time.Time) {
-	if format != formatClaudeCode || transcript == "" || !now.Before(deadline) {
+	if !parsedFormats[format] || transcript == "" || !now.Before(deadline) {
 		return
 	}
 	marksPath := worklog.MarksPath(filepath.Join(s.Root(), "cache"))
@@ -180,9 +180,18 @@ func recordSession(s *store.Store, cfg *config.Config, session *worklog.Session)
 	})
 }
 
-// formatClaudeCode is the only transcript format with a parser. A mapping that
-// names another one gets nothing until there is code to read it.
-const formatClaudeCode = "claude-code-jsonl"
+// parsedFormats are the transcript formats there is code to read. A mapping
+// naming anything else gets nothing, which is the honest outcome: guessing at
+// an unread format would fill the review queue with confident nonsense.
+//
+// Both of these are the Messages API shape with a different name for the
+// speaker, which is why one parser covers them. What they do not share is how
+// much they say: Cursor's transcript records no tool results at all, so a
+// command's outcome is not in it (docs/compatibility.md).
+var parsedFormats = map[string]bool{
+	"claude-code-jsonl": true,
+	"cursor-jsonl":      true,
+}
 
 // proposeWork puts a session's account in the review queue.
 //

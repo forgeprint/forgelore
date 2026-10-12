@@ -276,8 +276,13 @@ trim_transcript() {
 	python3 - "$1" <<'TRIM'
 import json, sys
 
-KEEP = {"user", "assistant"}       # the Messages API shaped layer
-DISCRIMINATORS = {"type", "subtype", "version"}
+# The Messages API shaped layer, which two agents name differently: Claude
+# Code writes `type: assistant`, Cursor writes `role: assistant`, and the
+# content blocks inside are the same shape. Keying only on `type` emptied
+# every Cursor entry the first time this ran against one.
+KEEP = {"user", "assistant"}
+KEEP_FIELDS = ("type", "role")
+DISCRIMINATORS = {"type", "subtype", "version", "role", "status"}
 
 def strip(value, key=None):
     if key in DISCRIMINATORS and isinstance(value, (str, int, float)):
@@ -312,7 +317,8 @@ with open(path, encoding="utf-8") as f:
             unparsed += 1
             out.append(line)
             continue
-        if isinstance(entry, dict) and entry.get("type") in KEEP:
+        if isinstance(entry, dict) and any(
+                entry.get(f) in KEEP for f in KEEP_FIELDS):
             out.append(line)
             continue
         out.append(json.dumps(strip(entry), separators=(",", ":"),

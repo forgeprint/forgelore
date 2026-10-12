@@ -307,3 +307,68 @@ func jsonString(s string) string {
 	}
 	return string(b)
 }
+
+// TestTheCursorTranscript reads the other format one parser covers. Cursor
+// names the speaker `role` and records no tool results at all, so what comes
+// out is narrower than Claude Code's and the test says which parts.
+func TestTheCursorTranscript(t *testing.T) {
+	s, err := ReadFile("../../testdata/agents/cursor/2026.10.01/transcript.jsonl", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Commands) != 2 {
+		t.Fatalf("commands = %+v, want both shell calls", s.Commands)
+	}
+	if s.Commands[0].Text != "go build ./..." {
+		t.Errorf("first command = %q", s.Commands[0].Text)
+	}
+	// No tool_result in this format, so no outcome: a command that failed
+	// reads as neither passed nor failed, and nothing may claim otherwise.
+	for _, c := range s.Commands {
+		if c.Failed {
+			t.Errorf("a command was reported as failed from a transcript that records no results: %+v", c)
+		}
+	}
+	if len(s.Fixed()) != 0 {
+		t.Errorf("fixed = %v, want none: the outcome is not in this file", s.Fixed())
+	}
+	if !strings.Contains(s.Closing, "go build") {
+		t.Errorf("closing = %q, want the agent's own summary", s.Closing)
+	}
+	// The entries carry no session id at all, so the file's name stands in
+	// for one. In the corpus that name is "transcript"; where Cursor keeps
+	// it, the name is the session id, which the test below covers.
+	if s.ID != "transcript" {
+		t.Errorf("id = %q, want the file's name", s.ID)
+	}
+	if s.Discovery != 0 || s.Calls != 2 {
+		t.Errorf("calls = %d, discovery = %d", s.Calls, s.Discovery)
+	}
+}
+
+// TestACursorTranscriptIsNamedAfterItsSession covers the layout Cursor
+// actually uses, which is where the id fallback earns its place: a work
+// candidate is keyed by a session, and this format names none inside the file.
+func TestACursorTranscriptIsNamedAfterItsSession(t *testing.T) {
+	const id = "da192edf-f4ea-4334-90e6-0157df4d90ef"
+	dir := filepath.Join(t.TempDir(), id)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile("../../testdata/agents/cursor/2026.10.01/transcript.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, id+".jsonl")
+	if err := os.WriteFile(path, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := ReadFile(path, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.ID != id {
+		t.Errorf("id = %q, want %q", s.ID, id)
+	}
+}

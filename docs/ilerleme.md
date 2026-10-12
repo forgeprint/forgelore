@@ -4183,3 +4183,46 @@ corpus" — doğru ve bilgilendirici.
 
 Okunamayan bir kontrol, koşulmayan bir kontroldür; ilk gerçek sınav bunu
 gösterdi.
+
+### D13: Cursor'ın dökümü okunuyor, ve üç şey ters çıktı
+
+Yakalama koştu (6 payload + 4 KB döküm) ve üç sorun birden açtı. Üçü de
+"gerçek dosyaya bakmadan yazmayın" kuralının karşılığı.
+
+**1. Kendi kırpmamız Cursor'ın dökümünü boşalttı.** Kırpma "API biçimli"
+katmanı `type: user|assistant` ile tanıyordu; Cursor `role` kullanıyor, yani
+hiçbir girdi eşleşmedi ve hepsinin içeriği `<string>` oldu. Korpusa giren dosya
+ayrıştırıcı yazmaya yaramazdı. Kırpma artık `type` **veya** `role` bakıyor, ve
+korpus ham dosyadan yeniden üretildi (ham döküm ev dizininde duruyor, script
+silmiyor).
+
+**2. Cursor aynı sürüm dizesiyle farklı payload gönderiyor.** 6 Ekim
+yakalamasında araç olaylarında `cwd` vardı; 12 Ekim yakalamasında `cwd: ""` ve
+yol yalnızca `workspace_roots` listesinde. Sürüm dizesi `2026.10.01`, yani
+hiçbir şey olmamış gibi görünüyor. Sözleşme testi yakaladı.
+
+Eşleme artık `["cwd", "workspace_roots.0"]` okuyor. Bunun için kodda tek
+değişiklik gerekti: bir eşleme yolu artık liste elemanını indeksle
+adresleyebiliyor. `Event.Cwd` bilgilendirici ve hiçbir yer onu okumuyor, yani
+"testi gevşet, kanarya sussun" seçeneği vardı — bu projenin yapmamak için var
+olduğu takas. Test gerçek bir değişikliği yakaladı; cevap alanı çözmeye devam
+etmek, kontrolü kesmek değil.
+
+**3. Sözleşme testi yeni bir olayı eski korpuslarda arıyordu.**
+`UserPromptSubmit` yalnızca 2.1.296'da var; test her sürüm dizininde
+arıyordu, yani bir eşlemeye olay eklemek eski korpusları siler gibi bir baskı
+yaratıyordu. Soru artık ajanın **bütün korpusuna** soruluyor.
+
+### Cursor'da iş hafızası ne veriyor, ne vermiyor
+
+Döküm aynı Messages API blok şekli, o yüzden tek ayrıştırıcı ikisini de
+okuyor. Ama Cursor'ın dosyasında **hiç `tool_result` yok**: komutun geçip
+geçmediği orada değil. Yani Cursor'da aday ne koşulduğunu ve ajanın ne
+dediğini taşıyor, düzeltme izini taşımıyor — sonucu kaydetmeyen bir dosyada
+"önce kaldı sonra geçti" görünemez. Cursor'ın başarısızlıkları Forgelore'a yine
+ulaşıyor, hep geldikleri yerden: `postToolUseFailure` hook'u.
+
+Dosyada oturum kimliği de yok; Cursor'ın yerleşimi `<id>/<id>.jsonl` olduğu
+için dosya adı kimliğin kendisi, ve aday bir oturum kimliğiyle anahtarlandığı
+için `ReadFile` boş kaldığında dosya adına düşüyor. İkisi de ayrı testlerle
+tutuluyor.

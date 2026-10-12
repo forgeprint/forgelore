@@ -24,7 +24,7 @@ listed as not measured, and does not count towards a tier.
 | Copilot CLI | **B**, hooks verified | 1.0.91 | ✅ 3 captured payloads | never connected | none known | no transcript sent |
 | Codex CLI | **unverified** | — | mapping written from docs | never connected | none known | not looked at |
 | Gemini CLI | **B**, hooks verified | 0.62.0 | ✅ 4 captured payloads | never connected | none known | path sent, format unparsed |
-| Cursor | **B**, hooks verified | 2026.10.01 | ✅ 6 captured payloads | never connected | none known | path sent, format unparsed |
+| Cursor | **B**, hooks verified | 2026.10.01 | ✅ 6 captured payloads | never connected | none known | ✅ transcript parsed, commands and closing words only |
 
 Gemini CLI and Cursor are B for the same reason as Copilot CLI: their
 hooks are verified, but nobody has pointed their MCP clients at
@@ -35,13 +35,33 @@ its hooks are verified against captured payloads, but nobody has pointed its
 MCP client at `forgelore mcp`, so the A in "hooks, MCP and the CLI" is not
 earned. Claiming it would be the same mistake this table exists to prevent.
 
-Work memory is the newest column and the narrowest. It reads the transcript an
-agent writes about its own session, and no agent documents that file's format,
-so a parser is per-agent code rather than a mapping entry (ADR-0026). The path
-is a mapping entry: Cursor and Gemini CLI both send one, and both write
-something this project has not read, so their mappings name no format and
-nothing is attempted. Guessing at an unparsed format would produce confident
-nonsense in the review queue.
+Work memory reads the transcript an agent writes about its own session. No
+agent documents that file's format, so which parser reads it is a mapping entry
+and the parser itself is code (ADR-0026).
+
+Two formats are read, and one parser covers both because both are the Messages
+API wire shape — Claude Code names the speaker `type`, Cursor names it `role`,
+and the content blocks inside are identical. What they do not share is how much
+they say:
+
+| | Claude Code | Cursor |
+|---|---|---|
+| Commands run | ✅ | ✅ |
+| Whether a command failed | ✅ `is_error` | ❌ no tool results in the file |
+| Files edited | ✅ `Edit`/`Write` | not seen; no edit happened in the capture |
+| The agent's closing words | ✅ | ✅ |
+| Session id | ✅ in every entry | ❌ the filename is the id |
+| Timestamps | ✅ | ❌ none |
+
+So on Cursor a work candidate carries what was run and what the agent said
+about it, and no fix trace: a command that failed and then passed cannot be
+seen in a file that records no outcomes. Cursor's failures still reach
+Forgelore — through its `postToolUseFailure` hook, which is where they always
+came from.
+
+Gemini CLI sends a transcript path and writes a format nobody here has read, so
+its mapping names no format and nothing is attempted. Guessing at an unparsed
+format would produce confident nonsense in the review queue.
 
 What every agent gets without a transcript is the other half: the agent's own
 account at the end of a session, proposed through `forgelore recap` or
@@ -345,7 +365,22 @@ capture cannot give, hence `--yolo`.
 
 ## Cursor
 
-Verified against `cursor-agent` 2026.10.01 on 2026-10-06.
+Verified against `cursor-agent` 2026.10.01 on 2026-10-06, recaptured
+2026-10-12.
+
+### The same version string sent a different payload
+
+The 2026-10-06 capture carried `cwd` on its tool events. The 2026-10-12
+capture, from a binary reporting the same `2026.10.01`, carries `cwd: ""` and
+the path only in `workspace_roots`, a list. Nothing in the version string says
+anything happened.
+
+The mapping now reads `["cwd", "workspace_roots.0"]`, which needed one change
+in code — a mapping path can address a list element by index — and no change
+per agent. `Event.Cwd` is informational and nothing reads it, so the honest
+alternative was to stop asserting it and let the canary go quiet. That is the
+trade this project is here not to make: the contract test caught a real change,
+and the answer is to keep resolving the field, not to stop checking.
 
 An earlier note here said Cursor's event model was "different enough to
 deserve its own round". That was wrong: it fires `sessionStart`,

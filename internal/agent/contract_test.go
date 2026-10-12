@@ -29,7 +29,6 @@ var withoutSamples = map[string]string{
 	// postToolUse with "exit code 1" in the result text. Provoking a real
 	// tool failure needs something other than a broken build.
 	"copilot-cli/postToolUseFailure": "a failing command is not a failing tool; needs a tool error to provoke",
-
 }
 
 // deliberatelyUnmapped is the other direction: an event the corpus holds
@@ -100,23 +99,38 @@ func TestContractAgainstCapturedPayloads(t *testing.T) {
 		if err != nil {
 			continue // No payloads for this agent yet; the test above says so.
 		}
+		// Which events the corpus holds is asked of the whole corpus and
+		// not of each version in it. An event added to a mapping today is
+		// absent from every capture taken before it, and demanding it
+		// there would mean deleting the older corpora to add a field.
+		seen := map[string]bool{}
 		for _, version := range versions {
 			if version.IsDir() {
-				replayAgent(t, mapping, filepath.Join(dir, version.Name()))
+				replayAgent(t, mapping, filepath.Join(dir, version.Name()), seen)
 			}
+		}
+		for _, ev := range mapping.Events {
+			if seen[ev.AgentEvent] {
+				continue
+			}
+			if why, ok := withoutSamples[name+"/"+ev.AgentEvent]; ok {
+				t.Logf("%s/%s no sample yet: %s", name, ev.AgentEvent, why)
+				continue
+			}
+			t.Errorf("%s maps %s but no captured payload for it exists in any corpus, "+
+				"and it is not listed in withoutSamples", name, ev.AgentEvent)
 		}
 	}
 }
 
 // replayAgent checks one captured version of one agent.
-func replayAgent(t *testing.T, mapping *Mapping, dir string) {
+func replayAgent(t *testing.T, mapping *Mapping, dir string, seen map[string]bool) {
 	t.Helper()
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	seen := map[string]bool{}
 	total := 0
 	for _, f := range files {
 		if filepath.Ext(f.Name()) != ".json" {
@@ -196,18 +210,6 @@ func replayAgent(t *testing.T, mapping *Mapping, dir string) {
 		return
 	}
 	t.Logf("%-40s %d payload(s) check out", dir, total)
-
-	for _, m := range mapping.Events {
-		if seen[m.AgentEvent] {
-			continue
-		}
-		if why, listed := withoutSamples[mapping.Agent+"/"+m.AgentEvent]; listed {
-			t.Logf("%s/%s no sample yet: %s", mapping.Agent, m.AgentEvent, why)
-			continue
-		}
-		t.Errorf("%s maps %s but has no captured payload for it, and it is not listed in withoutSamples",
-			mapping.Agent, m.AgentEvent)
-	}
 }
 
 // TestCapturedPayloadsCarryNoAccountName: these files are committed, and the

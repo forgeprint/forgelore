@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -344,12 +345,23 @@ func lookup(raw map[string]any, paths Path) (string, bool) {
 		var cur any = raw
 		ok := true
 		for _, key := range strings.Split(path, ".") {
-			node, isMap := cur.(map[string]any)
-			if !isMap {
+			switch node := cur.(type) {
+			case map[string]any:
+				cur, ok = node[key]
+			case []any:
+				// A numeric key indexes a list. Cursor moved its working
+				// directory into `workspace_roots`, a list of one, and the
+				// alternative to reading it was a code change for a field
+				// that is nothing but a path (K5).
+				i, err := strconv.Atoi(key)
+				if err != nil || i < 0 || i >= len(node) {
+					ok = false
+					break
+				}
+				cur, ok = node[i], true
+			default:
 				ok = false
-				break
 			}
-			cur, ok = node[key]
 			if !ok {
 				break
 			}

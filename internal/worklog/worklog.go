@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -138,6 +139,13 @@ func ReadFile(path string, limit int64) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
+	if s.ID == "" {
+		// Cursor's transcript names no session anywhere, and a work
+		// candidate is keyed by one (ADR-0026). Its layout is
+		// `<id>/<id>.jsonl`, so the file is the id — which is also the id
+		// the hook payload carries, so the two agree.
+		s.ID = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	}
 	return s, nil
 }
 
@@ -184,8 +192,14 @@ func Parse(r io.Reader, partial bool) (*Session, error) {
 
 // entry is the part of a transcript line this package admits to knowing
 // about. Everything else in the file is the agent's own bookkeeping.
+//
+// Two agents write this layer and name the speaker differently: Claude Code
+// writes `type: assistant`, Cursor writes `role: assistant`. The blocks
+// inside are the same Messages API shape, which is the whole reason one
+// parser reads both.
 type entry struct {
 	Type      string `json:"type"`
+	Role      string `json:"role"`
 	SessionID string `json:"sessionId"`
 	Version   string `json:"version"`
 	Cwd       string `json:"cwd"`
@@ -210,13 +224,24 @@ type block struct {
 	IsError   *bool  `json:"is_error"`
 }
 
+// speaker is "user", "assistant", or empty for a line this package does not
+// read.
+func (e entry) speaker() string {
+	for _, v := range []string{e.Type, e.Role} {
+		if v == "user" || v == "assistant" {
+			return v
+		}
+	}
+	return ""
+}
+
 func (s *Session) read(line []byte) {
 	var e entry
 	if json.Unmarshal(line, &e) != nil {
 		s.Unreadable++
 		return
 	}
-	if e.Type != "user" && e.Type != "assistant" {
+	if e.speaker() == "" {
 		return
 	}
 	s.note(e)
@@ -235,7 +260,7 @@ func (s *Session) read(line []byte) {
 		case "tool_result":
 			s.result(b)
 		case "text":
-			if e.Type == "assistant" && strings.TrimSpace(b.Text) != "" {
+			if e.speaker() == "assistant" && strings.TrimSpace(b.Text) != "" {
 				s.Closing = strings.TrimSpace(b.Text)
 			}
 		}

@@ -5,7 +5,9 @@
   "common": {
     "event_name": "hook_event_name",
     "session": "session_id",
-    "cwd": "cwd"
+    "cwd": ["cwd", "workspace_roots.0"],
+    "transcript": "transcript_path",
+    "transcript_format": "cursor-jsonl"
   },
   "events": [
     {
