@@ -32,6 +32,12 @@ claude-code)
 	version_cmd=(--version)
 	config_path=".claude/settings.json"
 	events=(SessionStart UserPromptSubmit PostToolUse PostToolUseFailure SessionEnd)
+	# Events only a session that actually reached a model can produce. A
+	# capture without them is a session that started, failed to sign in and
+	# ended, and the three lifecycle payloads it does write look perfectly
+	# normal — which is how a run that never reached a model was once read
+	# as evidence about a field.
+	needs_model=(PostToolUse PostToolUseFailure)
 	write_config() { # $1 = hook script
 		local h hooks=""
 		for e in "${events[@]}"; do
@@ -201,6 +207,19 @@ if [ ${#captured[@]} -eq 0 ]; then
 	echo "nothing was captured; is $bin signed in, and are its hooks enabled?" >&2
 	exit 1
 fi
+
+# Refusing is the whole point here. Writing a corpus from a session that
+# never ran a tool replaces a good corpus with a partial one, and says
+# "scrubbed" while doing it.
+for event in ${needs_model[@]+"${needs_model[@]}"}; do
+	if [ ! -e "$work/captured/$event-1.json" ]; then
+		echo "no $event payload: the session started and ended without running a tool." >&2
+		echo "That is what an expired login looks like. The CLI signs in separately" >&2
+		echo "from any desktop app: run '$bin', then /login, then try again." >&2
+		echo "Nothing was written, so the corpus you have is still the one you had." >&2
+		exit 1
+	fi
+done
 
 # FORGELORE_CAPTURE_OUT redirects the capture somewhere other than the
 # corpus, which is how drift-payloads.sh compares a fresh capture against the

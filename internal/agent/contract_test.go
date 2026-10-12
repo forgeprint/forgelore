@@ -30,12 +30,13 @@ var withoutSamples = map[string]string{
 	// tool failure needs something other than a broken build.
 	"copilot-cli/postToolUseFailure": "a failing command is not a failing tool; needs a tool error to provoke",
 
-	// UserPromptSubmit is in the mapping on the strength of the
-	// documentation, which names a `prompt` field (ADR-0028). The capture
-	// script now asks for the event; until somebody runs it, the field name
-	// is unverified and this line says so rather than the test passing as
-	// though it were not.
-	"claude-code/UserPromptSubmit": "documented only; capture it to settle the prompt field",
+	// UserPromptSubmit reached the mapping from the documentation
+	// (ADR-0028). A real 2.1.293 payload has since been seen carrying
+	// `prompt` with the submitted text in it, so the field name is no
+	// longer only documented — but that capture came from a session whose
+	// login had expired and is not in the corpus, so there is still no line
+	// here to hold the mapping against.
+	"claude-code/UserPromptSubmit": "field seen in a real payload; corpus still has none",
 }
 
 // deliberatelyUnmapped is the other direction: an event the corpus holds

@@ -4103,3 +4103,41 @@ söylemek için iki örnek az.
 `doctor`: **"verified against 2.1.291, you have 2.1.293"**. Hafta 2.1.291 ile
 başladı, iki yama sürümü ilerledi. Yakalama koşulduğunda hem bu kapanır hem de
 `UserPromptSubmit`'in `prompt` alanı doğrulanır.
+
+### Yakalama denendi, oturum giriş yapamadı — ve script bunu fark etmiyordu
+
+`./scripts/capture-agent-events.sh claude-code` koştu ve şunu yazdı:
+`Failed to authenticate: OAuth session expired and could not be refreshed`.
+Sonuç: üç payload (SessionStart, UserPromptSubmit, SessionEnd), iki araç olayı
+**yok**, çünkü oturum hiç modele ulaşmadı. Ama script yine de korpusu yazdı,
+`2.1.291`'in yerine geçmeden yeni bir dizin açtı ve sonunda "scrubbed" dedi —
+yani başarılı bir yakalama gibi göründü.
+
+Bu deponun daha önce bir kez yanlış sonuç çıkardığı durum tam bu
+(`TestTheScratchpadCameAndWent`'in yorumu: "that run never reached a model").
+
+**Düzeltme script'te:** profil artık "yalnızca modele ulaşan bir oturumun
+üretebileceği" olayları sayıyor (`needs_model`), ve biri eksikse **hiçbir şey
+yazmadan** çıkıyor, sebebi ve çözümü söyleyerek (CLI masaüstü uygulamasından
+ayrı giriş yapıyor: `claude`, sonra `/login`). Mesaj ayrıca "elindeki korpus
+hâlâ eskisi" diyor, çünkü script `rm -rf` ile başlıyor ve bu cümle o korkuyu
+cevaplıyor.
+
+Sözleşme testi zaten yakaladı: `claude-code maps PostToolUse but has no
+captured payload for it`. Yani test doğru davrandı, script yanlış.
+
+**Bir şey de kazandık:** `UserPromptSubmit` payload'ı **gerçekten `prompt`
+alanını taşıyor** (gözlenen değer, script'in gönderdiği prompt'un ta kendisi).
+Prompt modele ulaşmadan önce gönderildiği için bu payload, giriş başarısız
+olsa bile gerçek. Yani ADR-0028'in dokümandan aldığı alan adı artık gözlenmiş
+— ama o yakalama korpusa girmediği için sözleşme testindeki satır duruyor,
+gerekçesi "field seen in a real payload; corpus still has none" olarak
+güncellendi.
+
+Başarısız yakalama **silinmedi**, scratchpad'e alındı
+(`failed-capture/2.1.293/`), çünkü içindeki `UserPromptSubmit` payload'ı yine
+bir kanıt.
+
+`doctor` hâlâ "verified against 2.1.291, you have 2.1.293" diyor. Giriş
+yapıldıktan sonra tek koşu üç şeyi birden kapatıyor: sürüm kayması, korpusun
+`prompt` satırı, ve `last_assistant_message` sorusu.
