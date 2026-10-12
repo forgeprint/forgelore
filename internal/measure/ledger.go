@@ -40,6 +40,12 @@ const (
 	EventControl = "control"
 	// EventMiss: the error was fingerprinted and nothing matched. Free.
 	EventMiss = "miss"
+	// EventDistill: a model was asked to write a line, through the CLI the
+	// user already had. The only event here that spends the user's money
+	// rather than their context, and the only one Forgelore cannot price:
+	// the call happens in a session of its own, so the agent's own usage
+	// reporting never attributes it to the session being measured.
+	EventDistill = "distill"
 	// EventSession: what a finished session looked like, written when its
 	// transcript is harvested. It spends nothing; it is the outcome side of
 	// the comparison rather than the cost side.

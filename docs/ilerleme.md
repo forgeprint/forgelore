@@ -3941,3 +3941,40 @@ yanlış. Düzenleme artık **araç adıyla** belirleniyor
 Gerçek bir oturumla (19,5 MB, 2.1.286): **1227 çağrı, 276'sı keşif (%22), ilk
 düzenlemeye kadar 532 çağrı**, 24 dosya. "Tekrarlanan keşif en çok token yakan
 şey" iddiasının ilk gerçek sayısı bu.
+
+### A5 (adım 10): damıtma
+
+Kullanıcı kararı: damıtma **başlık** öneriyor, gövdeyi yeniden yazmıyor. Aday
+gövdeyi zaten taşıyor; eksik olan tek şey enjekte edilecek satır, ve `review`
+onu kişiden istiyor. Gövdeyi yazdırmak daha büyük çağrı, daha uzun cevap, ve
+modelin uydurduğu şeyi kanıtın yerine koymak olurdu.
+
+- Eşlemeye `distill` bölümü: komut, argümanlar (`{{instruction}}` yer tutucusu),
+  malzemenin nereye gittiği (`stdin`), zaman aşımı. **Doğrulandı:**
+  `claude -p "query"` ve `cat file | claude -p "query"` CLI reference'ta
+  (`--output-format` print modunda `text`/`json`/`stream-json`).
+- `forgelore distill --key <anahtar>`; `--dry-run` hiçbir şey koşmadan ne
+  gönderileceğini basıyor. `distill.enabled` varsayılan kapalı, `--dry-run`
+  kapalıyken de çalışıyor çünkü hiçbir şey koşmuyor.
+- **Hook beklemiyor:** `startDistill` kendini `distill` komutuyla çocuk süreç
+  olarak başlatıp `Release()` ediyor. Akışlar **bilerek kopuk** — ajanın
+  borularını devralmak onları açık tutar ve EOF bekleyen bir ajan askıda
+  kalırdı; yani bu özellik tam olarak yardım etmesi gereken şeyi bozabilirdi.
+- **Oturumda bir çağrı için sayaç yok, gerekmiyor:** damıtma boş başlığı
+  dolduruyor ve başlığı olanı atlıyor, yani ikinci çağrının yapacak işi yok.
+  Sayaç, doğru tutulması gereken ikinci bir şey olurdu.
+- Modelin cevabı biçim olarak güvenilmiyor: ilk satır alınır, tırnaklar ve
+  sondaki nokta atılır, `SKIP` ya da 120 karakterden uzun cevap başlık değil,
+  ve yazmadan önce yine maskeleme geçer.
+- `source: distill` adaydan kayda taşınıyor — ama yalnızca kaydedilen satır
+  modelin yazdığıysa. Kendi `--title`'ını yazan kişi o satırın yazarıdır.
+- Defterde `distill` olayı, ve `report` çağrı sayısıyla gönderilen token
+  tahminini basıyor. **Fiyatlayamıyor,** ve bunu açıkça yazıyor: çağrı kendi
+  oturumunda koşuyor, dolayısıyla ajanın dolar rakamlarını veren kullanım
+  raporu onu ölçülen oturuma hiç yazmıyor.
+
+Testler model, hesap ve ağ olmadan: stub bir ajan CLI'ı (stdin'de malzeme
+gelmezse hata veren bir kabuk betiği) ve ona bakan bir eşleme dosyası. Gerçek
+`claude -p` ile **koşmadım** — kullanıcının kullanımını harcar, o `[SEN]`:
+
+    forgelore distill --key <anahtar>

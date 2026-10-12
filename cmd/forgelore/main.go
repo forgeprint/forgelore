@@ -93,6 +93,8 @@ func run(e env) error {
 		return cmdReview(e, rest)
 	case "recap":
 		return cmdRecap(e, rest)
+	case "distill":
+		return cmdDistill(e, rest)
 	case "mcp":
 		return cmdMCP(e, rest)
 	case "promote":
@@ -153,6 +155,7 @@ Commands:
   report          What was injected, and whether it paid for itself
   review          Accept or discard the fixes a session proposed
   recap           Read an agent's session transcript and report the facts
+  distill         Ask the agent's own CLI to title a waiting candidate
   promote         Move a local record into the team scope
   check           Refuse to let a team record carry a secret
   dedupe          Find records answering one error, and retire the old one

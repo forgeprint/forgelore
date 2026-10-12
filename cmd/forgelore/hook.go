@@ -507,7 +507,8 @@ func cmdReview(e env, args []string) error {
 		if what == "" {
 			what = c.Command
 		}
-		if c.Kind == candidate.KindWork {
+		if what == "" && c.Kind == candidate.KindWork {
+			// Nothing has titled it yet, so the body introduces itself.
 			what = firstLine(c.Body)
 		}
 		fmt.Fprintf(e.stdout, "%s  %s\n", c.Key(), what)
@@ -549,6 +550,13 @@ func acceptCandidate(e env, s *store.Store, pending []candidate.Candidate, sum, 
 	if err != nil {
 		return err
 	}
+	source := record.SourceHook
+	if chosen.Source == record.SourceDistill && title == chosen.Title {
+		// Only when the line being recorded is the one the model wrote. A
+		// person who typed their own --title is the author of it.
+		source = record.SourceDistill
+	}
+
 	r := &record.Record{
 		Schema:      record.CurrentSchema,
 		ID:          id,
@@ -556,7 +564,7 @@ func acceptCandidate(e env, s *store.Store, pending []candidate.Candidate, sum, 
 		Scope:       record.ScopeLocal,
 		Title:       title,
 		Created:     time.Now().UTC().Truncate(time.Second),
-		Source:      record.SourceHook,
+		Source:      source,
 		Tainted:     chosen.Tainted,
 		Fingerprint: fingerprint,
 		Body:        body,

@@ -145,6 +145,9 @@ func harvest(s *store.Store, cfg *config.Config, format, transcript string,
 			return
 		}
 		recordSession(s, cfg, session)
+		if cfg.Bool("distill.enabled") {
+			startDistill(s, session.ID)
+		}
 		marks.Add(path, now)
 		// One per session start. The next one is still there next time, and
 		// a backlog of ten transcripts must not become ten parses inside

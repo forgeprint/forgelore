@@ -28,6 +28,15 @@ type Report struct {
 	InjectedBytes  int
 	InjectedTokens int
 
+	// Distillations and DistilledTokens are what was spent on asking the
+	// agent's own CLI to write a line (ADR-0027). Kept apart from the
+	// injected figures because this is the user's money rather than their
+	// context, and it cannot be priced here: the call runs in a session of
+	// its own, so the agent's usage reporting never attributes it to the
+	// session being measured.
+	Distillations   int
+	DistilledTokens int
+
 	// The outcome side. Loops are measured from Forgelore's own ledger and
 	// are therefore always available. Cost needs the agent to have reported
 	// its usage, and is nil when it did not.
@@ -98,6 +107,9 @@ func Build(l *Ledger, since, until time.Time) *Report {
 			r.Controls++
 		case EventMiss:
 			r.Misses++
+		case EventDistill:
+			r.Distillations++
+			r.DistilledTokens += e.EstTokens
 		}
 	}
 

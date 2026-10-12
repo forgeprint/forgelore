@@ -62,6 +62,12 @@
       "reply": "notice"
     }
   ],
+  "distill": {
+    "command": "claude",
+    "args": ["-p", "{{instruction}}"],
+    "material": "stdin",
+    "timeout_ms": 120000
+  },
   "response": {
     "context_path": "hookSpecificOutput.additionalContext",
     "event_name_path": "hookSpecificOutput.hookEventName",

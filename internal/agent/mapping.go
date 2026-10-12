@@ -39,7 +39,12 @@ type Mapping struct {
 	// against anything but documentation, and `doctor` says so.
 	VerifiedAgainst string `json:"verified_against"`
 
-	Common   Common   `json:"common"`
+	Common Common `json:"common"`
+
+	// Distill is how to run this agent's own CLI to have it write a line
+	// (ADR-0027). Absent for an agent with no non-interactive mode, and
+	// then distillation simply does not happen.
+	Distill  *Distill `json:"distill,omitempty"`
 	Events   []Match  `json:"events"`
 	Response Response `json:"response"`
 }
@@ -68,6 +73,29 @@ type Response struct {
 	// context path on such an event reaches nobody at all, which is what
 	// used to happen to the line saying candidates were waiting.
 	NoticePath string `json:"notice_path,omitempty"`
+}
+
+// Distill names the command that asks the agent for a sentence.
+//
+// It is data for the same reason every other agent detail is: a flag moves,
+// and a flag moving must not need a new binary (K5). Forgelore holds no API
+// key and starts nothing but the CLI the user already installed.
+type Distill struct {
+	// Command is the binary, found on PATH.
+	Command string `json:"command"`
+
+	// Args are its arguments. The string "{{instruction}}" is replaced by
+	// what Forgelore is asking for.
+	Args []string `json:"args"`
+
+	// Material is where the text to work on goes: "stdin" (the documented
+	// shape for Claude Code: `cat file | claude -p "query"`) or "arg",
+	// appended after the arguments.
+	Material string `json:"material,omitempty"`
+
+	// TimeoutMS bounds the child. It is generous compared with a hook's
+	// deadline because nothing waits for this one.
+	TimeoutMS int `json:"timeout_ms,omitempty"`
 }
 
 // Common are the fields every payload of this agent carries.

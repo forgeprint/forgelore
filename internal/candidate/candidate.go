@@ -47,6 +47,13 @@ type Candidate struct {
 	Title string `json:"title,omitempty"`
 	Body  string `json:"body,omitempty"`
 
+	// Source is who wrote this candidate's title, when anybody did. Empty
+	// means nobody has: a hook cannot write one. `distill` means a model
+	// did, through the user's own CLI, and that reaches the record so a
+	// sentence a model wrote is never mistaken for one a person wrote
+	// (ADR-0027).
+	Source string `json:"source,omitempty"`
+
 	// Tainted marks a proposal derived from content outside the project
 	// (ADR-0013). It carries through to the record if one is made.
 	Tainted bool `json:"tainted,omitempty"`

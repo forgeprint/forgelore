@@ -76,6 +76,12 @@ var known = []spec{
 		doc:  "ceiling on the session-start index handed to the agent",
 	},
 	{
+		key:  "distill.enabled",
+		kind: record.KindBool,
+		def:  record.Value{Kind: record.KindBool, Bool: false},
+		doc:  "let the agent's own CLI write the title of a work candidate; off by default",
+	},
+	{
 		key:  "inject.on_prompt",
 		kind: record.KindBool,
 		def:  record.Value{Kind: record.KindBool, Bool: false},

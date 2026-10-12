@@ -53,6 +53,13 @@ session id, written by the child before it calls, so two hooks firing at once
 cannot turn into two calls. An unbounded rate would make "the spend is
 measured" a sentence with nothing behind it.
 
+**What it produces is one line.** The candidate already carries the body — the
+facts and the agent's own closing words — and the single thing missing is the
+sentence that would be injected, which `review --accept` asks a person for. A
+model is good at that sentence and a parser is not. Rewriting the body was the
+alternative and is not done: it is a larger call, a longer answer, and it puts
+a model's invention where the record's evidence should be.
+
 **It produces candidates, never records.** `review` still stands between a
 model's sentence and the team's memory, exactly as it stands between a hook's
 guess and the team's memory. What is sent is redacted first (ADR-0013), and
@@ -61,9 +68,16 @@ guess and the team's memory. What is sent is redacted first (ADR-0013), and
 ## Consequences
 
 - The cost of running Forgelore is no longer zero when this is on, so it cannot
-  be left out of the comparison. The spend goes on the cost side of the ledger
-  and `report` nets it off. A release that cannot measure the spend has no
-  business claiming the saving (ADR-0019).
+  be left out of the comparison. The ledger records a `distill` line per call
+  with the bytes sent and an estimate of the tokens, and `report` prints them.
+  What it cannot do is price them: the call happens in a session of its own, so
+  the agent's own usage reporting — which is where the dollar figures come from
+  (ADR-0019) — never attributes it to the session being measured. The report
+  says so in that many words rather than quietly leaving it out.
+- Nothing enforces one call per session, because the shape does: distillation
+  fills an empty title and skips a candidate that has one, so a second call for
+  the same session has nothing to do. A counter would have been a second thing
+  to keep true.
 - Reproducibility, which was ADR-0008's fourth reason, is genuinely weakened: a
   distilled candidate differs between runs. This is survivable only because the
   deterministic layer is the one under test. Contract tests and the A/B
