@@ -4141,3 +4141,45 @@ bir kanıt.
 `doctor` hâlâ "verified against 2.1.291, you have 2.1.293" diyor. Giriş
 yapıldıktan sonra tek koşu üç şeyi birden kapatıyor: sürüm kayması, korpusun
 `prompt` satırı, ve `last_assistant_message` sorusu.
+
+### Yakalama koştu: 2.1.296, ve iki soru kapandı
+
+Giriş yapıldıktan sonra beş payload ve 20 KB'lık bir döküm geldi. Sürüm bu
+arada 2.1.293'ten **2.1.296**'ya ilerlemişti.
+
+**`UserPromptSubmit` artık korpusta** ve `prompt` alanını taşıyor; sözleşme
+testindeki `withoutSamples` satırı kaldırıldı, yani ADR-0028'in dokümandan
+aldığı alan adı artık gerçek bir payload'a karşı tutuluyor.
+
+**`last_assistant_message` kapandı — yokluğuyla.** Modele ulaşan, araç
+çalıştıran gerçek bir oturumda da yok; payload `reason` taşıyor (doküman
+`exit_reason` diyor). Etkileşimli bir oturumda var mı bilinmiyor ve CLI'ı
+etkileşimsiz süren bir script bunu yakalayamaz. ADR-0026 bunu "açık soru"
+olmaktan çıkarıp "gözlenebilir olan bu alanı taşımıyor" diye yazdı. Dökümden
+okuma kararı yerinde.
+
+`scratchpad_dir` dördüncü sürümde de yok — testin tablosunda `2.1.296` satırı.
+`verified_against` 2.1.296, `doctor` artık "verified against this version"
+diyor.
+
+### Kayma kontrolü ilk sınavında gürültü verdi, daraltıldı
+
+2.1.291 ile 2.1.296 dökümlerini karşılaştırınca onlarca satır "kayma" çıktı —
+ama hiçbiri kayma değildi:
+
+- `wireToolInputs`, anahtarları **araç çağrısı kimlikleri** olan bir harita.
+  Her koşuda yeni anahtarlar, yani kalıcı yanlış alarm.
+- `attachment.entries[].input_schema.properties.*`, makinede **yüklü araçların**
+  JSON şeması. Ortama göre değişiyor.
+
+İkisi de ayrıştırıcının hiç okumadığı katman. Kontrol artık yalnızca
+`user`/`assistant` girdilerini ve `message.` altındaki yolları (artı
+`worklog`'un okuduğu üst düzey alanları) karşılaştırıyor. Yani sorduğu soru
+tek: **ayrıştırıcının okuduğu şeyin şekli değişti mi?**
+
+Daraltıldıktan sonraki sonuç: `assistant` 44 alan, `user` 12 alan,
+**ikisi de değişmemiş**. Tek rapor "UserPromptSubmit: new event, not in the
+corpus" — doğru ve bilgilendirici.
+
+Okunamayan bir kontrol, koşulmayan bir kontroldür; ilk gerçek sınav bunu
+gösterdi.

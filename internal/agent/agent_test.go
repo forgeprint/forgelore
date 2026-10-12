@@ -488,7 +488,7 @@ func TestCodexContextGoesWhereCodexLooksForIt(t *testing.T) {
 // TestTheCorpusCarriesATranscriptPath checks the field work memory depends on
 // against the payloads the agent really sent, not against its documentation.
 func TestTheCorpusCarriesATranscriptPath(t *testing.T) {
-	payload, err := os.ReadFile(filepath.Join(corpusRoot, "2.1.291", "SessionStart-1.json"))
+	payload, err := os.ReadFile(filepath.Join(corpusRoot, "2.1.296", "SessionStart-1.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

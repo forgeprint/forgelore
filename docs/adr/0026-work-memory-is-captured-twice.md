@@ -65,11 +65,15 @@ this were wrong, and checking is what corrected both:
   *start*, and asking there for a summary of a session that has not happened
   yet is not a nudge.
 - `last_assistant_message`, which the same reference documents on `SessionEnd`
-  and `Stop`, is absent from the payload captured from 2.1.291 — that payload
-  carries `reason` where the documentation says `exit_reason`, and nothing
-  resembling the message. It may be there in an interactive session; the
-  capture is not one. The transcript carries the same thing and was verified
-  against a real file, so that is where it is read from.
+  and `Stop`, is absent from the captured payloads. It was missing at 2.1.291
+  and missing again at 2.1.296 in a session that did reach a model and did run
+  tools — those payloads carry `reason` where the documentation says
+  `exit_reason`, and nothing resembling the message. Whether an interactive
+  session sends it is unknown and cannot be captured by a script that drives
+  the CLI non-interactively. The transcript carries the same thing and was
+  verified against a real file, so that is where it is read from, and the
+  question is closed rather than left open: what can be observed does not
+  carry the field.
 
 New record type `work`, amending ADR-0016. It appears in the session-start
 index by title only, under a budget of its own, newest first.

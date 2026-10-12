@@ -30,13 +30,6 @@ var withoutSamples = map[string]string{
 	// tool failure needs something other than a broken build.
 	"copilot-cli/postToolUseFailure": "a failing command is not a failing tool; needs a tool error to provoke",
 
-	// UserPromptSubmit reached the mapping from the documentation
-	// (ADR-0028). A real 2.1.293 payload has since been seen carrying
-	// `prompt` with the submitted text in it, so the field name is no
-	// longer only documented — but that capture came from a session whose
-	// login had expired and is not in the corpus, so there is still no line
-	// here to hold the mapping against.
-	"claude-code/UserPromptSubmit": "field seen in a real payload; corpus still has none",
 }
 
 // deliberatelyUnmapped is the other direction: an event the corpus holds
@@ -267,7 +260,7 @@ var emailish = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,
 // the conclusion — that the fallback was the ordinary path — was wrong,
 // because that run never reached a model. Second reading: 2.1.289 carried
 // it on all four events, so it was called the rule. Then 2.1.290 dropped it
-// from every event again, and 2.1.291 did not bring it back.
+// from every event again, and neither 2.1.291 nor 2.1.296 brought it back.
 //
 // So the field is optional in practice and not only on paper, and the
 // fallback is load-bearing rather than a corner. Nothing breaks either way:
@@ -286,6 +279,7 @@ func TestTheScratchpadCameAndWent(t *testing.T) {
 		{"2.1.289", true},
 		{"2.1.290", false},
 		{"2.1.291", false},
+		{"2.1.296", false},
 	} {
 		for _, name := range events {
 			payload, err := os.ReadFile(filepath.Join(corpusRoot, tc.version, name))

@@ -60,14 +60,30 @@ def shapes(directory):
             out.setdefault(event, set()).update(paths(json.load(f)))
     return out
 
-def transcript_shapes(directory):
-    """Field paths per entry type in a captured transcript.
+# The transcript entries and fields internal/worklog actually reads. Nothing
+# else in that file is compared, and the first run of this check is why.
+#
+# A transcript holds the agent's own bookkeeping as well as the Messages API
+# shaped entries, and that bookkeeping is keyed by things that change every
+# run: `wireToolInputs` is a map whose keys are tool-use ids, and an
+# attachment carries the JSON schema of whichever tools the machine had
+# loaded. Comparing those reported drift on every capture, which is the same
+# as reporting none — a check nobody can read is a check nobody runs.
+#
+# So the question this asks is the only one worth failing on: has the shape
+# of what the parser reads changed?
+TRANSCRIPT_TYPES = {"user", "assistant"}
+TRANSCRIPT_FIELDS = ("message.", "type", "version", "timestamp", "sessionId",
+                     "cwd", "gitBranch")
 
-    The transcript is the other surface work memory stands on (ADR-0026), and
-    no agent documents its format. Values differ on every run — uuids, times,
-    the session's own content — so what is compared is the same thing the
-    payloads are compared on: which fields exist, grouped by the entry type
-    that carries them.
+
+def transcript_shapes(directory):
+    """Field paths per entry type in a captured transcript, parser's view only.
+
+    No agent documents this format (ADR-0026), so the corpus is the only
+    statement of what it looked like. Values differ on every run — uuids,
+    times, the session's own content — so what is compared is the same thing
+    the payloads are compared on: which fields exist.
     """
     path = os.path.join(directory, "transcript.jsonl")
     if not os.path.exists(path):
@@ -83,8 +99,13 @@ def transcript_shapes(directory):
             except ValueError:
                 out.setdefault("<unreadable>", set())
                 continue
-            kind = entry.get("type", "<none>") if isinstance(entry, dict) else "<none>"
-            out.setdefault(kind, set()).update(paths(entry))
+            if not isinstance(entry, dict):
+                continue
+            kind = entry.get("type", "<none>")
+            if kind not in TRANSCRIPT_TYPES:
+                continue
+            kept = {p for p in paths(entry) if p.startswith(TRANSCRIPT_FIELDS)}
+            out.setdefault(kind, set()).update(kept)
     return out
 
 old, new = shapes(sys.argv[1]), shapes(sys.argv[2])

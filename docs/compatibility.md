@@ -20,7 +20,7 @@ listed as not measured, and does not count towards a tier.
 
 | Agent | Tier | Verified against | Hooks | MCP | Usage reader | Work memory |
 |---|---|---|---|---|---|---|
-| Claude Code | **A** | 2.1.291 | ✅ three corpora, 2.1.289 to 2.1.291 | ✅ both protocol eras measured | ✅ status line | ✅ transcript parsed, 2.1.291 captured |
+| Claude Code | **A** | 2.1.296 | ✅ four corpora, 2.1.289 to 2.1.296 | ✅ both protocol eras measured | ✅ status line | ✅ transcript parsed, two captured |
 | Copilot CLI | **B**, hooks verified | 1.0.91 | ✅ 3 captured payloads | never connected | none known | no transcript sent |
 | Codex CLI | **unverified** | — | mapping written from docs | never connected | none known | not looked at |
 | Gemini CLI | **B**, hooks verified | 0.62.0 | ✅ 4 captured payloads | never connected | none known | path sent, format unparsed |
