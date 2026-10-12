@@ -4261,3 +4261,35 @@ Ayrıştırıcı yazmak modele ulaşan bir yakalama gerektiriyor, ve Gemini'nin
 girişi bu makinede çalışmıyor. **Yazılmadı.** Eşlemesi hâlâ format adı
 taşımıyor, yani Gemini'de iş hafızası hiçbir şey denemiyor. Gözlenen biçim
 burada duruyor ki giriş çalıştığında sıfırdan başlanmasın.
+
+## 2026-10-12 — v0.2.0 çıktı
+
+`main` push edildi (17 commit), `v0.2.0` etiketlendi (imza anahtarı yok, `-a`),
+üç workflow da yeşil: **Pages**, **CI**, **Release**. Taslak sürümde yedi
+varlık var (altı ikili + `SHA256SUMS`), build provenance ekli, ve workflow
+bilerek taslak bırakıyor — yayımlamak `[SEN]`.
+
+Site aynı anda yayına girdi, yani "no network calls" iddiası tam damıtmayı
+taşıyan sürümle birlikte düştü. ADR-0027'nin sonuç maddesi buydu.
+
+### Sürüm kontrolleri dört sır buldu, hepsi benim test verilerim
+
+`gitleaks` bu hafta `redact_test.go`'ya eklediğim uydurma değerleri yakaladı —
+kırpıldığını kanıtlamak için var olan şeyler. İlk muafiyetim yol+değer
+ikilisiydi ve yorumunda "aynı dosyadaki başka bir sır yine yakalanır" diyordum.
+**Yakalanmıyordu:** aynı dizgiyi başka bir dosyaya plantlayınca yakalandı, o
+teste plantlayınca yakalanmadı, yani yol tek başına dosyayı muaf tutuyor.
+Muafiyet artık yalnızca iki değere bağlı; plantlama testi şimdi taramayı
+kırıyor. İddiayı koşmadan yazmıştım, ve yanlıştı.
+
+### Yerel dist/ ile CI'ın SHA256SUMS'ı tutmuyor, ve tutmaması gerekiyor
+
+Altı hash'in altısı farklı. Sebep `-trimpath` eksikliği değil (var): CI
+`go.mod`'daki **asgari** Go ile derliyor (1.26), bu makinede 1.27.1 var.
+`docs/versioning.md` bunu zaten politika olarak yazıyor — README'nin verdiği
+sözü ancak onunla derleyerek sınarsın.
+
+Ama `release.sh`'in çıktısı "builds these same artifacts again" diyordu, yani
+tam olarak benim yaptığım karşılaştırmaya davet edip yanlış sonuca götürüyordu.
+Metin düzeltildi: hash'lerin neden tutmayacağını ve yayımlanacak varlıkların
+CI'ınkiler olduğunu (provenance onlarda) söylüyor.

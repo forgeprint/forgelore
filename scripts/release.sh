@@ -61,8 +61,14 @@ sed 's/^/  /' dist/SHA256SUMS
 echo
 cat <<EOF
 Read the above, then push the tag. That is the whole publish step: the
-release workflow builds these same artifacts again on a clean runner and
-drafts a release from them, for you to read and publish.
+release workflow builds on a clean runner and drafts a release from what it
+built, for you to read and publish.
+
+The hashes above will not match the ones in that release unless this machine
+is using the Go in go.mod. CI builds with the minimum Go this project claims
+to support, deliberately (docs/versioning.md), so a newer toolchain here
+produces different bytes from the same source. The artifacts to publish are
+CI's: they are the ones with build provenance attached.
 
   git tag -s $version -m "$version"   # or -a if you do not sign tags
   git push origin $version
