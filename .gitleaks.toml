@@ -19,3 +19,18 @@ Forgelore records. The supply chain is controlled by pinned versions, go.sum
 and the vendored tree being reviewable, not by this rule.
 """
 paths = ['''^vendor/''']
+
+[[allowlists]]
+description = """
+Two fixtures from the redaction test. A test that proves a credential is
+masked has to contain something shaped like one, and these two are: a
+sixteen-character key after an --api-key flag, and the base64 of
+"user:password" in an Authorization header.
+
+Allowed by value and not by path, which is deliberate and was measured. A
+`paths` entry exempts the whole file — tried, and a different planted secret
+in that same test went unreported while the identical string in another file
+was caught. So the scope is these two strings anywhere, and every other
+secret in the redaction test is still a finding.
+"""
+regexes = ['''abcd1234efgh5678''', '''dXNlcjpwYXNzd29yZA==''']
