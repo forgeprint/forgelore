@@ -61,6 +61,26 @@ markdown files in git (ADR-0009): a schema change comes with a note in the
 release saying what to run, and the run is an ordinary commit somebody
 reviews.
 
+### A new value in a closed enum is not a schema change
+
+`type` and `source` are closed enums, validated strictly. Phase 10 added
+`type: work` and `source: distill` and the schema stayed at **1**, which is a
+decision with a visible cost, so it is written here rather than inferred.
+
+An older binary meeting one of those values refuses the record and reports it
+through `doctor`. It does not misread it, and it does not touch it — the file
+stays exactly as the newer binary wrote it, so updating the older binary is the
+whole fix. What the team loses meanwhile is that one record, not the store.
+
+The alternative was `schema: 2`, which says "an older reader cannot read this"
+more loudly. It would also have made every record in the store unreadable to
+every `0.1.x` binary, to announce two new values that degrade safely on their
+own. The schema number is for a field changing meaning or disappearing
+(ADR-0011); a new value in an enum is neither.
+
+So: a release that adds an enum value says so in its note, and the note names
+the oldest version that understands it.
+
 ## The mapping format
 
 Agent mappings carry a `mapping_version`, and the current format is **2**. A

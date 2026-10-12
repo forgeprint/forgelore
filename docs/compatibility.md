@@ -18,13 +18,13 @@ listed as not measured, and does not count towards a tier.
 
 ## Supported
 
-| Agent | Tier | Verified against | Hooks | MCP | Usage reader |
-|---|---|---|---|---|---|
-| Claude Code | **A** | 2.1.290 | ✅ two corpora, 2.1.289 and 2.1.290 | ✅ both protocol eras measured | ✅ status line |
-| Copilot CLI | **B**, hooks verified | 1.0.91 | ✅ 3 captured payloads | never connected | none known |
-| Codex CLI | **unverified** | — | mapping written from docs | never connected | none known |
-| Gemini CLI | **B**, hooks verified | 0.62.0 | ✅ 4 captured payloads | never connected | none known |
-| Cursor | **B**, hooks verified | 2026.10.01 | ✅ 6 captured payloads | never connected | none known |
+| Agent | Tier | Verified against | Hooks | MCP | Usage reader | Work memory |
+|---|---|---|---|---|---|---|
+| Claude Code | **A** | 2.1.291 | ✅ three corpora, 2.1.289 to 2.1.291 | ✅ both protocol eras measured | ✅ status line | ✅ transcript parsed, 2.1.291 captured |
+| Copilot CLI | **B**, hooks verified | 1.0.91 | ✅ 3 captured payloads | never connected | none known | no transcript sent |
+| Codex CLI | **unverified** | — | mapping written from docs | never connected | none known | not looked at |
+| Gemini CLI | **B**, hooks verified | 0.62.0 | ✅ 4 captured payloads | never connected | none known | path sent, format unparsed |
+| Cursor | **B**, hooks verified | 2026.10.01 | ✅ 6 captured payloads | never connected | none known | path sent, format unparsed |
 
 Gemini CLI and Cursor are B for the same reason as Copilot CLI: their
 hooks are verified, but nobody has pointed their MCP clients at
@@ -34,6 +34,18 @@ Copilot CLI is listed as B rather than A on a technicality worth keeping:
 its hooks are verified against captured payloads, but nobody has pointed its
 MCP client at `forgelore mcp`, so the A in "hooks, MCP and the CLI" is not
 earned. Claiming it would be the same mistake this table exists to prevent.
+
+Work memory is the newest column and the narrowest. It reads the transcript an
+agent writes about its own session, and no agent documents that file's format,
+so a parser is per-agent code rather than a mapping entry (ADR-0026). The path
+is a mapping entry: Cursor and Gemini CLI both send one, and both write
+something this project has not read, so their mappings name no format and
+nothing is attempted. Guessing at an unparsed format would produce confident
+nonsense in the review queue.
+
+What every agent gets without a transcript is the other half: the agent's own
+account at the end of a session, proposed through `forgelore recap` or
+`forgelore record` from the CLI.
 
 Any agent that can run a shell command is tier C today without doing
 anything: `forgelore init` prints the line to add to `AGENTS.md`.
