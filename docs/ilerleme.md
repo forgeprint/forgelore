@@ -3911,3 +3911,33 @@ taranıyor.
 Bir not: `recap` ekrana bastığı metni maskelemiyor — o kişinin kendi oturumu,
 kendi terminali. Maskeleme yazma anında, ve hangi yoldan yazılırsa orada
 çalışıyor.
+
+### A4 (adım 8): ölçüm — keşif sayımı
+
+Kullanıcı kararı: araç adları **ve** kabuk keşif komutları birlikte sayılıyor.
+(Cevap iki okumaya açıktı; yalnızca araç adları isteniyorsa tek satır.)
+
+- `worklog` artık `Calls`, `Discovery` ve `CallsBeforeFirstEdit` sayıyor.
+  Keşif = `Read`/`Grep`/`Glob`/`NotebookRead`, **artı** kabukta `cat`, `head`,
+  `sed -n`, `grep`, `rg`, `find`, `ls`, `git log/show/diff/blame/grep` gibi
+  komutlar. Zincirde **yalnızca ilk komut** karar veriyor: `grep … && go build`
+  bakmak, `go test … | grep FAIL` değil.
+- Bedeli yazıldı: bu bir komut satırında kalıp eşleştirmesi, ve `grep -c`'yi
+  bir testin içinde de sayıyor. Proxy, ve rapor bunu söylüyor.
+- Deftere `session` olayı: biten bir oturumun şekli (çağrı ve keşif sayısı),
+  hasat anında yazılıyor. **Kol, ölçülen oturumun kendi kimliğinden**
+  hesaplanıyor — hasadı yapan oturumun kolundan değil; atama deterministik
+  olduğu için doğru kol o.
+- `report`'a yeni karşılaştırma: "Discovery tool calls per session". Hasat
+  edilmemiş oturum veri noktası değil (hiç bakmamış oturumla aynı şey değil),
+  ve bunu bir test tutuyor.
+
+**Test gerçek bir hata yakaladı:** `file_path` taşıyan her çağrı "düzenlenen
+dosya" sayılıyordu, oysa `Read` de taşıyor. Adım 3'ten kalma. Yani bir
+oturumun yaptığı iş şişiyor ve bakmakla geçen kısmı gizleniyordu — iki yönden
+yanlış. Düzenleme artık **araç adıyla** belirleniyor
+(`Edit`/`Write`/`MultiEdit`/`NotebookEdit`).
+
+Gerçek bir oturumla (19,5 MB, 2.1.286): **1227 çağrı, 276'sı keşif (%22), ilk
+düzenlemeye kadar 532 çağrı**, 24 dosya. "Tekrarlanan keşif en çok token yakan
+şey" iddiasının ilk gerçek sayısı bu.

@@ -45,6 +45,20 @@ type Session struct {
 	// Commands are shell commands in the order they ran.
 	Commands []Command `json:"commands,omitempty"`
 
+	// Discovery is how many of this session's tool calls were the agent
+	// finding its way around: reading, searching and listing. It is the
+	// proxy work memory is measured by — a session that already knows
+	// where things are should not have to look (ADR-0019).
+	Discovery int `json:"discovery,omitempty"`
+
+	// Calls is every tool call, so that Discovery has a denominator.
+	Calls int `json:"calls,omitempty"`
+
+	// CallsBeforeFirstEdit is how long it took to start changing
+	// something. Reading for twenty calls before the first edit is the
+	// shape of a session that is rediscovering a codebase.
+	CallsBeforeFirstEdit int `json:"calls_before_first_edit,omitempty"`
+
 	// Closing is the last thing the agent said in its own words.
 	//
 	// The agent's account of a session is worth more than any summary this
@@ -254,11 +268,24 @@ func (s *Session) note(e entry) {
 	}
 }
 
-// tool records an edit or a command. An Edit and a Write both carry a
-// file_path, a Bash call carries a command, and nothing else here is read.
+// tool records an edit or a command.
+//
+// An edit is decided by the tool's name and not by the presence of a
+// file_path: Read carries one too, and counting a file somebody looked at as a
+// file somebody changed was wrong in both directions — it inflated what a
+// session did and it hid how much of the session was looking. The names are
+// Claude Code's, which is the only transcript format with a parser here.
 func (s *Session) tool(b block, at time.Time) {
+	s.Calls++
+	edit := editTools[b.Name]
+	if len(s.Edits) == 0 && !edit {
+		s.CallsBeforeFirstEdit = s.Calls
+	}
+	if discovering(b.Name, b.Input.Command) {
+		s.Discovery++
+	}
 	switch {
-	case b.Input.FilePath != "":
+	case edit && b.Input.FilePath != "":
 		for _, seen := range s.Edits {
 			if seen == b.Input.FilePath {
 				return
@@ -280,6 +307,58 @@ func (s *Session) result(b block) {
 		return
 	}
 	s.Commands[i].Failed = *b.IsError
+}
+
+// editTools are the tools that change a file.
+var editTools = map[string]bool{
+	"Edit": true, "Write": true, "MultiEdit": true, "NotebookEdit": true,
+}
+
+// discoveryTools are the tools whose whole job is finding out where
+// something is.
+var discoveryTools = map[string]bool{
+	"Read": true, "Grep": true, "Glob": true, "NotebookRead": true,
+}
+
+// discoveryCommands are the shell commands that do the same job. Counting
+// only the tools would undercount badly: in this project's own transcripts
+// the agent reads files with `sed -n` and searches with `grep` far more often
+// than it calls Read, so a measurement that ignored the shell would make work
+// memory look effective by missing the looking.
+//
+// The cost is that this is pattern matching on a command line, and a command
+// matching one of these words is not always looking something up — `grep -c`
+// inside a test is counted too. It is a proxy and the report says so.
+var discoveryCommands = []string{
+	"cat ", "head ", "tail ", "sed -n", "less ", "grep", "rg ", "ag ",
+	"find ", "ls ", "tree ", "wc -l", "awk ", "git log", "git show",
+	"git diff", "git blame", "git grep",
+}
+
+// discovering reports whether one tool call was the agent looking rather than
+// doing.
+func discovering(tool, command string) bool {
+	if discoveryTools[tool] {
+		return true
+	}
+	if command == "" {
+		return false
+	}
+	// Only the first command in a chain decides. A chain that starts by
+	// looking and goes on to build is one call either way, and reading it
+	// as both would count a build as discovery.
+	first := strings.TrimSpace(command)
+	for _, sep := range []string{"&&", "||", ";", "|"} {
+		if i := strings.Index(first, sep); i >= 0 {
+			first = strings.TrimSpace(first[:i])
+		}
+	}
+	for _, c := range discoveryCommands {
+		if strings.HasPrefix(first, c) || strings.HasPrefix(first, strings.TrimSpace(c)+"\n") {
+			return true
+		}
+	}
+	return false
 }
 
 // readLine reads one line without letting its length decide how much memory

@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/forgeprint/forgelore/internal/candidate"
+	"github.com/forgeprint/forgelore/internal/config"
+	"github.com/forgeprint/forgelore/internal/measure"
 	"github.com/forgeprint/forgelore/internal/redact"
 	"github.com/forgeprint/forgelore/internal/store"
 	"github.com/forgeprint/forgelore/internal/worklog"
@@ -112,7 +114,8 @@ func cmdRecap(e env, args []string) error {
 // reads, a directory that is gone, a transcript still being written, one
 // already harvested, a deadline already passed — each returns silently, because
 // a hook that cannot be silent is a hook that can break an agent (K7).
-func harvest(s *store.Store, format, transcript string, deadline time.Time, now time.Time) {
+func harvest(s *store.Store, cfg *config.Config, format, transcript string,
+	deadline time.Time, now time.Time) {
 	if format != formatClaudeCode || transcript == "" || !now.Before(deadline) {
 		return
 	}
@@ -141,6 +144,7 @@ func harvest(s *store.Store, format, transcript string, deadline time.Time, now 
 		if err := proposeWork(s, session); err != nil {
 			return
 		}
+		recordSession(s, cfg, session)
 		marks.Add(path, now)
 		// One per session start. The next one is still there next time, and
 		// a backlog of ten transcripts must not become ten parses inside
@@ -148,6 +152,29 @@ func harvest(s *store.Store, format, transcript string, deadline time.Time, now 
 		break
 	}
 	_ = worklog.SaveMarks(marksPath, marks, now)
+}
+
+// recordSession puts a finished session's shape in the ledger: how much of it
+// was the agent looking around, which is the outcome work memory is measured
+// by (ADR-0019).
+//
+// The arm is computed from the session's own id, not from the arm of the
+// session doing the harvesting. Assignment is deterministic, so the session
+// that was measured is the session whose arm this is — and it has to be, since
+// a control session is the baseline the treatment is compared against.
+func recordSession(s *store.Store, cfg *config.Config, session *worklog.Session) {
+	if !cfg.Bool("measure.ledger") || session.ID == "" || session.Calls == 0 {
+		return
+	}
+	_ = measure.AppendEntry(s.Root(), measure.Entry{
+		Time:    session.End,
+		Session: session.ID,
+		Event:   measure.EventSession,
+		Group: measure.Assign(cfg.String("measure.ab.salt"), session.ID,
+			int(cfg.Int("measure.ab.control_percent"))),
+		Discovery: session.Discovery,
+		Calls:     session.Calls,
+	})
 }
 
 // formatClaudeCode is the only transcript format with a parser. A mapping that

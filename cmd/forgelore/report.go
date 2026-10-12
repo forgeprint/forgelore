@@ -62,6 +62,10 @@ func printReport(e env, r *measure.Report, days int) error {
 		"Measured from Forgelore's own ledger, so it needs nothing from the agent.",
 		func(v float64) string { return fmt.Sprintf("%.2f", v) })
 
+	printComparison(e, "Discovery tool calls per session", r.Discovery,
+		"Read out of each session's own transcript when it was harvested: reads, searches and listings, including the ones done with the shell. A proxy for rediscovering the codebase, not a token count.",
+		func(v float64) string { return fmt.Sprintf("%.1f", v) })
+
 	printComparison(e, "Cost per session", r.Cost,
 		"Read from the agent's own reporting. The agent computes it client-side at list price, so it is an estimate of your bill, not your bill.",
 		func(v float64) string { return fmt.Sprintf("$%.4f", v) })

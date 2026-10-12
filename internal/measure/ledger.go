@@ -40,6 +40,10 @@ const (
 	EventControl = "control"
 	// EventMiss: the error was fingerprinted and nothing matched. Free.
 	EventMiss = "miss"
+	// EventSession: what a finished session looked like, written when its
+	// transcript is harvested. It spends nothing; it is the outcome side of
+	// the comparison rather than the cost side.
+	EventSession = "session"
 	// EventPrompt: a prompt named something the index knew about, and the
 	// titles were handed over. Kept apart from EventInject because this is
 	// the one spend that is not answering a failure, and a report that
@@ -67,6 +71,13 @@ type Entry struct {
 	// HookMS is how long the hook that wrote this line took, end to end.
 	// Zero for a line written by the CLI, where nobody is waiting.
 	HookMS int `json:"hook_ms,omitempty"`
+
+	// Discovery and Calls describe a finished session, and are set only on
+	// an EventSession line. Older ledgers have neither, which reads as a
+	// session that was never measured rather than one that looked nothing
+	// up — the report counts only the lines that carry them.
+	Discovery int `json:"discovery,omitempty"`
+	Calls     int `json:"calls,omitempty"`
 }
 
 // Usage is one report of what a session has spent so far.

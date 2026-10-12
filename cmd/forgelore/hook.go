@@ -101,7 +101,7 @@ func runHook(e env, adapter, mappingFile, callerEvent, dir string, started *time
 		// event owes the agent and it is cheap.
 		text, err = sessionIndex(s, cfg, deadline)
 		if cfg.Bool("work.harvest") {
-			harvest(s, event.TranscriptFormat, event.Transcript, deadline, *started)
+			harvest(s, cfg, event.TranscriptFormat, event.Transcript, deadline, *started)
 		}
 	case agent.CommandFailed:
 		text, err = onCommandFailed(s, cfg, event, deadline, *started)

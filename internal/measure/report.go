@@ -34,6 +34,14 @@ type Report struct {
 	Loops *Comparison
 	Cost  *Comparison
 
+	// Discovery is how much looking around a session did, read out of its
+	// own transcript when it was harvested. Nil until sessions have been
+	// harvested in both arms. It is a proxy and not a token count: what
+	// work memory is supposed to save is the rediscovery, and this is the
+	// closest thing to it observable without the agent reporting anything
+	// (ADR-0019).
+	Discovery *Comparison
+
 	// Hook latency, in milliseconds. Nil when no hook has run: the CLI path
 	// records nothing here, because nobody is waiting on it.
 	Hook *Latency
@@ -94,6 +102,7 @@ func Build(l *Ledger, since, until time.Time) *Report {
 	}
 
 	r.Hook = hookLatency(l.Entries)
+	r.Discovery = compare("discovery tool calls per session", discoveryPerSession(l.Entries))
 	r.Loops = compare("repeated errors per session", loopsPerSession(l.Entries))
 	r.Cost = compare("USD per session", costPerSession(l.Usage))
 	return r
@@ -163,6 +172,35 @@ func costPerSession(usage []Usage) map[string][]float64 {
 	byArm := make(map[string][]float64)
 	for session, cost := range highest {
 		byArm[group[session]] = append(byArm[group[session]], cost)
+	}
+	return byArm
+}
+
+// discoveryPerSession reads the session lines, which are the only ones that
+// carry a count. A session with no line was never harvested, which is not the
+// same as a session that looked nothing up, so it is left out entirely.
+func discoveryPerSession(entries []Entry) map[string][]float64 {
+	type seen struct {
+		group string
+		count int
+	}
+	sessions := map[string]seen{}
+	for _, e := range entries {
+		if e.Event != EventSession || e.Session == "" || e.Calls == 0 {
+			continue
+		}
+		// A transcript is harvested once, but a ledger can hold two lines
+		// for one session if the marks were cleared. The last one wins
+		// rather than both counting.
+		sessions[e.Session] = seen{e.Group, e.Discovery}
+	}
+
+	byArm := map[string][]float64{}
+	for _, s := range sessions {
+		if s.group == "" {
+			continue
+		}
+		byArm[s.group] = append(byArm[s.group], float64(s.count))
 	}
 	return byArm
 }

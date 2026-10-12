@@ -1,6 +1,7 @@
 package worklog
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -263,4 +264,46 @@ func TestUnreadableMarksAreAnEmptySet(t *testing.T) {
 	if m := LoadMarks(path); len(m.Read) != 0 {
 		t.Errorf("a corrupt cache produced %+v", m.Read)
 	}
+}
+
+func TestDiscoveryCountsLookingAndNotDoing(t *testing.T) {
+	call := func(id, tool, command string) string {
+		input := `{"file_path":"/w/x.go"}`
+		if command != "" {
+			input = `{"command":` + jsonString(command) + `}`
+		}
+		return line(`"type":"assistant"`, `"sessionId":"s"`,
+			`"message":{"content":[{"type":"tool_use","id":"`+id+`","name":"`+tool+`","input":`+input+`}]}`)
+	}
+
+	in := call("1", "Read", "") + // a tool whose job is looking
+		call("2", "Bash", "rg --files-with-matches sessionIndex") + // the shell doing the same
+		call("3", "Bash", "sed -n 1,40p internal/store/index.go") +
+		call("4", "Bash", "grep -c foo testdata/x && go build ./...") + // starts by looking
+		call("5", "Bash", "go test ./... | grep FAIL") + // starts by doing
+		call("6", "Bash", "go build ./...") +
+		call("7", "Edit", "") // the first edit, after six calls
+
+	s, err := Parse(strings.NewReader(in), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Calls != 7 {
+		t.Errorf("calls = %d, want 7", s.Calls)
+	}
+	if s.Discovery != 4 {
+		t.Errorf("discovery = %d, want 4 (Read, rg, sed, and the chain that starts with grep)", s.Discovery)
+	}
+	if s.CallsBeforeFirstEdit != 6 {
+		t.Errorf("calls before the first edit = %d, want 6", s.CallsBeforeFirstEdit)
+	}
+}
+
+// jsonString quotes a command the way a transcript does.
+func jsonString(s string) string {
+	b, err := json.Marshal(s)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
 }
