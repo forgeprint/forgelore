@@ -4226,3 +4226,38 @@ Dosyada oturum kimliği de yok; Cursor'ın yerleşimi `<id>/<id>.jsonl` olduğu
 için dosya adı kimliğin kendisi, ve aday bir oturum kimliğiyle anahtarlandığı
 için `ReadFile` boş kaldığında dosya adına düşüyor. İkisi de ayrı testlerle
 tutuluyor.
+
+### Aynı boşluk ikinci kez: koruma tek profildeydi
+
+Gemini yakalaması giriş yapamadı (`throwIneligibleOrProjectIdError` — depodaki
+`01M47KN8K96VXX3F9YKJC081DN` kaydının söylediği şey), **ve script commit'li
+korpusu iki payload'la ezdi.** Sebebi: modele ulaşmayan oturumu reddeden
+koruma yalnızca `claude-code` profilinde tanımlıydı.
+
+Bir gün önce bu boşluğu görüp "cursor profilinde de olmalı" diye not etmiştim
+ve yapmamıştım. Dört profilin hepsine `needs_model` eklendi, ve varsayılan
+boş bir dizi: korumasız eklenen yeni bir profil **hiçbir şeyi** reddetmez,
+her şeyi reddetmez.
+
+Korpus `git checkout` ile geri alındı (commit'li olması kurtardı), ve koruma
+aynı komutla doğrulandı: şimdi hiçbir şey yazmadan çıkıyor, Gemini'nin
+korpusu dört payload'ıyla yerinde.
+
+### Gemini'nin döküm biçimi: mutasyon günlüğü
+
+Başarısız koşu yine de biçimi gösterdi, ve biçim diğer ikisine benzemiyor:
+
+```
+{"sessionId":…,"projectHash":…,"startTime":…,"lastUpdated":…,"kind":…}
+{"$set":{"messages":[{"id":…,"timestamp":…,"type":"user","content":[{"text":…}]}],…}}
+```
+
+Yani satırlar girdi değil, bir belgeye uygulanan **güncellemeler** (`$set`), ve
+mesajlar `messages[]` içinde gömülü. Claude Code ve Cursor'ın paylaştığı
+Messages API blok şekli burada yok; `content` blokları `{text}` taşıyor,
+`tool_use` var mı bilinmiyor — çünkü o koşuda hiç araç çalışmadı.
+
+Ayrıştırıcı yazmak modele ulaşan bir yakalama gerektiriyor, ve Gemini'nin
+girişi bu makinede çalışmıyor. **Yazılmadı.** Eşlemesi hâlâ format adı
+taşımıyor, yani Gemini'de iş hafızası hiçbir şey denemiyor. Gözlenen biçim
+burada duruyor ki giriş çalıştığında sıfırdan başlanmasın.

@@ -23,6 +23,11 @@ out_root="$PWD/testdata/agents"
 
 agent="${1:-claude-code}"
 
+# Events only a session that reached a model can produce. Every profile sets
+# this; the default is empty so that a profile added without it still refuses
+# nothing rather than refusing everything.
+needs_model=()
+
 # Each profile answers four questions: what the binary is called, how to ask
 # it its version, where its hook configuration goes, and how to write that
 # configuration. Adding an agent is adding a profile.
@@ -53,6 +58,7 @@ codex-cli)
 	version_cmd=(--version)
 	config_path=".codex/hooks.json"
 	events=(SessionStart PostToolUse SessionEnd)
+	needs_model=(PostToolUse)
 	write_config() {
 		local h hooks=""
 		for e in "${events[@]}"; do
@@ -82,6 +88,7 @@ gemini-cli)
 	# No PostToolUseFailure equivalent: AfterTool is the only tool event,
 	# and whether a command failed has to be read out of its payload.
 	events=(SessionStart AfterTool SessionEnd)
+	needs_model=(AfterTool)
 	write_config() {
 		local h hooks=""
 		for e in "${events[@]}"; do
@@ -129,6 +136,7 @@ cursor)
 	# second never arrives, nothing is lost, and the capture says so by
 	# simply not producing a file for it.
 	events=(sessionStart postToolUse postToolUseFailure afterShellExecution sessionEnd)
+	needs_model=(postToolUse)
 	write_config() {
 		local hooks=""
 		for e in "${events[@]}"; do
@@ -149,6 +157,7 @@ copilot-cli)
 	# COPILOT_HOME points the agent at a home of its own.
 	config_path="copilot-home/hooks/forgelore.json"
 	events=(sessionStart postToolUse postToolUseFailure sessionEnd)
+	needs_model=(postToolUse)
 	write_config() {
 		local hooks=""
 		for e in "${events[@]}"; do
