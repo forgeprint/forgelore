@@ -4042,3 +4042,64 @@ Sürüm `v0.2.0`: son etiket `v0.1.11`, ve bu sürüm yeni komutlar, yeni config
 anahtarları ve beşinci bir kanonik olay getiriyor.
 
 Yayımlama `[SEN]`.
+
+## 2026-10-12 — deneme haftası kapandı: ölçülen şey hafta değil, kurulum
+
+Protokolün üç komutu koşuldu (`report --days 7`, `dedupe`, `doctor`).
+
+### Rakamlar
+
+```
+errors looked up    17        hints injected   1
+nothing known       16        bytes injected   99  (≈25 token)
+hook latency        p50 8 ms, p95 9 ms, worst 9 ms over 14 call(s)
+sessions            treatment 2, control 0
+```
+
+`dedupe`: hiçbir parmak izinin birden fazla kaydı yok. `stats`: 11 kayıt
+(5 `fix`, 6 `decision`), hepsi ekip kapsamında, yerel kapsam boş, bekleyen aday
+yok. Hafta boyunca **iki** kayıt eklendi (`01M48CMK…`, `01M48C2A…`).
+
+### Haftanın asıl bulgusu: hafta koşmadı
+
+Defter yalnızca **iki günde** satır taşıyor: 6 Ekim (14 satır) ve 12 Ekim
+(3 satır). Aradaki beş gün boş. Sebebi araç değil, iş: o günlerde yazılan şey
+belge ve plandı, derleyici hatası üreten bir çalışma değildi. "Olağan çalış,
+hata aramaya çıkma" talimatı, hata üretmeyen bir haftada hiçbir şey ölçmüyor.
+
+Bundan çıkan üç şey, ve üçü de `docs/team-trial.md`'ye işlendi:
+
+1. **A/B bu ölçekte işe yaramaz.** `control_percent: 20` ve iki oturumla
+   beklenen kontrol oturumu sayısı 0,4 — nitekim sıfır çıktı, ve rapor doğru
+   davranıp "anlamlı değil" dedi. Bir haftalık tek kişilik denemede A/B'yi
+   açmak, hiçbir şey kazandırmadan bazı oturumlardan ipucunu esirgemek demek.
+2. **Kullanım kablolaması gün sıfırın parçası olmalı.** Rapor "no usage was
+   reported" dedi, yani maliyet tarafı hiç oluşmadı. Doğru davranış (ölçmediği
+   tasarrufu iddia etmiyor) ama hafta sonunda görülecek bir şey bırakmıyor.
+3. **Günlük not tutulmadı.** Protokol istiyordu; 2.–6. günler boş. Bu dosyadaki
+   kayıtlar oturumların kendi işini anlatıyor, denemeyi değil.
+
+### Tek enjeksiyon doğruydu, ama bağımsız değil
+
+`a9007ed6c31f8983` parmak izi, kendisinden **22 saniye önce** yazılmış
+`01M48CMK…` kaydıyla eşleşti (kayıt 10:37:35, enjeksiyon 10:37:57). İçerik
+doğru: kabuğun ayrıştıramadığı `(`, yani süreç ikamesi. Kanıtladığı şey parmak
+izinin çağrılar arasında tutması; kanıtlamadığı şey oturumlar arası değer —
+hafıza aynı kişinin aynı işinde, yarım dakika önce yazılmıştı.
+
+### Protokolün sınadığı şeylerin çoğu sınanmadı
+
+Birleşme çatışması, başkasının kaydının işe yaraması, `promote` akışının
+paylaşılması — ikinci kişi olmadığı için hiçbiri. Bu hafta başında da
+yazılmıştı; şimdi sonuç olarak duruyor.
+
+**Başarısızlık ölçütlerinden hiçbiri gerçekleşmedi:** `.forgelore/`'da çatışma
+yok, commit'e sır girmedi, yanlış ipucu yok. "Kimse bir şey terfi ettirmedi"
+maddesi de gerçekleşmedi — iki kayıt eklendi — ama akışın kolay olduğunu
+söylemek için iki örnek az.
+
+### Bir de sürüm kayması
+
+`doctor`: **"verified against 2.1.291, you have 2.1.293"**. Hafta 2.1.291 ile
+başladı, iki yama sürümü ilerledi. Yakalama koşulduğunda hem bu kapanır hem de
+`UserPromptSubmit`'in `prompt` alanı doğrulanır.

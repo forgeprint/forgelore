@@ -33,16 +33,35 @@ Running it a second time is safe — it reports what is already there. The
 `.git/hooks/`, which git never commits. Whoever skips this has no check
 stopping a secret reaching a commit.
 
-Turn the measurement on, in `.forgelore/config.yaml`, committed:
+Leave A/B **off**, which is the default:
 
 ```yaml
-measure.ab.control_percent: 20
+measure.ab.control_percent: 0
 measure.ab.salt: "trial-1"
 ```
 
-One session in five gets no injections. Twenty rather than fifty because
-this week cannot be powered to measure anything either way — a bigger
-control arm would cost usefulness and buy no significance.
+This was 20 the first time this protocol was run, and it was the wrong call.
+Twenty percent of a week's sessions is a fraction of a session: that trial
+produced two sessions, both in the treatment arm, and the report correctly
+said there was nothing to compare. Withholding hints from a share of sessions
+buys significance only at a scale a week does not reach, and costs usefulness
+at every scale. Turn it on when there are tens of sessions per arm to compare,
+not before.
+
+The ledger still records everything either way, so nothing about the week is
+lost by leaving the control arm empty.
+
+**Wire the usage reader now, not later.** Cost per session is the one figure
+that comes from the agent rather than from Forgelore, and it exists only if
+the agent was reporting while the week ran:
+
+```sh
+forgelore usage --help-wiring
+```
+
+The first run of this protocol skipped it, and the report at the end said "no
+usage was reported for this period" — correct behaviour, and nothing to look
+at. There is no way to reconstruct it afterwards.
 
 ### Wire the agent up
 
@@ -94,6 +113,21 @@ hooks may run and still match nothing; say so in the write-up rather than
 treating the week as evidence about Forgelore. It also reports a version
 drift — "verified against 2.1.290, you have 2.1.291" — which is worth
 writing down at the start of the week and checking again at the end.
+
+## The week needs work that fails
+
+"Work normally, do not go looking for errors" is still the rule, but it has a
+precondition that the first run of this protocol missed: the week has to
+contain the kind of work that produces compiler and tool diagnostics.
+
+That trial's ledger had lines on two days out of seven. The five empty days
+were real work — documents, plans, decisions — and not one of them made a
+command fail. Nothing was broken; there was simply nothing for an
+error-triggered tool to trigger on.
+
+So before the week starts, ask whether it is a week of building. If it is a
+week of writing, the trial measures the protocol and not the tool, and it is
+better postponed than reported.
 
 ## During the week
 
@@ -149,6 +183,13 @@ The numbers worth looking at regardless:
 - how many memories exist, and how many were ever injected
 - how many fingerprints have more than one record (`dedupe`)
 - whether any injected hint was wrong
+- **how many days the ledger has lines on.** A week with activity on two days
+  did not run for a week, whatever the dates say, and every other number has
+  to be read against that
+- **how old the memory was when it matched.** A hint from a record written half
+  an hour earlier in the same session proves the fingerprint holds across
+  invocations. It does not prove anything about memory across sessions, which
+  is what the tool is for
 
 Cost per session only appears if your agent reports its usage; for Claude
 Code that means wiring the status line, which `forgelore usage --help-wiring`
