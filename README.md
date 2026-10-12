@@ -71,6 +71,12 @@ not part of it. The error is.
   work. No match means no tokens spent.
 - **Remembers dead ends.** Approaches that were tried and failed leave no trace
   in a codebase, yet repeated error loops burn the most tokens.
+- **Work memory.** The largest loop is not a repeated error, it is a session
+  rediscovering the codebase. At the start of a session Forgelore reads the
+  transcript the agent wrote about the session before it — which files it
+  changed, which commands started working, and what it said at the end — and
+  puts that in `forgelore review` for a person to turn into one line. No model
+  is involved in reading it.
 - **Staged access.** A small, budgeted index at session start; detail only on
   request. The tool design enforces it: you cannot fetch detail without an id
   from the index.
@@ -80,8 +86,13 @@ not part of it. The error is.
 
 ## What it does not do
 
-- No background model calls. Capture is deterministic.
-- No network access, no telemetry.
+- No telemetry, ever. Nothing is reported anywhere.
+- No network access and no model call, unless you turn distillation on. Then
+  Forgelore runs the agent CLI you already have — it holds no API key — to
+  write the one line a candidate is missing. It is off by default, it produces
+  a candidate and not a record, and `report` says what it spent.
+- Capture itself never calls a model. The facts come out of your agent's own
+  session transcript, deterministically.
 - Never blocks the agent. Hooks are fail-open with a hard timeout.
 - Does not duplicate an agent's built-in memory features.
 

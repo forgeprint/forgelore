@@ -26,7 +26,9 @@ and what fixed it. It identifies an error by a fingerprint derived from the
 error text and the tool that produced it — not the file, not the line, not
 the subcommand — so the same error found through a different command still
 matches. It stores records as markdown files in the repository and answers
-in milliseconds. It makes no network calls.</p>
+in milliseconds. It makes no network call of its own: the one feature that
+reaches a model, distillation, is off by default and runs the agent CLI the
+user already installed.</p>
 
 <h2>The minimum: one line</h2>
 

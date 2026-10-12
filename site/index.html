@@ -173,8 +173,13 @@ listed as not measured.</p>
   out or cannot read its store returns quietly and the agent carries on.</li>
   <li><strong>It will not invent a saving.</strong> Cost per session appears
   only if your agent reports what it spent.</li>
-  <li><strong>It will not send anything anywhere.</strong> No network calls,
-  no telemetry, no background service. Records are files in your repository.</li>
+  <li><strong>It will not report on you.</strong> No telemetry, no background
+  service. Records are files in your repository.</li>
+  <li><strong>It will not call a model behind your back.</strong> Forgelore
+  holds no API key and makes no network call of its own. Turn distillation on
+  and it runs the agent CLI you already have, once, to write the one line a
+  candidate is missing — off by default, a candidate and not a record, and the
+  spend is in <code>forgelore report</code>.</li>
   <li><strong>It will not promote a memory on its own.</strong> Anything an
   agent proposes waits in <code>forgelore review</code> for a person.</li>
 </ul>

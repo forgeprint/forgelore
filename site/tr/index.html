@@ -172,8 +172,13 @@ satırı yazdırıyor.</p>
   da deposunu okuyamayan bir hook sessizce döner, ajan yoluna devam eder.</li>
   <li><strong>Olmayan bir tasarrufu uydurmaz.</strong> Oturum başına maliyet,
   yalnızca ajanın harcadığını bildiriyorsa görünür.</li>
-  <li><strong>Hiçbir yere bir şey göndermez.</strong> Ağ çağrısı yok,
-  telemetri yok, arka plan servisi yok. Kayıtlar deponun içindeki dosyalar.</li>
+  <li><strong>Seni rapor etmez.</strong> Telemetri yok, arka plan servisi yok.
+  Kayıtlar deponun içindeki dosyalar.</li>
+  <li><strong>Arkandan bir modele gitmez.</strong> Forgelore'un API anahtarı
+  yoktur ve kendi başına ağ çağrısı yapmaz. Damıtmayı açarsan, zaten kurulu
+  olan ajan CLI'ını bir kez çağırıp bir adayın eksik olan tek satırını yazdırır
+  — varsayılan kapalı, çıkan şey kayıt değil aday, ve harcadığı
+  <code>forgelore report</code>'ta görünür.</li>
   <li><strong>Kendi kendine bir hafızayı terfi ettirmez.</strong> Bir ajanın
   önerdiği her şey <code>forgelore review</code>'da bir insanı bekler.</li>
 </ul>

@@ -4008,3 +4008,37 @@ ne zaman, ve **damıtma açıkken çağıracağı CLI gerçekten kurulu mu.**
 Son madde bu bloğun asıl sebebi: `distill.enabled: true` ama `claude` PATH'te
 değilse, açık görünen ve hiçbir şey yapmayan bir ayar olur — ve fail-open bir
 tasarımın (K7) bunu söylemek için başka yolu yok.
+
+### C grubu: şema kararı, ve yayın için hazırlık
+
+**C10 — şema `1`'de kaldı.** Kullanıcı kararı. `docs/versioning.md`'ye yeni bir
+başlık: kapalı bir enum'a değer eklemek şema değişikliği değil. Eski ikili
+kaydı reddediyor ve `doctor`'da bildiriyor; yanlış okumuyor ve dosyaya
+dokunmuyor, yani çözüm o ikiliyi güncellemek, ve o arada kaybedilen şey bir
+kayıt, depo değil. `schema: 2` demek, güvenli bozulan iki değeri duyurmak için
+bütün kayıtları her `0.1.x` ikilisine okunamaz yapmaktı.
+
+`docs/compatibility.md`'ye "Work memory" sütunu: Claude Code 2.1.291 ile
+doğrulanmış, Cursor ve Gemini CLI yol gönderiyor ama biçimlerini okumuyoruz,
+Copilot CLI hiç göndermiyor. Okunmayan bir biçimi tahmin etmek, aday kuyruğuna
+kendinden emin saçmalık koymak olurdu. Tabloda Claude Code satırı 2.1.290'dan
+2.1.291'e çekildi.
+
+**C11 — "no network calls" iddiası düzeltildi.** Altı yerde: `README.md`,
+`site/index.html`, `site/agents.html`, `site/llms.txt`, ve Türkçe karşılıkları.
+Yeni ifade iki şeyi ayırıyor — telemetri **hiç** yok, ve Forgelore'un kendi ağ
+çağrısı yok; bir modele ulaşan tek şey damıtma, o da varsayılan kapalı ve
+kullanıcının zaten kurduğu CLI'ı çağırıyor. README'nin "What it does" listesine
+iş hafızası maddesi de eklendi.
+
+**Dikkat:** `site/` main'e push edilince yayına giriyor
+(`.github/workflows/pages.yml`). Bu commit yayımlanmamış bir ikiliyi anlatıyor,
+yani **push, sürümle aynı anda olmalı.**
+
+**C12 — sürüm notu taslağı** scratchpad'te: `v0.2.0-release-note.md`.
+`docs/versioning.md`'nin dört şartını karşılıyor (bayrak/çıktı değişiklikleri,
+şema, eşleme biçimi, doğrulanan ajan sürümleri) ve sonunda üç dürüst sınır var.
+Sürüm `v0.2.0`: son etiket `v0.1.11`, ve bu sürüm yeni komutlar, yeni config
+anahtarları ve beşinci bir kanonik olay getiriyor.
+
+Yayımlama `[SEN]`.
