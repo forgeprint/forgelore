@@ -6,7 +6,9 @@
     "event_name": "hook_event_name",
     "session": "session_id",
     "cwd": "cwd",
-    "scratchpad": "scratchpad_dir"
+    "scratchpad": "scratchpad_dir",
+    "transcript": "transcript_path",
+    "transcript_format": "claude-code-jsonl"
   },
   "events": [
     {

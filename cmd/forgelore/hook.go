@@ -93,7 +93,15 @@ func runHook(e env, adapter, mappingFile, callerEvent, dir string, started *time
 	var text string
 	switch event.Kind {
 	case agent.SessionStarted:
+		// Reading the previous session's transcript happens here, not at
+		// its own end: the file is written asynchronously and is
+		// incomplete while the session that produced it is closing
+		// (ADR-0026). The index is built first, because it is what this
+		// event owes the agent and it is cheap.
 		text, err = sessionIndex(s, cfg, deadline)
+		if cfg.Bool("work.harvest") {
+			harvest(s, event.TranscriptFormat, event.Transcript, deadline, *started)
+		}
 	case agent.CommandFailed:
 		text, err = onCommandFailed(s, cfg, event, deadline, *started)
 	case agent.CommandSucceeded:

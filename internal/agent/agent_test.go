@@ -484,3 +484,22 @@ func TestCodexContextGoesWhereCodexLooksForIt(t *testing.T) {
 		t.Errorf("the event name is not echoed back:\n%s", reply)
 	}
 }
+
+// TestTheCorpusCarriesATranscriptPath checks the field work memory depends on
+// against the payloads the agent really sent, not against its documentation.
+func TestTheCorpusCarriesATranscriptPath(t *testing.T) {
+	payload, err := os.ReadFile(filepath.Join(corpusRoot, "2.1.291", "SessionStart-1.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, ok, err := mustBuilt(t).Translate(payload, "", now)
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if e.Transcript == "" {
+		t.Error("SessionStart carried no transcript path, so nothing can be harvested")
+	}
+	if e.TranscriptFormat != "claude-code-jsonl" {
+		t.Errorf("transcript format = %q", e.TranscriptFormat)
+	}
+}

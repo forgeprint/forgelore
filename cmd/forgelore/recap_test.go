@@ -233,3 +233,83 @@ func TestWorkHasItsOwnSessionBudget(t *testing.T) {
 		t.Errorf("work titles injected = %d, want a few:\n%s", n, got)
 	}
 }
+
+// TestSessionStartHarvestsThePreviousSession is the automatic half: nobody ran
+// a command, and the session before this one is in the review queue.
+func TestSessionStartHarvestsThePreviousSession(t *testing.T) {
+	project := newProject(t)
+	transcripts := t.TempDir()
+	current := writeTranscript(t, transcripts, "current.jsonl", oneEditOneFailure, 0)
+	writeTranscript(t, transcripts, "done.jsonl", closingAndWork, time.Hour)
+
+	payload := fmt.Sprintf(`{"hook_event_name":"SessionStart","session_id":"now","transcript_path":%q}`, current)
+	mustCLI(t, project, payload, "hook")
+
+	out := mustCLI(t, project, "", "review")
+	if !strings.Contains(out, "sess-9") {
+		t.Fatalf("session start did not harvest the finished session:\n%s", out)
+	}
+
+	// And it is harvested once. A second session start finds it marked.
+	mustCLI(t, project, payload, "hook")
+	if out := mustCLI(t, project, "", "review"); strings.Count(out, "sess-9") != 1 {
+		t.Errorf("the same transcript was harvested twice:\n%s", out)
+	}
+}
+
+func TestHarvestLeavesALiveSessionAlone(t *testing.T) {
+	project := newProject(t)
+	transcripts := t.TempDir()
+	current := writeTranscript(t, transcripts, "current.jsonl", oneEditOneFailure, 0)
+	// Written seconds ago: this is somebody's open session, not ours.
+	writeTranscript(t, transcripts, "live.jsonl", closingAndWork, 2*time.Second)
+
+	payload := fmt.Sprintf(`{"hook_event_name":"SessionStart","session_id":"now","transcript_path":%q}`, current)
+	mustCLI(t, project, payload, "hook")
+
+	if out := mustCLI(t, project, "", "review"); !strings.Contains(out, "nothing waiting") {
+		t.Errorf("a running session was harvested:\n%s", out)
+	}
+}
+
+func TestHarvestCanBeTurnedOff(t *testing.T) {
+	project := newProject(t)
+	if err := os.WriteFile(filepath.Join(project, ".forgelore", "config.yaml"),
+		[]byte("work.harvest: false\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	transcripts := t.TempDir()
+	current := writeTranscript(t, transcripts, "current.jsonl", oneEditOneFailure, 0)
+	writeTranscript(t, transcripts, "done.jsonl", closingAndWork, time.Hour)
+
+	payload := fmt.Sprintf(`{"hook_event_name":"SessionStart","session_id":"now","transcript_path":%q}`, current)
+	mustCLI(t, project, payload, "hook")
+
+	if out := mustCLI(t, project, "", "review"); !strings.Contains(out, "nothing waiting") {
+		t.Errorf("harvesting happened with the setting off:\n%s", out)
+	}
+}
+
+// TestHarvestSurvivesEveryWayATranscriptCanBeWrong is K7 for this path. None
+// of these may stop the hook, and none may stop the index being handed over.
+func TestHarvestSurvivesEveryWayATranscriptCanBeWrong(t *testing.T) {
+	project := newProject(t)
+	mustCLI(t, project, "", "record", "--type", "decision", "--scope", "team",
+		"--title", "The index is derived and the files are the truth", "--body", "x")
+
+	transcripts := t.TempDir()
+	writeTranscript(t, transcripts, "broken.jsonl", "{not json\n", time.Hour)
+	current := writeTranscript(t, transcripts, "current.jsonl", oneEditOneFailure, 0)
+
+	for _, tc := range []struct{ name, path string }{
+		{"a directory that is not there", filepath.Join(t.TempDir(), "gone", "x.jsonl")},
+		{"a transcript that is not json", current},
+		{"no transcript at all", ""},
+	} {
+		payload := fmt.Sprintf(`{"hook_event_name":"SessionStart","session_id":"s","transcript_path":%q}`, tc.path)
+		got := hookContext(t, project, payload)
+		if !strings.Contains(got, "The index is derived") {
+			t.Errorf("%s: the session index was lost:\n%s", tc.name, got)
+		}
+	}
+}

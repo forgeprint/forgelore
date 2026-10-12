@@ -79,6 +79,16 @@ type Common struct {
 	Session    Path `json:"session"`
 	Cwd        Path `json:"cwd"`
 	Scratchpad Path `json:"scratchpad"`
+
+	// Transcript is where the payload names the file the agent writes about
+	// the session, and TranscriptFormat names which parser understands it.
+	//
+	// The path is data; the parser is code. Claude Code, Cursor and Gemini
+	// CLI all send a transcript path and none of the three writes the same
+	// file, so an agent whose format nothing here can read leaves the
+	// format empty and is left alone (ADR-0026).
+	Transcript       Path   `json:"transcript,omitempty"`
+	TranscriptFormat string `json:"transcript_format,omitempty"`
 }
 
 // Match turns one of the agent's events into a canonical one.
@@ -248,6 +258,8 @@ func (m *Mapping) Translate(payload []byte, callerEvent string, now time.Time) (
 		e.Session, _ = lookup(raw, m.Common.Session)
 		e.Cwd, _ = lookup(raw, m.Common.Cwd)
 		e.Scratchpad, _ = lookup(raw, m.Common.Scratchpad)
+		e.Transcript, _ = lookup(raw, m.Common.Transcript)
+		e.TranscriptFormat = m.Common.TranscriptFormat
 		e.Command, _ = lookup(raw, match.Command)
 		e.Output, _ = lookup(raw, match.Output)
 

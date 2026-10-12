@@ -104,6 +104,56 @@ func cmdRecap(e env, args []string) error {
 	return printRecap(e, path, session)
 }
 
+// harvest is the automatic half of work memory: at the start of a session,
+// read the transcript of the one before it and put what it found in the review
+// queue.
+//
+// Every way this can fail is a way for it to do nothing. A format nothing here
+// reads, a directory that is gone, a transcript still being written, one
+// already harvested, a deadline already passed — each returns silently, because
+// a hook that cannot be silent is a hook that can break an agent (K7).
+func harvest(s *store.Store, format, transcript string, deadline time.Time, now time.Time) {
+	if format != formatClaudeCode || transcript == "" || !now.Before(deadline) {
+		return
+	}
+	marksPath := worklog.MarksPath(filepath.Join(s.Root(), "cache"))
+	marks := worklog.LoadMarks(marksPath)
+
+	found, err := worklog.Previous(transcript, now, worklog.Settled)
+	if err != nil {
+		return
+	}
+	for _, path := range found {
+		if marks.Seen(path) {
+			continue
+		}
+		if !time.Now().Before(deadline) {
+			return
+		}
+		session, err := worklog.ReadFile(path, 0)
+		if err != nil {
+			// Marked anyway: a transcript that cannot be read now will not
+			// read better at the next session start, and retrying it every
+			// time would spend the deadline on it forever.
+			marks.Add(path, now)
+			continue
+		}
+		if err := proposeWork(s, session); err != nil {
+			return
+		}
+		marks.Add(path, now)
+		// One per session start. The next one is still there next time, and
+		// a backlog of ten transcripts must not become ten parses inside
+		// one hook's deadline.
+		break
+	}
+	_ = worklog.SaveMarks(marksPath, marks, now)
+}
+
+// formatClaudeCode is the only transcript format with a parser. A mapping that
+// names another one gets nothing until there is code to read it.
+const formatClaudeCode = "claude-code-jsonl"
+
 // proposeWork puts a session's account in the review queue.
 //
 // The body is the agent's own closing words first and the facts after them,

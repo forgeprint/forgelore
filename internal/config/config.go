@@ -76,6 +76,12 @@ var known = []spec{
 		doc:  "ceiling on the session-start index handed to the agent",
 	},
 	{
+		key:  "work.harvest",
+		kind: record.KindBool,
+		def:  record.Value{Kind: record.KindBool, Bool: true},
+		doc:  "at session start, read the previous session's transcript and propose what it found",
+	},
+	{
 		key:  "inject.work_budget_tokens",
 		kind: record.KindInt,
 		def:  record.Value{Kind: record.KindInt, Int: 200},

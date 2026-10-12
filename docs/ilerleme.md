@@ -3822,3 +3822,32 @@ kriterinin kendisi bir test). Elle de bakıldı: iki yarım da doğru görünüy
 
 **Açık kalanlar:** keşif aracı sayımı (adım 8), `recap`'in hook'a bağlanması,
 adım 6/7/10, Faz 10.1. Deneme haftasının son günü 13 Ekim.
+
+## 2026-10-12 — A1: hasat kendiliğinden çalışıyor
+
+Eksik halka kapandı: SessionStart hook'u önceki oturumun dökümünü okuyup adayı
+kendiliğinden kuyruğa yazıyor. Kullanıcı kararı: kendiliğinden yazsın, çünkü
+her oturum elle komut istemek bu işin tamamını pratikte durdurur — ve aday
+zaten hafıza değil, `review` arada duruyor.
+
+- Eşlemeye iki alan: `transcript` (yol) ve `transcript_format`. **Yol veri,
+  ayrıştırıcı kod.** Claude Code, Cursor ve Gemini CLI üçü de bir döküm yolu
+  gönderiyor ve üçü de aynı dosyayı yazmıyor; formatı tanınmayan ajan boş
+  bırakılıyor ve hiç dokunulmuyor. Şu an tek tanınan format
+  `claude-code-jsonl`.
+- `work.harvest` ayarı (varsayılan açık) kapatmaya yarıyor.
+- Hasat oturum başına **tek döküm** okuyor. On dökümlük birikme bir hook'un
+  zaman aşımında on ayrıştırma olmasın; kalanlar sıradaki oturumda duruyor.
+- Okunamayan döküm de işaretleniyor: bir sonraki oturumda daha iyi okunmayacak,
+  ve her seferinde yeniden denemek zaman aşımını ona harcar.
+
+**K7 testi:** olmayan dizin, JSON olmayan döküm, hiç döküm olmaması — üçünde de
+hook sessiz kalıyor ve oturum başı dizini yine teslim ediyor. Ayrıca hâlâ
+yazılan bir dökümün (iki saniye önce) hasat edilmediği ve aynı dökümün iki kez
+hasat edilmediği testleri var.
+
+**Gecikme ölçüldü:** 19,5 MB'lık önceki dökümle ilk çağrı **20 ms**, sonraki
+çağrılar 0 ms (işaretli). Zaman aşımı 500 ms.
+
+Sözleşme testine bir satır daha: 2.1.291'in gerçek SessionStart payload'ı
+`transcript_path` taşıyor — dokümandan değil, payload'dan doğrulandı.
