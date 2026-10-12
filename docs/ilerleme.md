@@ -3883,3 +3883,31 @@ by" diye işaretlendi. Testi geçti: bu da Forgelore'un cevapladığı bir soru
 
 Prompt hiçbir yere yazılmıyor: deftere kimlik ve bayt sayısı, oturum durumuna
 kayıt kimliği giriyor, metin hiçbirine girmiyor.
+
+### A3 (adım 7): maskeleme döküm için sertleştirildi
+
+Mevcut desen kümesi build log'u için yazılmıştı. Dökümün getirdiği iki şekil
+eksikti, ikisi de bir oturumun çoğunun kabuk komutu olmasından geliyor:
+
+- **`flag-secret`** — kimlik bilgisi atama değil bayrak olarak yazılıyor:
+  `--token s3cr3t`, `--api-key=abcd1234`. Yalnızca uzun bayraklar. `-p` bir
+  araçta parola, sonrakinde port, ve port numarasını maskelemek insana işareti
+  görmezden gelmeyi öğretir — bunun testi de var.
+- **`basic-auth-header`** — `Authorization: Basic <base64>`. `Bearer` zaten
+  kapsanıyordu.
+
+`<private>` ve bütün desenlerin **hasat yolunda** çalıştığı ayrı bir testle
+tutuluyor: aday kuyruğu diskten okunuyor, `review` çıktısından değil, yani
+görüntülemenin hiçbir ayrıntısı neyin yazıldığını saklayamıyor. Testteki döküm
+hem başarısız olup sonra geçen bir komutta (yani düzeltme izi üzerinden gövdeye
+giren) hem de ajanın son sözünde sır taşıyor.
+
+**Kapsanmayan, ve kapanamayan:** kişinin prompt'una düz cümle içinde yazdığı
+bir sır. Desen yok, atama yok, bayrak yok. `<private>` bunun için var, ama
+kullanılması gerekiyor. Dürüstlük sınırı ADR-0013'ün zaten söylediği yerde:
+bu bir katman, garanti değil, ve ekip kayıtları commit'ten önce ikinci kez
+taranıyor.
+
+Bir not: `recap` ekrana bastığı metni maskelemiyor — o kişinin kendi oturumu,
+kendi terminali. Maskeleme yazma anında, ve hangi yoldan yazılırsa orada
+çalışıyor.

@@ -54,6 +54,13 @@ var patterns = []pattern{
 	{kind: "jwt", re: regexp.MustCompile(`eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}`)},
 	{kind: "bearer-token", re: regexp.MustCompile(`(?i)(bearer\s+)([A-Za-z0-9._~+/=-]{16,})`), group: 2},
 	{kind: "url-credentials", re: regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://[^\s:/@]+:)([^\s@]+)(@)`), group: 2},
+	// Two shapes a transcript brings that a build log does not. A session
+	// is mostly shell commands, and a credential in one is written as a
+	// flag or an encoded header rather than as an assignment.
+	{kind: "basic-auth-header", re: regexp.MustCompile(`(?i)(authorization\s*:\s*basic\s+)([A-Za-z0-9+/=]{8,})`), group: 2},
+	// Long flags only. `-p` is a password in one tool and a port in the
+	// next, and masking a port number teaches people to ignore the mark.
+	{kind: "flag-secret", re: regexp.MustCompile(`(?i)(--(?:password|passwd|token|api-?key|access-?key|auth-?token|client-?secret|secret)[= ]\s*)("[^"\n]{4,}"|'[^'\n]{4,}'|[^\s,;)"']{4,})`), group: 2},
 	// Last: an assignment whose left-hand side names a secret. Broad on
 	// purpose, because the specific patterns cannot cover every provider.
 	// The leading run of name characters matters: DB_PASSWORD has no word

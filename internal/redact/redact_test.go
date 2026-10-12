@@ -189,3 +189,52 @@ func TestMergeAndSummary(t *testing.T) {
 		t.Errorf("Summary(nil) = %q, want empty", got)
 	}
 }
+
+// TestWhatATranscriptBrings covers the two shapes a session transcript adds
+// to what a build log ever contained: a credential written as a command-line
+// flag, and one encoded into a header.
+func TestWhatATranscriptBrings(t *testing.T) {
+	for _, tc := range []struct {
+		name, in, secret, kind string
+	}{
+		{
+			name:   "a long flag",
+			in:     `curl -X POST https://api.example.com --token s3cr3t-value-here`,
+			secret: "s3cr3t-value-here",
+			kind:   "flag-secret",
+		},
+		{
+			name:   "a flag with an equals sign",
+			in:     `gh auth login --with-token --api-key=abcd1234efgh5678`,
+			secret: "abcd1234efgh5678",
+			kind:   "flag-secret",
+		},
+		{
+			name:   "basic auth",
+			in:     `curl -H "Authorization: Basic dXNlcjpwYXNzd29yZA=="`,
+			secret: "dXNlcjpwYXNzd29yZA==",
+			kind:   "basic-auth-header",
+		},
+	} {
+		got, found := Text(tc.in)
+		if strings.Contains(got, tc.secret) {
+			t.Errorf("%s: the secret survived: %s", tc.name, got)
+		}
+		var kinds []string
+		for _, f := range found {
+			kinds = append(kinds, f.Kind)
+		}
+		if !strings.Contains(strings.Join(kinds, " "), tc.kind) {
+			t.Errorf("%s: findings = %v, want %s", tc.name, kinds, tc.kind)
+		}
+	}
+}
+
+// TestAPortIsNotAPassword is the other half of that decision: a short flag is
+// left alone, because masking a port number teaches people to ignore the mark.
+func TestAPortIsNotAPassword(t *testing.T) {
+	in := "psql -h localhost -p 5432 -U postgres"
+	if got, _ := Text(in); got != in {
+		t.Errorf("a port was masked:\n%s", got)
+	}
+}

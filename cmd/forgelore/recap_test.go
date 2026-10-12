@@ -313,3 +313,46 @@ func TestHarvestSurvivesEveryWayATranscriptCanBeWrong(t *testing.T) {
 		}
 	}
 }
+
+// TestTheHarvestRedactsEverythingItCarries is ADR-0013 on the hardest input
+// this project has: a transcript holds whole prompts, whole commands and
+// whatever the agent wrote back.
+func TestTheHarvestRedactsEverythingItCarries(t *testing.T) {
+	project := newProject(t)
+	transcripts := t.TempDir()
+
+	// A secret in a command that failed and then passed, so it reaches the
+	// body through the fix trace, and another in what the agent said.
+	leaky := `{"type":"assistant","sessionId":"sess-x","timestamp":"2026-10-12T10:00:00Z","message":{"content":[{"type":"tool_use","id":"a","name":"Bash","input":{"command":"curl -H \"Authorization: Basic dXNlcjpwYXNzd29yZA==\" https://api.example.com"}}]}}
+{"type":"user","timestamp":"2026-10-12T10:00:01Z","message":{"content":[{"type":"tool_result","tool_use_id":"a","is_error":true}]}}
+{"type":"assistant","timestamp":"2026-10-12T10:01:00Z","message":{"content":[{"type":"tool_use","id":"b","name":"Bash","input":{"command":"curl -H \"Authorization: Basic dXNlcjpwYXNzd29yZA==\" https://api.example.com"}}]}}
+{"type":"user","timestamp":"2026-10-12T10:01:01Z","message":{"content":[{"type":"tool_result","tool_use_id":"b","is_error":false}]}}
+{"type":"assistant","timestamp":"2026-10-12T10:02:00Z","message":{"content":[{"type":"text","text":"It works now. The deploy key is ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and <private>my laptop password is hunter2</private> so keep it safe."}]}}
+`
+	current := writeTranscript(t, transcripts, "current.jsonl", oneEditOneFailure, 0)
+	writeTranscript(t, transcripts, "leaky.jsonl", leaky, time.Hour)
+
+	payload := fmt.Sprintf(`{"hook_event_name":"SessionStart","session_id":"now","transcript_path":%q}`, current)
+	mustCLI(t, project, payload, "hook")
+
+	// Read the queue off disk rather than through review, so that nothing
+	// about how it is displayed can hide what was stored.
+	queued, err := os.ReadFile(filepath.Join(project, ".forgelore", "local", "candidates.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(queued)
+	for _, secret := range []string{
+		"dXNlcjpwYXNzd29yZA==",
+		"ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"hunter2",
+		"my laptop password",
+	} {
+		if strings.Contains(body, secret) {
+			t.Errorf("%q reached the candidate queue:\n%s", secret, body)
+		}
+	}
+	if !strings.Contains(body, "It works now") {
+		t.Errorf("redaction took the whole account with it:\n%s", body)
+	}
+}
