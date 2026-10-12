@@ -60,8 +60,63 @@ def shapes(directory):
             out.setdefault(event, set()).update(paths(json.load(f)))
     return out
 
+def transcript_shapes(directory):
+    """Field paths per entry type in a captured transcript.
+
+    The transcript is the other surface work memory stands on (ADR-0026), and
+    no agent documents its format. Values differ on every run — uuids, times,
+    the session's own content — so what is compared is the same thing the
+    payloads are compared on: which fields exist, grouped by the entry type
+    that carries them.
+    """
+    path = os.path.join(directory, "transcript.jsonl")
+    if not os.path.exists(path):
+        return None
+    out = {}
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                out.setdefault("<unreadable>", set())
+                continue
+            kind = entry.get("type", "<none>") if isinstance(entry, dict) else "<none>"
+            out.setdefault(kind, set()).update(paths(entry))
+    return out
+
 old, new = shapes(sys.argv[1]), shapes(sys.argv[2])
 drifted = False
+
+old_t, new_t = transcript_shapes(sys.argv[1]), transcript_shapes(sys.argv[2])
+if old_t is None and new_t is not None:
+    print("+  transcript: captured now, nothing to compare against")
+elif old_t is not None and new_t is None:
+    print("!  transcript: the corpus has one and this capture produced none")
+    drifted = True
+elif old_t is not None:
+    for kind in sorted(set(old_t) | set(new_t)):
+        if kind not in new_t:
+            # An entry type that stopped appearing is not necessarily a
+            # break: a type the agent writes only sometimes is absent from a
+            # capture that did not provoke it. It is still worth saying.
+            print(f"?  transcript/{kind}: not in this capture")
+            continue
+        if kind not in old_t:
+            print(f"+  transcript/{kind}: new entry type")
+            continue
+        gone, added = sorted(old_t[kind] - new_t[kind]), sorted(new_t[kind] - old_t[kind])
+        if not gone and not added:
+            print(f"ok transcript/{kind}: unchanged ({len(old_t[kind])} fields)")
+            continue
+        for field in gone:
+            print(f"!  transcript/{kind}: {field} is gone")
+            drifted = True
+        for field in added:
+            print(f"+  transcript/{kind}: {field} is new")
+            drifted = True
 
 for event in sorted(set(old) | set(new)):
     if event not in new:
@@ -83,7 +138,8 @@ for event in sorted(set(old) | set(new)):
         print(f"+  {event}: {field} is new")
 
 if drifted:
-    print("\nA field a mapping reads may have moved. Check "
-          "internal/agent/mappings, then recapture the corpus.")
+    print("\nA field a mapping or the transcript parser reads may have moved. "
+          "Check internal/agent/mappings and internal/worklog, then recapture "
+          "the corpus.")
     sys.exit(1)
 PYTHON

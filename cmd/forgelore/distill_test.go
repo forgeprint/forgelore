@@ -142,3 +142,40 @@ func TestDistillRecordsWhatItSpent(t *testing.T) {
 		t.Errorf("the spend was not recorded:\n%s", data)
 	}
 }
+
+// TestDoctorSaysWhenDistillationCannotRun is the point of that block: a
+// setting that reads "on" while nothing can happen is worse than one that
+// reads "off", and a fail-open design has no other way to say so.
+func TestDoctorSaysWhenDistillationCannotRun(t *testing.T) {
+	project := newProject(t)
+	if out := mustCLI(t, project, "", "doctor"); !strings.Contains(out, "distillation  off") {
+		t.Errorf("doctor does not say distillation is off:\n%s", out)
+	}
+
+	if err := os.WriteFile(filepath.Join(project, ".forgelore", "config.yaml"),
+		[]byte("distill.enabled: true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := mustCLI(t, project, "", "doctor")
+	if !strings.Contains(out, "distillation  on") {
+		t.Fatalf("doctor does not say distillation is on:\n%s", out)
+	}
+	// Whichever this machine is, doctor has to say which: the CLI it would
+	// run, or that it is not there.
+	if !strings.Contains(out, "using ") && !strings.Contains(out, "not on PATH") {
+		t.Errorf("doctor said nothing about the CLI it would run:\n%s", out)
+	}
+}
+
+func TestDoctorCountsWhatIsWaiting(t *testing.T) {
+	project := newProject(t)
+	queueWork(t, project, "One session, one thing learned.")
+
+	out := mustCLI(t, project, "", "doctor")
+	if !strings.Contains(out, "1 waiting (0 fix, 1 work)") {
+		t.Errorf("doctor does not count the queue:\n%s", out)
+	}
+	if !strings.Contains(out, "harvest       on, nothing read yet") {
+		t.Errorf("doctor does not report the harvest:\n%s", out)
+	}
+}

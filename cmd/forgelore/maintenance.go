@@ -6,10 +6,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
+	"time"
 
+	"github.com/forgeprint/forgelore/internal/agent"
+	"github.com/forgeprint/forgelore/internal/candidate"
 	"github.com/forgeprint/forgelore/internal/config"
 	"github.com/forgeprint/forgelore/internal/record"
 	"github.com/forgeprint/forgelore/internal/store"
+	"github.com/forgeprint/forgelore/internal/worklog"
 )
 
 // cmdIndex holds the index subcommands. Only rebuild is here: every other
@@ -112,6 +117,7 @@ func cmdDoctor(e env, args []string) error {
 
 	settings := cfg.Effective()
 	agents := agentStatuses()
+	work := workStatus(s, cfg)
 
 	// The secret scan is only as good as what is installed, so doctor says
 	// which half of it will run.
@@ -139,16 +145,22 @@ func cmdDoctor(e env, args []string) error {
 			Problems       []string      `json:"problems,omitempty"`
 			ConfigProblems []string      `json:"config_problems,omitempty"`
 			Gitleaks       string        `json:"gitleaks"`
+			Work           []string      `json:"work"`
 			Agents         []agentStatus `json:"agents"`
 			Config         []setting     `json:"config"`
 		}{s.Root(), len(records), indexed, skipped,
-			problemStrings(problems), configProblemStrings(configProblems), gitleaks, agents, rows})
+			problemStrings(problems), configProblemStrings(configProblems), gitleaks, work, agents, rows})
 	}
 
 	fmt.Fprintf(e.stdout, "store    %s\n", relativeTo(e.wd, s.Root()))
 	fmt.Fprintf(e.stdout, "records  %d readable, %d skipped\n", len(records), skipped)
 	fmt.Fprintf(e.stdout, "index    %d records\n", indexed)
 	fmt.Fprintf(e.stdout, "gitleaks %s\n", gitleaks)
+
+	fmt.Fprintln(e.stdout, "\nwork memory")
+	for _, line := range work {
+		fmt.Fprintf(e.stdout, "  %s\n", line)
+	}
 
 	fmt.Fprintln(e.stdout, "\nagents")
 	for _, a := range agents {
@@ -178,6 +190,74 @@ func cmdDoctor(e env, args []string) error {
 		fmt.Fprintf(e.stdout, "%s\n", p)
 	}
 	return nil
+}
+
+// workStatus is what the eye cannot see from the settings alone: how much is
+// waiting for a person, how much has been read, and whether the thing
+// distillation needs is actually installed.
+//
+// The last one is the point. `distill.enabled: true` with no agent CLI on PATH
+// is a setting that looks on and does nothing, and a fail-open design (K7)
+// has no other way to tell anybody.
+func workStatus(s *store.Store, cfg *config.Config) []string {
+	var out []string
+
+	waiting, err := candidate.Read(s.Root())
+	if err == nil {
+		fixes, works, titled := 0, 0, 0
+		for _, c := range waiting {
+			if c.Kind == candidate.KindWork {
+				works++
+			} else {
+				fixes++
+			}
+			if strings.TrimSpace(c.Title) != "" {
+				titled++
+			}
+		}
+		line := fmt.Sprintf("candidates    %d waiting (%d fix, %d work), %d already titled",
+			len(waiting), fixes, works, titled)
+		if len(waiting) > 0 {
+			line += "; review them with: forgelore review"
+		}
+		out = append(out, line)
+	}
+
+	marks := worklog.LoadMarks(worklog.MarksPath(filepath.Join(s.Root(), "cache")))
+	switch {
+	case !cfg.Bool("work.harvest"):
+		out = append(out, "harvest       off (work.harvest)")
+	case len(marks.Read) == 0:
+		out = append(out, "harvest       on, nothing read yet")
+	default:
+		var last time.Time
+		for _, at := range marks.Read {
+			if at.After(last) {
+				last = at
+			}
+		}
+		out = append(out, fmt.Sprintf("harvest       on, %d transcript(s) read, last %s",
+			len(marks.Read), last.Local().Format("2006-01-02 15:04")))
+	}
+
+	if !cfg.Bool("distill.enabled") {
+		out = append(out, "distillation  off (distill.enabled)")
+		return out
+	}
+	mapping, err := agent.Built("claude-code")
+	switch {
+	case err != nil || mapping.Distill == nil:
+		out = append(out, "distillation  on, but this agent's mapping names no CLI to run")
+	default:
+		if path, err := exec.LookPath(mapping.Distill.Command); err != nil {
+			out = append(out, fmt.Sprintf(
+				"distillation  on, but %s is not on PATH, so nothing will be asked",
+				mapping.Distill.Command))
+		} else {
+			out = append(out, "distillation  on, using "+path)
+		}
+	}
+	return out
 }
 
 func configProblemStrings(problems []config.Problem) []string {

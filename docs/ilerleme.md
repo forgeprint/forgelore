@@ -3978,3 +3978,33 @@ gelmezse hata veren bir kabuk betiği) ve ona bakan bir eşleme dosyası. Gerçe
 `claude -p` ile **koşmadım** — kullanıcının kullanımını harcar, o `[SEN]`:
 
     forgelore distill --key <anahtar>
+
+### B grubu: kayma kontrolü, `doctor`, ve bir açık soru kapatılmadı
+
+**B1 — döküm kayma kontrolü.** `drift-payloads.sh` artık `transcript.jsonl`'i de
+karşılaştırıyor: girdi `type`'ı başına alan yolları. Değerler her koşuda değişir
+(uuid, zaman, oturumun kendi içeriği), yani karşılaştırılan şey payload'larla
+aynı şey — hangi alanların var olduğu.
+
+Üç durum ayrı ayrı konuşuyor: korpusta döküm yok ama şimdi var (`+`, bilgi),
+korpusta var ama yakalama üretmedi (`!`, kayma), ve bir girdi tipi bu
+yakalamada yok (`?`, kayma değil — ajanın bazen yazdığı bir tip, provoke
+edilmemiş olabilir).
+
+Doğrulandı: aynı korpusa karşı sessiz; `attachment` girdisinden bir alanı
+silip bir alan ekleyince `rendered[].content is gone` ve `newField is new`
+diyor, çıkış kodu 1.
+
+**B2 — `last_assistant_message` eşlemeye eklenmedi.** Kullanıcı kararı: döküm
+zaten yetiyor, ve yakalama script'i artık `UserPromptSubmit`'i de istediği için
+bir sonraki `[SEN]` koşusu meseleyi kapatacak. Doğrulanmamış bir alanı eşlemeye
+koymak, kapanacak bir soruya kalıcı bir cevap yazmak olurdu.
+
+**B3 — `doctor`'a "work memory" bloğu.** Ayarlar listesi yeni anahtarları
+zaten gösteriyordu (`cfg.Effective()`); eksik olan, ayarlardan görünmeyen şey:
+kuyrukta kaç aday var ve kaçının başlığı var, hasat kaç döküm okudu ve en son
+ne zaman, ve **damıtma açıkken çağıracağı CLI gerçekten kurulu mu.**
+
+Son madde bu bloğun asıl sebebi: `distill.enabled: true` ama `claude` PATH'te
+değilse, açık görünen ve hiçbir şey yapmayan bir ayar olur — ve fail-open bir
+tasarımın (K7) bunu söylemek için başka yolu yok.
